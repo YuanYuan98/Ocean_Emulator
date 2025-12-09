@@ -4,11 +4,7 @@ base_output_dir: ".LOCAL"
 name: "samudra_om4_viz"
 dataset_name: "OM4"
 groundtruth_location: "OM4.zarr"
-basins_location:
-  type: s3
-  bucket: "emulators"
-  path: "jr7309/basins/basin_masks_original.zarr"
-  endpoint_url: "https://nyu1.osn.mghpcc.org"
+basins_location: "basin_masks_original.zarr"
 groundtruth_time_range:
   start: "2014-10-20"
   end: "2022-12-24"
