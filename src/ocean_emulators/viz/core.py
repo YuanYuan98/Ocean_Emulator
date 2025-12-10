@@ -2868,6 +2868,153 @@ class Viz:
 
     # Need atleast two keys otherwise duplicate maps
 
+    def calculate_eke(self, ds):
+        # Calculate EKE: 0.5 * (u'^2 + v'^2)
+        # u' = u - u_mean, v' = v - v_mean
+        u = ds["uo"].isel(lev=0)
+        v = ds["vo"].isel(lev=0)
+        
+        u_mean = u.mean("time")
+        v_mean = v.mean("time")
+        
+        u_prime = u - u_mean
+        v_prime = v - v_mean
+        
+        eke = 0.5 * (u_prime**2 + v_prime**2)
+        return eke.mean("time")
+
+    def step_eke_plots(self):
+        """
+        Plot Global Mean EKE and Zonal Mean EKE.
+        """
+        if not os.path.isdir(os.path.join(self.output_path, "EKE")):
+            os.makedirs(os.path.join(self.output_path, "EKE"))
+        eke_path = os.path.join(self.output_path, "EKE")
+
+        plt.rcParams.update({"font.size": 14})
+
+        # --- Global Mean EKE Map ---
+        fig, axs = plt.subplots(
+            2,
+            2,
+            figsize=(24, 9),
+            subplot_kw={"projection": ccrs.PlateCarree()},
+            gridspec_kw={"wspace": 0.02, "hspace": 0.27},
+        )
+        axs = axs.flatten()
+
+        titles = [self.dataset_name, self.pred_dict[self.key1]["name"]]
+        bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
+        datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
+
+        gt_eke = None
+        pred1_eke = None
+
+        for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
+            eke = self.calculate_eke(ds)
+            eke = eke.rename("EKE")
+            eke = eke.assign_attrs(units=r"$m^2/s^2$")
+            
+            # Mask land
+            section_mask = isnan(ds["thetao"]).isel(lev=0).isel(time=0)
+            eke = eke.where(~section_mask)
+
+            if i == 0:
+                gt_eke = eke
+            elif i == 1:
+                pred1_eke = eke
+
+            # Plot EKE
+            mean = eke.mean().compute().item()
+            std = eke.std().compute().item()
+            vmin = 0 
+            vmax = mean + 4 * std
+
+            im = ax.pcolormesh(
+                eke["x"],
+                eke["y"],
+                eke,
+                shading="auto",
+                cmap="Reds", 
+                transform=ccrs.PlateCarree(),
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.add_feature(cfeature.COASTLINE, edgecolor="black")
+            ax.set_title(title, fontsize=14)
+            gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.xlabel_style = {"size": 14}
+            gl.ylabel_style = {"size": 14}
+            gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
+
+            if i > 0:
+                gl.left_labels = False
+
+        # Add colorbar
+        cbar = fig.colorbar(
+            im, ax=axs[:2], orientation="vertical", fraction=0.01, pad=0.02
+        )
+        cbar.set_label(r"EKE [$m^2/s^2$]", fontsize=14)
+
+        # Plot Bias
+        ax_bias = axs[3]
+        bias_eke = pred1_eke - gt_eke
+        
+        mean_bias = bias_eke.mean().compute().item()
+        std_bias = bias_eke.std().compute().item()
+        vmin_bias = mean_bias - 4 * std_bias
+        vmax_bias = mean_bias + 4 * std_bias
+        
+        im_bias = ax_bias.pcolormesh(
+            bias_eke["x"],
+            bias_eke["y"],
+            bias_eke,
+            shading="auto",
+            cmap=cm.cm.balance,
+            transform=ccrs.PlateCarree(),
+            vmin=vmin_bias,
+            vmax=vmax_bias,
+        )
+        ax_bias.add_feature(cfeature.COASTLINE, edgecolor="black")
+        ax_bias.set_title(bias_titles[0], fontsize=14)
+        gl = ax_bias.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.xlabel_style = {"size": 14}
+        gl.ylabel_style = {"size": 14}
+        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
+
+        cbar_bias = fig.colorbar(
+            im_bias, ax=axs[3:], orientation="vertical", fraction=0.1, pad=0.02
+        )
+        cbar_bias.set_label(r"EKE Bias [$m^2/s^2$]", fontsize=14)
+
+        fig.delaxes(axs[2])
+        fig.suptitle("Global Mean EKE and Bias", fontsize=14, y=0.95)
+        plt.savefig(os.path.join(eke_path, "EKE_Global_map.png"), bbox_inches="tight", dpi=600)
+        plt.close()
+
+        # --- Zonal Mean EKE Plot ---
+        plt.figure(figsize=(8, 6))
+        
+        # Calculate zonal mean (mean over longitude)
+        gt_eke_zonal = gt_eke.mean(dim="x")
+        pred1_eke_zonal = pred1_eke.mean(dim="x")
+        
+        plt.plot(gt_eke_zonal, gt_eke_zonal.y, label=self.dataset_name, linewidth=2)
+        plt.plot(pred1_eke_zonal, pred1_eke_zonal.y, label=self.pred_dict[self.key1]["name"], linewidth=2, linestyle="--")
+        
+        plt.xlabel(r"Zonal Mean EKE [$m^2/s^2$]")
+        plt.ylabel("Latitude")
+        plt.title("Zonal Mean EKE")
+        plt.legend()
+        plt.grid(True, linestyle="--", alpha=0.7)
+        
+        plt.savefig(os.path.join(eke_path, "EKE_Zonal_Mean.png"), bbox_inches="tight", dpi=600)
+        plt.close()
+
     def step_movies(self):
         keys = list(self.pred_dict.keys())
         # assert len(keys) >= 2, "Maps supported by atleast two keys"
