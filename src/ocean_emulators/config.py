@@ -757,6 +757,7 @@ class TrainConfig(TopLevelConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+ForcingMode = Literal["student", "teacher"]
 
 
 class EvalConfig(TopLevelConfig):
@@ -769,6 +770,7 @@ class EvalConfig(TopLevelConfig):
     ckpt_path: str | None = None
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
+    forcing_mode: ForcingMode = "student"
 
     # Config components
     inference_time: TimeConfig = TimeConfig(

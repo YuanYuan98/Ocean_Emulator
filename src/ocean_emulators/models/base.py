@@ -98,6 +98,7 @@ class BaseModel(torch.nn.Module):
         steps_completed=0,
         num_steps=None,
         epoch=None,
+        forcing_mode: str = "student",
     ) -> ModelInferenceOutput:
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
@@ -106,20 +107,30 @@ class BaseModel(torch.nn.Module):
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
+            current_step_idx = steps_completed + step
             logger.info(
-                f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
+                f"Inference [epoch {epoch}]: Rollout step {current_step_idx} "
                 f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0:
-                input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=initial_prognostic,
-                    step=steps_completed,
-                )
+
+            if forcing_mode == "teacher":
+                # In teacher forcing, we simply grab the ground truth input for this step.
+                # dataset[idx] returns (input_tensor, label_tensor), so we take [0].
+                # Note: dataset items are already batched (dim 0 is window_dim).
+                input_tensor = dataset[current_step_idx][0].to(get_device())
+
             else:
-                input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=pred_tensor[step - 1].unsqueeze(0),
-                    step=steps_completed + step,
-                )
+                # Student forcing (Autoregressive)
+                if step == 0:
+                    input_tensor = dataset.merge_prognostic_and_boundary(
+                        prognostic=initial_prognostic,
+                        step=current_step_idx,
+                    )
+                else:
+                    input_tensor = dataset.merge_prognostic_and_boundary(
+                        prognostic=pred_tensor[step - 1].unsqueeze(0),
+                        step=current_step_idx,
+                    )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:

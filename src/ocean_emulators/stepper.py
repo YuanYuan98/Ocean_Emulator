@@ -64,6 +64,7 @@ class Stepper:
         model_path: str | PathLike | None = None,
         num_model_steps_forward: int = 200,
         save_zarr: bool = False,
+        forcing_mode: str = "student",
     ) -> None:
         if save_zarr:
             if output_dir is None or model_path is None:
@@ -121,6 +122,7 @@ class Stepper:
                 steps_completed=step,
                 num_steps=num_steps,
                 epoch=epoch,
+                forcing_mode=forcing_mode,
             )
             # Setting initial prognostic for next loop
             initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()

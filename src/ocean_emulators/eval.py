@@ -160,6 +160,7 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.forcing_mode = cfg.forcing_mode
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -229,6 +230,7 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
+            forcing_mode=self.forcing_mode,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
