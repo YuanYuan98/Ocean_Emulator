@@ -10,7 +10,7 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}, …]
+# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS='[{"name": "my_eval_job", "location": "/inputs/my_eval_job/predictions.zarr"}, …]'
 # ```
 # Any location starting with /inputs will automatically be copied from the OUTPUTS_BUCKET
 # in order to access previous jobs' outputs.
@@ -24,9 +24,9 @@
 # ```
 resources:
   infra: aws/us-east-2
-  memory: 64GB
-  cpus: 16+
-  disk_size: 1TB
+  memory: 256GB
+  cpus: 32+
+  disk_size: 3TB
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

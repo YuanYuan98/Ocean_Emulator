@@ -13,7 +13,14 @@ from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, Grid, Lat, LoaderVersion, Lon
+from ocean_emulators.constants import (
+    BoundaryVarNames,
+    Grid,
+    Lat,
+    LoaderVersion,
+    Lon,
+    PrognosticVarNames,
+)
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -32,7 +39,7 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
-from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
+from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
@@ -47,8 +54,8 @@ from ocean_emulators.utils.schedule import SchedulerConfig
 
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"
-    project: str = "3D_ocean_emu_CM4"
-    entity: str = "suryadheeshjith"
+    project: str = "default"
+    entity: str = "ocean_emulators"
     group: str | None = None
     tags: list[str] | None = None
     notes: str | None = None
@@ -148,6 +155,7 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
+        prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
@@ -161,9 +169,11 @@ class DataConfig(BaseConfig):
             data_location=data_location,
             means_location=means_location,
             stds_location=stds_location,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            static_data_vars=self.static_data_vars,
             use_dask=use_dask,
         )
-        source = validate_data(source, boundary_var_names, self.static_data_vars)
 
         if use_dask:
             # If we're already using dask, we don't need a second source
@@ -174,10 +184,10 @@ class DataConfig(BaseConfig):
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                static_data_vars=self.static_data_vars,
                 use_dask=True,
-            )
-            source_using_dask = validate_data(
-                source_using_dask, boundary_var_names, self.static_data_vars
             )
 
         static_data = (
@@ -498,6 +508,10 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
+    use_bfloat16: bool = Field(
+        default=False,
+        description="Use bfloat16 for most layers rather than float32.",
+    )
 
     def build(
         self,
@@ -537,6 +551,7 @@ class SamudraConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
+            use_bfloat16=self.use_bfloat16,
         )
 
 
@@ -648,9 +663,10 @@ TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 class DynamicLossConfig(pydantic.BaseModel):
     type: Literal["dynamic"] = "dynamic"
     metric: LossMetric = "mse"
-    limit: bool = Field(
-        description="For dynamic loss, should we limit the range of weighted loss by the variance. Default: off.",
-        default=False,
+    limit: float | None = Field(
+        description="The ratio of the largest weight to the smallest weight across all channels which we'll allow. Default of None means no limit.",
+        default=None,
+        ge=1.0,
     )
 
 
@@ -675,8 +691,8 @@ def build_loss_fn(
     loss_cfg: Loss,
     wet: Grid,
     y_coord: xr.DataArray,
-    stds: xr.Dataset,
     device: torch.device,
+    num_channels: int,
     pad_mode: str,
 ) -> LossFn:
     match loss_cfg:
@@ -690,9 +706,9 @@ def build_loss_fn(
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
-                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
-                should_limit=limit,
+                limit=limit,
                 device=device,
+                num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(

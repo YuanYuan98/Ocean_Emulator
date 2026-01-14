@@ -158,7 +158,7 @@ git push --force-with-lease
 
 10. Celebrate submitting your patch to Ocean Emulator — well done!
 
-## Running Oceans Emulator
+## Running Ocean Emulator
 
 ### Training the model
 
@@ -262,9 +262,9 @@ To run a remote viz job with SkyPilot, please use the following command:
 uv run sky launch skypilot/viz.sky.yaml \
   --env WANDB_API_KEY \
   --env-file <my-vars>.env \
-  --env NAME <my-experiment-name>-viz \
-  --env BASIN_PATH basin_masks_original.zarr \
-  --env RUNS=[{"location": "/inputs/<my-experiment-name>-eval/predictions.zarr"}]
+  --env NAME=<my-experiment-name>-viz \
+  --env BASIN_PATH=basin_masks_original.zarr \
+  --env RUNS='[{"name": "my_experiment", "location": "/inputs/<my-experiment-name>-eval/predictions.zarr"}]'
 
 ```
 
@@ -354,7 +354,7 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 }
 ```
 
-## Testing Oceans Emulator
+## Testing Ocean Emulator
 
 <details>
 <summary><strong>TL;DR</strong></summary>

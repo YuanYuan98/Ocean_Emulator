@@ -49,8 +49,6 @@ class InferenceDataset(Dataset):
         src: DataSource,
         prognostic_var_names,
         boundary_var_names,
-        wet,
-        wet_surface,
         hist,
         normalize_before_mask,
         masked_fill_value,
@@ -93,8 +91,8 @@ class InferenceDataset(Dataset):
                 f" output at {data.time.values[self.hist + 1]}"
             )
 
-        self.wet: torch.Tensor = wet.bool()
-        self.wet_surface: torch.Tensor = wet_surface.bool()
+        self.wet: PrognosticMask = src.masks.prognostic
+        self.wet_surface: GridMask = src.masks.boundary
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -415,8 +413,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        wet: PrognosticMask,
-        wet_surface: GridMask,
         hist: int,
         steps: int,
         normalize_before_mask: bool,
@@ -458,8 +454,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet = wet.bool().to(self.device)
-        self.wet_surface = wet_surface.bool().to(self.device)
+        self.wet: PrognosticMask = src.masks.prognostic.to(self.device)
+        self.wet_surface: GridMask = src.masks.boundary.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:
@@ -511,20 +507,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     )
                     .rename({"var": "variable"})
                     .to_numpy()
-                    .astype(np.float32)
+                    .astype(np.float32, copy=False)
                 )
             else:
                 prognostic_all = torch.from_numpy(
                     prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
-                    .astype(np.float32)
+                    .astype(np.float32, copy=False)
                 )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
-                .astype(np.float32)
+                .astype(np.float32, copy=False)
             )
 
             TD.insert(prognostic_all, boundary)
