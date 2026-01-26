@@ -280,7 +280,7 @@ def calculate_ohc_2d(ds):
     # Ensure dz is present and correct shape
     # Sum over 'lev' dimension
     ohc = (ds['thetao'] * RHO * CP * ds['dz'])
-    ohc.attrs['units'] = 'J/m^3'
+    ohc.attrs['units'] = 'J/m^2'
     return ohc
 
 def calculate_zonal_mean_2d(field_2d, mask, dx, wet_2d):
@@ -295,7 +295,7 @@ def plot_ohc_zonal_bias_comparison(ds_truth, emulators_dict, masks,colorbar_fix 
     """Generates a 2x2 plot of Zonal Mean OHC Bias (Line Plots) for EACH emulator."""
     
     variable_name = 'OHC'
-    units = 'J/m^3'
+    units = 'J/m^2'
     
     # 0. Setup Truth Metrics
     # Calculate OHC Mean (Time averaged)
@@ -846,6 +846,150 @@ def plot_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, ma
         fig.suptitle(f"Time-Averaged Zonal-Mean Temperature (Ground Truth)", fontsize=20, y=1.03)
         plt.show()
 
+def plot_zonal_mean_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES):
+    """
+    Generates zonal mean plots for snapshots at specific time indices.
+    
+    Parameters:
+    -----------
+    ds_truth : xr.Dataset
+        Ground truth dataset
+    emulators_dict : dict
+        Dictionary of emulator datasets with structure: {label: {'ds': xr.Dataset}}
+    variable_name : str
+        Name of the variable to plot (e.g., 'thetao')
+    units : str
+        Units for the variable
+    masks : dict
+        Basin masks dictionary
+    TIME_INDICES : list
+        List of time indices to plot (e.g., [0, 40, 80])
+    """
+    
+    # Setup Metrics
+    print("Preparing Truth Metrics...")
+    dx_truth = ds_truth['dx']
+    # Determine dimensionality for mask
+    wet_mask = (ds_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
+    
+    # Process each time index
+    for time_idx in TIME_INDICES:
+        print(f"\nProcessing time index: {time_idx}")
+        
+        # Format time for title
+        try:
+            time_val = ds_truth.time[time_idx].values
+            if hasattr(time_val, 'strftime'):
+                time_str = time_val.strftime("%Y-%m-%d")
+            else:
+                time_str = str(time_val)[:10]
+        except:
+            time_str = f"Index {time_idx}"
+        
+        try:
+            t0_val = ds_truth.time.values[0]
+            ti_val = ds_truth.time.values[time_idx]
+            delta = ti_val - t0_val
+            
+            if isinstance(delta, np.timedelta64):
+                days_elapsed = float(delta) / (1e9 * 86400)
+            else:
+                days_elapsed = delta.days + delta.seconds / 86400.0
+            
+            if days_elapsed < 365:
+                day_str = f"t = {int(days_elapsed)} days"
+            else:
+                years = days_elapsed / 365
+                day_str = f"t = {years:.1f} years"
+        except:
+            day_str = f"Index {time_idx}"
+        
+        # 1. Compute Truth Profiles at this snapshot
+        truth_profiles = {}
+        print(f"Calculating Truth Zonal Profiles at time index {time_idx}...")
+        truth_field_snapshot = ds_truth[variable_name].isel(time=time_idx)
+        
+        for basin in BASINS_TO_PLOT:
+            truth_profiles[basin] = calculate_zonal_mean(
+                truth_field_snapshot, masks[basin], dx_truth, wet_mask
+            ).compute()
+        
+        # 2. Compute All Emulator Profiles
+        all_emu_maps = {}
+        for label, emu_data in emulators_dict.items():
+            print(f"Calculating {variable_name} profiles for {label} at time index {time_idx}...")
+            ds_emu = emu_data['ds']
+            emu_field_snapshot = ds_emu[variable_name].isel(time=time_idx)
+            all_emu_maps[label] = {}
+            
+            for basin in BASINS_TO_PLOT:
+                all_emu_maps[label][basin] = calculate_zonal_mean(
+                    emu_field_snapshot, masks[basin], dx_truth, wet_mask
+                ).compute()
+        
+        # 3. Plotting: 4 rows (basins) x (1 + N emulators) cols
+        num_emulators = len(emulators_dict)
+        num_cols = 1 + num_emulators  # Ground Truth + all emulators
+        
+        plt.style.use('seaborn-v0_8-talk')
+        fig, axes = plt.subplots(4, num_cols, figsize=(7 * num_cols, 18), 
+                                sharex=True, sharey=True, constrained_layout=True)
+        
+        # Ensure axes is 2D
+        if num_cols == 1:
+            axes = axes.reshape(-1, 1)
+        
+        # Determine colorbar range from truth data
+        all_truth_data = np.concatenate([truth_profiles[basin].values.flatten() for basin in BASINS_TO_PLOT])
+        valid_data = all_truth_data[~np.isnan(all_truth_data)]
+        vmin = np.percentile(valid_data, .5)
+        vmax = np.percentile(valid_data, 98)
+        
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        cmap = cmocean.cm.thermal
+        
+        for i, basin in enumerate(BASINS_TO_PLOT):
+            # Column 0: Ground Truth
+            ax_truth = axes[i, 0]
+            p_mesh = truth_profiles[basin].plot.contourf(
+                ax=ax_truth, cmap=cmap, norm=norm, add_colorbar=False, 
+                levels=np.linspace(vmin, vmax, 25), yincrease=False,
+                x='y', y='lev'
+            )
+            ax_truth.set_facecolor('grey')
+            ax_truth.set_xlabel(''); ax_truth.set_ylabel('')
+            
+            # Row labels (basin names) on the left
+            ax_truth.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+            
+            # Columns 1+: Emulators
+            for j, (label, emu_maps) in enumerate(all_emu_maps.items(), start=1):
+                ax_emu = axes[i, j]
+                emu_maps[basin].plot.contourf(
+                    ax=ax_emu, cmap=cmap, norm=norm, add_colorbar=False, 
+                    levels=np.linspace(vmin, vmax, 25), yincrease=False,
+                    x='y', y='lev'
+                )
+                ax_emu.set_facecolor('grey')
+                ax_emu.set_xlabel(''); ax_emu.set_ylabel('')
+        
+        # Column titles
+        axes[0, 0].set_title('Ground Truth', fontsize=14, fontweight='bold')
+        for j, label in enumerate(emulators_dict.keys(), start=1):
+            axes[0, j].set_title(label, fontsize=14, fontweight='bold')
+        
+        # X-axis labels only on bottom row
+        for j in range(num_cols):
+            axes[3, j].set_xlabel('Latitude index', fontsize=12)
+        
+        # Colorbar
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar.set_label(f"{variable_name} ({units})", fontsize=12)
+        
+        fig.suptitle(f"Snapshot Zonal-Mean {variable_name}: {time_str} ({day_str})", fontsize=18, y=1.03)
+        plt.show()
+
+
 def plot_ohc_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, masks):
     """
     Generates a grid of OHC maps:
@@ -1050,105 +1194,150 @@ def plot_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units
         plt.show()
 
 
-def plot_ohc_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units, masks):
+def plot_ohc_zonal_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES):
     """
-    Generates a grid of OHC maps:
-    Rows: Datasets (Truth, Emulator 1, Emulator 2...)
-    Cols: Depth Slices (Upper, Mid, Deep)
+    Generates zonal mean OHC plots for snapshots at specific time indices.
+    
+    Parameters:
+    -----------
+    ds_truth : xr.Dataset
+        Ground truth dataset
+    emulators_dict : dict
+        Dictionary of emulator datasets with structure: {label: {'ds': xr.Dataset}}
+    variable_name : str
+        Name of the variable to plot (typically 'thetao' for OHC calculation)
+    units : str
+        Units for the variable
+    masks : dict
+        Basin masks dictionary
+    TIME_INDICES : list
+        List of time indices to plot (e.g., [0, 40, 80])
     """
     variable_name = 'thetao'
-    units = 'J/m^3'
+    units = 'J/m^2'
     
     # Setup Metrics
     print("Preparing Truth Metrics...")
-    target_step = 0
-    truth_field_mean = calculate_ohc_2d(ds_truth).isel(time=target_step).compute()
     dx_truth = ds_truth['dx']
     # Determine dimensionality for mask
     wet_mask = (ds_truth[variable_name].isel(time=0) * 0 + 1).compute()
     
-    # 1. Compute Truth Maps (Row 1)
-    truth_profiles = {}
-    print("Calculating Truth Zonal Profiles...")
-    for basin in BASINS_TO_PLOT:
-        truth_profiles[basin] = calculate_zonal_mean_2d(
-            truth_field_mean, masks[basin], dx_truth, wet_mask
-        ).compute()
-
-    # 2. Compute Emulator Maps
-    emu_maps = {}
-    for iindex, (label, emu_data) in enumerate(emulators_dict.items()):
-        print(f"Calculating OHC Maps for {label}...")
-        ds_emu = emu_data['ds']
-        emu_field_mean = calculate_ohc_2d(ds_emu).isel(time=target_step).compute()
-        emu_maps[label] = {}
-
-        print(f"\nGenerating Zonal Mean Plot for {label}...")
+    # Process each time index
+    for time_idx in TIME_INDICES:
+        print(f"\nProcessing time index: {time_idx}")
         
+        # Format time for title
+        try:
+            time_val = ds_truth.time[time_idx].values
+            if hasattr(time_val, 'strftime'):
+                time_str = time_val.strftime("%Y-%m-%d")
+            else:
+                time_str = str(time_val)[:10]
+        except:
+            time_str = f"Index {time_idx}"
+        
+        try:
+            t0_val = ds_truth.time.values[0]
+            ti_val = ds_truth.time.values[time_idx]
+            delta = ti_val - t0_val
+            
+            if isinstance(delta, np.timedelta64):
+                days_elapsed = float(delta) / (1e9 * 86400)
+            else:
+                days_elapsed = delta.days + delta.seconds / 86400.0
+            
+            if days_elapsed < 365:
+                day_str = f"t = {int(days_elapsed)} days"
+            else:
+                years = days_elapsed / 365
+                day_str = f"t = {years:.1f} years"
+        except:
+            day_str = f"Index {time_idx}"
+        
+        # Calculate OHC at this snapshot
+        truth_field_snapshot = calculate_ohc_2d(ds_truth).isel(time=time_idx).compute()
+        
+        # 1. Compute Truth Profiles
+        truth_profiles = {}
+        print(f"Calculating Truth Zonal Profiles at time index {time_idx}...")
         for basin in BASINS_TO_PLOT:
-            # Calculate Emulator Profile using TRUTH metrics
-            emu_maps[label][basin] = calculate_zonal_mean_2d(
-                emu_field_mean, masks[basin], dx_truth, wet_mask
+            truth_profiles[basin] = calculate_zonal_mean_2d(
+                truth_field_snapshot, masks[basin], dx_truth, wet_mask
             ).compute()
 
-        # --- Plotting ---
-        plt.style.use('seaborn-v0_8-talk')
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12), sharex=True, sharey=True, constrained_layout=True)
-        axes = axes.flatten()
+        # 2. Compute All Emulator Profiles
+        all_emu_maps = {}
+        for label, emu_data in emulators_dict.items():
+            print(f"Calculating OHC profiles for {label} at time index {time_idx}...")
+            ds_emu = emu_data['ds']
+            emu_field_snapshot = calculate_ohc_2d(ds_emu).isel(time=time_idx).compute()
+            all_emu_maps[label] = {}
 
-        for i, basin in enumerate(BASINS_TO_PLOT):
-            data_truth = truth_profiles[basin].values
-            valid_data = data_truth[~np.isnan(data_truth)]
-            
-            if iindex==0 and i==0:
-                vmin = np.percentile(valid_data, .5)
-                vmax = np.percentile(valid_data, 98)
-            norm = colors.Normalize(vmin=vmin, vmax=vmax)
-            cmap = cmocean.cm.balance
+            for basin in BASINS_TO_PLOT:
+                all_emu_maps[label][basin] = calculate_zonal_mean_2d(
+                    emu_field_snapshot, masks[basin], dx_truth, wet_mask
+                ).compute()
 
-            ax = axes[i]
-            p_mesh = emu_maps[label][basin].plot.contourf(
-                ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
-                levels=np.linspace(vmin, vmax, 25), yincrease=False,
-                x='y', y='lev' 
-            )
-            ax.set_title(f"{basin} ({units})", fontsize=16, loc='left')
-            ax.set_facecolor('grey')
-            ax.set_xlabel(''); ax.set_ylabel('')
+        # 3. Plotting: 4 rows (basins) x (1 + N emulators) cols
+        num_emulators = len(emulators_dict)
+        num_cols = 1 + num_emulators  # Ground Truth + all emulators
         
-        axes[0].set_ylabel('Depth (m)'); axes[2].set_ylabel('Depth (m)')
-        axes[2].set_xlabel('Latitude index'); axes[3].set_xlabel('Latitude index')
-        cbar = fig.colorbar(p_mesh, ax=axes, shrink=0.8, pad=0.02)
-        cbar.set_label(f"Snapshot ({units})")
-        fig.suptitle(f"Snapshots of Zonal-Mean OHC ({label})", fontsize=20, y=1.03)
-        plt.show()
-
-        # --- Plotting ground truth ---
         plt.style.use('seaborn-v0_8-talk')
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12), sharex=True, sharey=True, constrained_layout=True)
-        axes = axes.flatten()
+        fig, axes = plt.subplots(4, num_cols, figsize=(7 * num_cols, 18),
+                                sharex=True, sharey=True, constrained_layout=True)
+
+        # Ensure axes is 2D
+        if num_cols == 1:
+            axes = axes.reshape(-1, 1)
+
+        # Determine colorbar range from truth data
+        all_truth_data = np.concatenate([truth_profiles[basin].values.flatten() for basin in BASINS_TO_PLOT])
+        valid_data = all_truth_data[~np.isnan(all_truth_data)]
+        vmin = np.percentile(valid_data, .5)
+        vmax = np.percentile(valid_data, 98)
+        
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        cmap = cmocean.cm.balance
 
         for i, basin in enumerate(BASINS_TO_PLOT):
-            data_truth = truth_profiles[basin].values
-            valid_data = data_truth[~np.isnan(data_truth)]
-            
-            norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-            ax = axes[i]
+            # Column 0: Ground Truth
+            ax_truth = axes[i, 0]
             p_mesh = truth_profiles[basin].plot.contourf(
-                ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
+                ax=ax_truth, cmap=cmap, norm=norm, add_colorbar=False, 
                 levels=np.linspace(vmin, vmax, 25), yincrease=False,
-                x='y', y='lev' 
+                x='y', y='lev'
             )
-            ax.set_title(f"{basin} ({units})", fontsize=16, loc='left')
-            ax.set_facecolor('grey')
-            ax.set_xlabel(''); ax.set_ylabel('')
+            ax_truth.set_facecolor('grey')
+            ax_truth.set_xlabel(''); ax_truth.set_ylabel('')
+            
+            # Row labels (basin names) on the left
+            ax_truth.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+            
+            # Columns 1+: Emulators
+            for j, (label, emu_maps) in enumerate(all_emu_maps.items(), start=1):
+                ax_emu = axes[i, j]
+                emu_maps[basin].plot.contourf(
+                    ax=ax_emu, cmap=cmap, norm=norm, add_colorbar=False, 
+                    levels=np.linspace(vmin, vmax, 25), yincrease=False,
+                    x='y', y='lev'
+                )
+                ax_emu.set_facecolor('grey')
+                ax_emu.set_xlabel(''); ax_emu.set_ylabel('')
         
-        axes[0].set_ylabel('Depth (m)'); axes[2].set_ylabel('Depth (m)')
-        axes[2].set_xlabel('Latitude index'); axes[3].set_xlabel('Latitude index')
-        cbar = fig.colorbar(p_mesh, ax=axes, shrink=0.8, pad=0.02)
-        cbar.set_label(f"Snapshot ({units})")
-        fig.suptitle(f"Snapshots of Zonal-Mean OHC (Ground Truth)", fontsize=20, y=1.03)
+        # Column titles
+        axes[0, 0].set_title('Ground Truth', fontsize=14, fontweight='bold')
+        for j, label in enumerate(emulators_dict.keys(), start=1):
+            axes[0, j].set_title(label, fontsize=14, fontweight='bold')
+        
+        # X-axis labels only on bottom row
+        for j in range(num_cols):
+            axes[3, j].set_xlabel('Latitude index', fontsize=12)
+        
+        # Colorbar
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar.set_label(f"OHC ({units})", fontsize=12)
+        
+        fig.suptitle(f"Snapshot Zonal-Mean OHC: {time_str} ({day_str})", fontsize=18, y=1.03)
         plt.show()
 
 def plot_ohc_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
@@ -1287,6 +1476,164 @@ def plot_ohc_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
         plt.show()
 
 
+def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, colorbar_fix=False):
+    """
+    Generates OHC snapshot bias comparison plots for each time point.
+    For each time point, creates a grid comparing all emulators:
+    Rows: Emulators
+    Cols: Depth Slices (Surface, Intermediate, Deep)
+    Each depth slice has its own colorbar for better visibility.
+    
+    Args:
+        ds_truth: Truth dataset (must have 'time' coordinate)
+        emulators_dict: Dictionary of emulator datasets
+        time_indices: List of time indices to plot (e.g., [0, 4, 8])
+        colorbar_fix: If True, uses fixed colorbar limits
+    """
+    
+    units = 'ZJ'
+    
+    # Setup Metrics
+    print("Preparing Truth Metrics...")
+    dz_truth = ds_truth['dz']
+    # Wet mask from Truth (1 for Ocean, NaN for Land)
+    wet_mask = (ds_truth['thetao'].isel(time=0) * 0 + 1).compute()
+    area = ds_truth['areacello']
+    
+    # Get emulator labels
+    emulator_labels = list(emulators_dict.keys())
+    num_emulators = len(emulator_labels)
+    num_depth_slices = len(DEPTH_SLICES)
+    
+    # Create one figure for each time point
+    for time_idx in time_indices:
+        # Get the actual time value from the dataset
+        time_value = ds_truth['time'].isel(time=time_idx).values
+        
+        # Format time string based on type
+        if isinstance(time_value, (cftime.datetime, cftime.DatetimeNoLeap, cftime.DatetimeGregorian)):
+            time_str = time_value.strftime('%Y-%m-%d')
+        elif isinstance(time_value, np.datetime64):
+            time_str = str(time_value)[:10]  # Get YYYY-MM-DD part
+        else:
+            time_str = str(time_value)
+        
+        print(f"\nCreating plot for time point: {time_str}")
+        
+        # Calculate bias maps for all emulators at this time point
+        all_bias_maps = {}  # key: (emulator_label, depth_slice_title)
+        all_rmse_vals = {}  # key: (emulator_label, depth_slice_title)
+        shared_limits = {}  # key: depth_slice_title
+        
+        for idx, (label, emu_data) in enumerate(emulators_dict.items()):
+            print(f"  Calculating OHC Snapshot Maps for {label}...")
+            ds_emu = emu_data['ds']
+            
+            for Slices in DEPTH_SLICES:
+                key = Slices['title']
+                
+                # Calculate OHC for truth at this time index
+                truth_map = calculate_ohc_snapshot_map(
+                    ds_truth, dz_truth, wet_mask, Slices['min'], Slices['max'], time_idx
+                ).compute()
+                
+                # Calculate OHC for emulator at this time index
+                emu_map = calculate_ohc_snapshot_map(
+                    ds_emu, dz_truth, wet_mask, Slices['min'], Slices['max'], time_idx
+                ).compute()
+                
+                # Calculate bias
+                bias = emu_map - truth_map
+                all_bias_maps[(label, key)] = bias
+                
+                # Calculate RMSE
+                all_rmse_vals[(label, key)] = rmse_spatial(truth_map, emu_map, area)
+                
+                # Calculate color limits for this depth slice (on first emulator)
+                if idx == 0:
+                    flat_bias = bias.values.flatten()
+                    flat_bias = flat_bias[~np.isnan(flat_bias)]
+                    
+                    if len(flat_bias) > 0:
+                        local_max = np.percentile(np.abs(flat_bias), 99.5)
+                    else:
+                        local_max = 1.0
+                    
+                    shared_limits[key] = local_max
+                    print(f"    > {key} Scale locked to: +/- {local_max:.3e} {units}")
+        
+        # Override with fixed limits if requested
+        if colorbar_fix:
+            vmin_global = -0.02
+            vmax_global = 0.02
+        
+        cmap = cmocean.cm.balance
+        
+        # --- Plotting Setup ---
+        fig, axes = plt.subplots(
+            num_emulators, num_depth_slices,
+            figsize=(6 * num_depth_slices, 5 * num_emulators),
+            subplot_kw={'projection': ccrs.Robinson(central_longitude=210)},
+            constrained_layout=True
+        )
+        
+        # Ensure axes is 2D array
+        if num_emulators == 1 and num_depth_slices == 1:
+            axes = np.array([[axes]])
+        elif num_emulators == 1:
+            axes = axes.reshape(1, -1)
+        elif num_depth_slices == 1:
+            axes = axes.reshape(-1, 1)
+        
+        # Plot each emulator (rows) and depth slice (columns)
+        for i, label in enumerate(emulator_labels):
+            for j, Slices in enumerate(DEPTH_SLICES):
+                key = Slices['title']
+                ax = axes[i, j]
+                bias = all_bias_maps[(label, key)]
+                rmse = all_rmse_vals[(label, key)]
+                
+                # Use independent color scale for each depth layer
+                if colorbar_fix:
+                    norm = colors.Normalize(vmin=vmin_global, vmax=vmax_global)
+                else:
+                    limit = shared_limits[key]
+                    norm = colors.Normalize(vmin=-limit, vmax=limit)
+                
+                # Plot with individual horizontal colorbar below each map
+                p = bias.plot.pcolormesh(
+                    ax=ax, transform=ccrs.PlateCarree(),
+                    x='x', y='y',
+                    cmap=cmap, norm=norm,
+                    add_colorbar=True,
+                    cbar_kwargs={
+                        'orientation': 'horizontal',
+                        'shrink': 0.8,
+                        'pad': 0.08,
+                        'label': f"Bias ({units})"
+                    },
+                    rasterized=True
+                )
+                
+                # Title with depth slice and RMSE
+                title = f"{key}\nRMSE: {rmse:.2e} {units}"
+                ax.set_title(title, fontsize=14)
+                
+                # Add map features
+                ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+                ax.coastlines(zorder=11)
+                ax.gridlines(draw_labels=False, alpha=0.3)
+                
+                # Add emulator label on the leftmost column
+                if j == 0:
+                    ax.text(-0.07, 0.5, label, va='center', ha='right',
+                           rotation='vertical', transform=ax.transAxes,
+                           fontsize=14, fontweight='bold')
+        
+        fig.suptitle(f"OHC Snapshot Bias at {time_str} (vs Truth)", fontsize=18, y=1.02)
+        plt.show()
+
+
 def plot_temperature_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
 
     VARIABLE_TO_PLOT = 'thetao'  # Options: 'thetao', 'so', 'zos', 'uo', 'vo'
@@ -1422,6 +1769,174 @@ def plot_temperature_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False
     plt.show()
 
 
+def plot_temperature_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, colorbar_fix=False):
+    """
+    Generates temperature snapshot bias comparison plots for each time point.
+    For each time point, creates a grid comparing all emulators:
+    Rows: Emulators
+    Cols: Depth Layers (2.5m, 700m, 2000m, 3000m)
+    Each depth layer has its own colorbar for better visibility.
+    
+    Args:
+        ds_truth: Truth dataset (must have 'time' coordinate)
+        emulators_dict: Dictionary of emulator datasets
+        time_indices: List of time indices to plot (e.g., [0, 4, 8])
+        colorbar_fix: If True, uses fixed colorbar limits per depth layer
+    """
+    
+    VARIABLE_TO_PLOT = 'thetao'
+    units = '$^\\circ$C'
+    
+    # Setup Metrics
+    print("Preparing Truth Metrics...")
+    dz_truth = ds_truth['dz']
+    # Determine dimensionality for mask
+    if 'lev' in ds_truth[VARIABLE_TO_PLOT].dims:
+        wet_mask = (ds_truth[VARIABLE_TO_PLOT].isel(time=0) * 0 + 1).compute()
+    else:
+        wet_mask = (ds_truth[VARIABLE_TO_PLOT].isel(time=0) * 0 + 1).compute()
+    
+    area = ds_truth['areacello']
+    
+    # Get emulator labels
+    emulator_labels = list(emulators_dict.keys())
+    num_emulators = len(emulator_labels)
+    num_depth_layers = len(DEPTH_LAYERS)
+    
+    # Fixed colorbar limits per depth layer (optional)
+    fixed_limits = {
+        '2.5m': 1.2,
+        '700m': 0.7,
+        '2000m': 0.18,
+        '3000m': 0.1
+    }
+    
+    cmap = cmocean.cm.balance
+    
+    # Create one figure for each time point
+    for time_idx in time_indices:
+        # Get the actual time value from the dataset
+        time_value = ds_truth['time'].isel(time=time_idx).values
+        
+        # Format time string based on type
+        if isinstance(time_value, (cftime.datetime, cftime.DatetimeNoLeap, cftime.DatetimeGregorian)):
+            time_str = time_value.strftime('%Y-%m-%d')
+        elif isinstance(time_value, np.datetime64):
+            time_str = str(time_value)[:10]  # Get YYYY-MM-DD part
+        else:
+            time_str = str(time_value)
+        
+        print(f"\nCreating plot for time point: {time_str}")
+        
+        # Calculate bias maps for all emulators at this time point
+        all_bias_maps = {}  # key: (emulator_label, depth_layer_title)
+        all_rmse_vals = {}  # key: (emulator_label, depth_layer_title)
+        shared_limits = {}  # key: depth_layer_title
+        
+        for idx, (label, emu_data) in enumerate(emulators_dict.items()):
+            print(f"  Calculating Temperature Snapshot Maps for {label}...")
+            ds_emu = emu_data['ds']
+            
+            for layer in DEPTH_LAYERS:
+                key = layer['title']
+                depth_index = layer['index']
+                
+                # Calculate temperature for truth at this time index
+                truth_map = calculate_snapshot_map_SpecificLayer(
+                    ds_truth, VARIABLE_TO_PLOT, dz_truth, wet_mask, depth_index, time_idx
+                ).compute()
+                
+                # Calculate temperature for emulator at this time index
+                emu_map = calculate_snapshot_map_SpecificLayer(
+                    ds_emu, VARIABLE_TO_PLOT, dz_truth, wet_mask, depth_index, time_idx
+                ).compute()
+                
+                # Calculate bias
+                bias = emu_map - truth_map
+                all_bias_maps[(label, key)] = bias
+                
+                # Calculate RMSE
+                all_rmse_vals[(label, key)] = rmse_spatial(truth_map, emu_map, area)
+                
+                # Calculate color limits for this depth layer (on first emulator)
+                if idx == 0:
+                    flat_bias = bias.values.flatten()
+                    flat_bias = flat_bias[~np.isnan(flat_bias)]
+                    
+                    if len(flat_bias) > 0:
+                        local_max = np.percentile(np.abs(flat_bias), 99)
+                    else:
+                        local_max = 1.0
+                    
+                    shared_limits[key] = local_max
+                    print(f"    > {key} Scale locked to: +/- {local_max:.3e} {units}")
+        
+        # --- Plotting Setup ---
+        fig, axes = plt.subplots(
+            num_emulators, num_depth_layers,
+            figsize=(6 * num_depth_layers, 5 * num_emulators),
+            subplot_kw={'projection': ccrs.Robinson(central_longitude=210)},
+            constrained_layout=True
+        )
+        
+        # Ensure axes is 2D array
+        if num_emulators == 1 and num_depth_layers == 1:
+            axes = np.array([[axes]])
+        elif num_emulators == 1:
+            axes = axes.reshape(1, -1)
+        elif num_depth_layers == 1:
+            axes = axes.reshape(-1, 1)
+        
+        # Plot each emulator (rows) and depth layer (columns)
+        for i, label in enumerate(emulator_labels):
+            for j, layer in enumerate(DEPTH_LAYERS):
+                key = layer['title']
+                ax = axes[i, j]
+                bias = all_bias_maps[(label, key)]
+                rmse = all_rmse_vals[(label, key)]
+                
+                # Use independent color scale for each depth layer
+                if colorbar_fix and key in fixed_limits:
+                    limit = fixed_limits[key]
+                    norm = colors.Normalize(vmin=-limit, vmax=limit)
+                else:
+                    limit = shared_limits[key]
+                    norm = colors.Normalize(vmin=-limit, vmax=limit)
+                
+                # Plot with individual horizontal colorbar below each map
+                p = bias.plot.pcolormesh(
+                    ax=ax, transform=ccrs.PlateCarree(),
+                    x='x', y='y',
+                    cmap=cmap, norm=norm,
+                    add_colorbar=True,
+                    cbar_kwargs={
+                        'orientation': 'horizontal',
+                        'shrink': 0.8,
+                        'pad': 0.08,
+                        'label': f"Bias ({units})"
+                    },
+                    rasterized=True
+                )
+                
+                # Title with depth layer and RMSE
+                title = f"{key}\nRMSE: {rmse:.2e} {units}"
+                ax.set_title(title, fontsize=14)
+                
+                # Add map features
+                ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+                ax.coastlines(zorder=11)
+                ax.gridlines(draw_labels=False, alpha=0.3)
+                
+                # Add emulator label on the leftmost column
+                if j == 0:
+                    ax.text(-0.07, 0.5, label, va='center', ha='right',
+                           rotation='vertical', transform=ax.transAxes,
+                           fontsize=14, fontweight='bold')
+        
+        fig.suptitle(f"Temperature Snapshot Bias at {time_str} (vs Truth)", fontsize=18, y=1.02)
+        plt.show()
+
+
 def calculate_snapshot_map_SpecificLayer(dataset, var_name, dz, wet_mask, depth_index, time_idx):
     """
     Computes a 2D map for a specific variable at a specific time index.
@@ -1444,7 +1959,7 @@ def calculate_snapshot_map_SpecificLayer(dataset, var_name, dz, wet_mask, depth_
         
     return result.compute()
 
-def plot_snapshot_comparison_SpecificLayer(ds_truth, emulators_dict, var_name, time_indices, depth_config,TRUTH_LABEL='Truth'):
+def plot_snapshot_comparison_SpecificLayer(ds_truth, emulators_dict, var_name, time_indices, depth_config,TRUTH_LABEL='Truth',fix_colorbar=False):
     """
     Generates a grid of snapshot maps:
     Rows: Datasets
@@ -2398,3 +2913,492 @@ def plot_zonal_bias_comparison(ds_truth, emulators_dict, variable_name, units, m
         # plt.savefig(save_path, bbox_inches='tight')
         # plt.close(fig)
         # print(f"Saved: {save_path}")
+
+def plot_zonal_bias_ocean_comparison(ds_truth, emulators_dict, variable_name, units, masks, output_dir, colorbar_fix=False):
+    """
+    Generates a single Zonal Mean Bias plot with all emulators.
+    Layout: Rows = Ocean basins (4), Cols = Emulators (N)
+    """
+    truth_field_mean = ds_truth[variable_name].mean('time')
+    dx_truth = ds_truth['dx']
+    wet_mask = (ds_truth[variable_name].isel(time=0) * 0 + 1).compute()
+    
+    print(f"Calculating Truth Zonal Profiles for {variable_name}...")
+    truth_profiles = {}
+    for basin in BASINS_TO_PLOT:
+        truth_profiles[basin] = calculate_zonal_mean(
+            truth_field_mean, masks[basin], dx_truth, wet_mask
+        ).compute()
+
+    # Compute all emulator profiles and biases
+    all_bias_profiles = {}
+    all_rmse_vals = {}
+    all_biases_flat = []
+    
+    weight_2d = (ds_truth['dy'] * ds_truth['dz']).mean('x').compute()
+    
+    for label, emu_data in emulators_dict.items():
+        ds_emu = emu_data['ds']
+        emu_field_mean = ds_emu[variable_name].mean('time')
+        
+        print(f"Calculating Zonal Bias for {label}...")
+        all_bias_profiles[label] = {}
+        all_rmse_vals[label] = {}
+
+        for basin in BASINS_TO_PLOT:
+            prof_emu = calculate_zonal_mean(
+                emu_field_mean, masks[basin], dx_truth, wet_mask
+            ).compute()
+            prof_truth = truth_profiles[basin]
+            
+            bias = prof_emu - prof_truth
+            all_bias_profiles[label][basin] = bias
+            all_biases_flat.append(bias.values.flatten())
+            
+            sq_diff = bias**2
+            rmse = np.sqrt((sq_diff * weight_2d).sum(['y','lev']) / weight_2d.sum(['y','lev']))
+            all_rmse_vals[label][basin] = rmse.item()
+
+    # Determine colorbar range
+    flat_biases = np.concatenate(all_biases_flat)
+    flat_biases = flat_biases[~np.isnan(flat_biases)]
+    max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
+
+    if colorbar_fix:
+        max_abs_bias = 0.514
+    
+    norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
+    cmap = cmocean.cm.balance
+
+    # Plotting: 4 rows (basins) x N cols (emulators)
+    num_emulators = len(emulators_dict)
+    
+    plt.style.use('seaborn-v0_8-talk')
+    fig, axes = plt.subplots(4, num_emulators, figsize=(7 * num_emulators, 18), 
+                            sharex=True, sharey=True, constrained_layout=True)
+    
+    # Ensure axes is 2D
+    if num_emulators == 1:
+        axes = axes.reshape(-1, 1)
+
+    for i, basin in enumerate(BASINS_TO_PLOT):
+        for j, (label, bias_profiles) in enumerate(all_bias_profiles.items()):
+            ax = axes[i, j]
+            p_mesh = bias_profiles[basin].plot.contourf(
+                ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
+                levels=np.linspace(-max_abs_bias, max_abs_bias, 25), yincrease=False,
+                x='y', y='lev', add_labels=False
+            )
+            ax.set_facecolor('grey')
+            ax.set_xlabel(''); ax.set_ylabel('')
+            
+            # Row labels on the left column
+            if j == 0:
+                ax.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+            
+            # Add RMSE to title in first row
+            if i == 0:
+                ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})", 
+                           fontsize=14, fontweight='bold')
+            else:
+                ax.set_title(f"RMSE: {all_rmse_vals[label][basin]:.3f} {units}", fontsize=11)
+    
+    # X-axis labels only on bottom row
+    for j in range(num_emulators):
+        axes[3, j].set_xlabel('Latitude index', fontsize=12)
+    
+    # Colorbar
+    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+    cbar.set_label(f"Bias ({units})", fontsize=12)
+    
+    fig.suptitle(f"Zonal Mean Bias: All Emulators vs Truth ({variable_name})", fontsize=18, y=1.03)
+    plt.show()
+
+
+def plot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, masks, colorbar_fix=False):
+    """
+    Generates a single OHC Zonal Mean Bias plot with all emulators.
+    Layout: Rows = Ocean basins (4), Cols = Emulators (N)
+    """
+    variable_name = 'OHC'
+    units = 'J/m^2'
+    
+    # Setup Truth Metrics
+    truth_field_2d = calculate_ohc_2d(ds_truth).mean('time').compute()
+    dx_truth = ds_truth['dx']
+    wet_mask_2d = (ds_truth['thetao'].isel(time=0, lev=0) * 0 + 1).compute()
+    
+    # Calculate Truth Zonal Profiles
+    truth_profiles = {}
+    print("Calculating Truth OHC Zonal Profiles...")
+    for basin in BASINS_TO_PLOT:
+        truth_profiles[basin] = calculate_zonal_mean_2d(
+            truth_field_2d, masks[basin], dx_truth, wet_mask_2d
+        ).compute()
+
+    # Compute all emulator profiles and biases
+    all_bias_profiles = {}
+    all_rmse_vals = {}
+    all_biases_flat = []
+    
+    weight_2d = (ds_truth['dy'] * ds_truth['dz']).mean('x').compute()
+
+    for label, emu_data in emulators_dict.items():
+        ds_emu = emu_data['ds']
+        emu_field_2d = calculate_ohc_2d(ds_emu).mean('time').compute()
+        
+        print(f"Calculating OHC Zonal Bias for {label}...")
+        all_bias_profiles[label] = {}
+        all_rmse_vals[label] = {}
+
+        for basin in BASINS_TO_PLOT:
+            prof_emu = calculate_zonal_mean_2d(
+                emu_field_2d, masks[basin], dx_truth, wet_mask_2d
+            ).compute()
+            prof_truth = truth_profiles[basin]
+            
+            bias = prof_emu - prof_truth
+            all_bias_profiles[label][basin] = bias.drop('time')
+            all_biases_flat.append(bias.values.flatten())
+            
+            sq_diff = bias**2
+            rmse = np.sqrt((sq_diff * weight_2d).sum(['y','lev']) / weight_2d.sum(['y','lev']))
+            all_rmse_vals[label][basin] = rmse.item()
+
+    # Determine colorbar range
+    flat_biases = np.concatenate(all_biases_flat)
+    flat_biases = flat_biases[~np.isnan(flat_biases)]
+    max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
+
+    if colorbar_fix:
+        max_abs_bias = 2*10**8
+    
+    norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
+    cmap = cmocean.cm.balance
+
+    # Plotting: 4 rows (basins) x N cols (emulators)
+    num_emulators = len(emulators_dict)
+    
+    plt.style.use('seaborn-v0_8-talk')
+    fig, axes = plt.subplots(4, num_emulators, figsize=(7 * num_emulators, 18),
+                            sharex=True, sharey=True, constrained_layout=True)
+    
+    # Ensure axes is 2D
+    if num_emulators == 1:
+        axes = axes.reshape(-1, 1)
+
+    for i, basin in enumerate(BASINS_TO_PLOT):
+        for j, (label, bias_profiles) in enumerate(all_bias_profiles.items()):
+            ax = axes[i, j]
+            p_mesh = bias_profiles[basin].plot.contourf(
+                ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
+                levels=np.linspace(-max_abs_bias, max_abs_bias, 25), yincrease=False,
+                x='y', y='lev'
+            )
+            ax.set_facecolor('grey')
+            ax.set_xlabel(''); ax.set_ylabel('')
+            
+            # Row labels on the left column
+            if j == 0:
+                ax.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+            
+            # Add RMSE to title in first row
+            if i == 0:
+                ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3e} {units})", 
+                           fontsize=14, fontweight='bold')
+            else:
+                ax.set_title(f"RMSE: {all_rmse_vals[label][basin]:.3e} {units}", fontsize=11)
+    
+    # X-axis labels only on bottom row
+    for j in range(num_emulators):
+        axes[3, j].set_xlabel('Latitude index', fontsize=12)
+    
+    # Colorbar
+    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+    cbar.set_label(f"Bias ({units})", fontsize=12)
+    
+    fig.suptitle(f"Zonal Mean Bias of OHC: All Emulators vs Truth", fontsize=18, y=1.03)
+    plt.show()
+
+
+def plot_snapshot_zonal_bias_ocean_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES, output_dir=None, colorbar_fix=False):
+    """
+    Generates Zonal Mean Bias plots for snapshots at specific time indices.
+    Layout: Rows = Ocean basins (4), Cols = Emulators (N)
+    
+    Parameters:
+    -----------
+    TIME_INDICES : list
+        List of time indices to plot (e.g., [0, 40, 80])
+    """
+    dx_truth = ds_truth['dx']
+    wet_mask = (ds_truth[variable_name].isel(time=0) * 0 + 1).compute()
+    weight_2d = (ds_truth['dy'] * ds_truth['dz']).mean('x').compute()
+    
+    # Process each time index
+    for time_idx in TIME_INDICES:
+        print(f"\nProcessing time index: {time_idx}")
+        
+        # Format time for title
+        try:
+            time_val = ds_truth.time[time_idx].values
+            if hasattr(time_val, 'strftime'):
+                time_str = time_val.strftime("%Y-%m-%d")
+            else:
+                time_str = str(time_val)[:10]
+        except:
+            time_str = f"Index {time_idx}"
+        
+        try:
+            t0_val = ds_truth.time.values[0]
+            ti_val = ds_truth.time.values[time_idx]
+            delta = ti_val - t0_val
+            
+            if isinstance(delta, np.timedelta64):
+                days_elapsed = float(delta) / (1e9 * 86400)
+            else:
+                days_elapsed = delta.days + delta.seconds / 86400.0
+            
+            if days_elapsed < 365:
+                day_str = f"t = {int(days_elapsed)} days"
+            else:
+                years = days_elapsed / 365
+                day_str = f"t = {years:.1f} years"
+        except:
+            day_str = f"Index {time_idx}"
+        
+        # Calculate Truth profiles at this snapshot
+        truth_field_snapshot = ds_truth[variable_name].isel(time=time_idx)
+        
+        print(f"Calculating Truth Zonal Profiles for {variable_name} at time index {time_idx}...")
+        truth_profiles = {}
+        for basin in BASINS_TO_PLOT:
+            truth_profiles[basin] = calculate_zonal_mean(
+                truth_field_snapshot, masks[basin], dx_truth, wet_mask
+            ).compute()
+
+        # Compute all emulator profiles and biases
+        all_bias_profiles = {}
+        all_rmse_vals = {}
+        all_biases_flat = []
+        
+        for label, emu_data in emulators_dict.items():
+            ds_emu = emu_data['ds']
+            emu_field_snapshot = ds_emu[variable_name].isel(time=time_idx)
+            
+            print(f"Calculating Zonal Bias for {label} at time index {time_idx}...")
+            all_bias_profiles[label] = {}
+            all_rmse_vals[label] = {}
+
+            for basin in BASINS_TO_PLOT:
+                prof_emu = calculate_zonal_mean(
+                    emu_field_snapshot, masks[basin], dx_truth, wet_mask
+                ).compute()
+                prof_truth = truth_profiles[basin]
+                
+                bias = prof_emu - prof_truth
+                all_bias_profiles[label][basin] = bias
+                all_biases_flat.append(bias.values.flatten())
+                
+                sq_diff = bias**2
+                rmse = np.sqrt((sq_diff * weight_2d).sum(['y','lev']) / weight_2d.sum(['y','lev']))
+                all_rmse_vals[label][basin] = rmse.item()
+
+        # Determine colorbar range
+        flat_biases = np.concatenate(all_biases_flat)
+        flat_biases = flat_biases[~np.isnan(flat_biases)]
+        max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
+
+        if colorbar_fix:
+            max_abs_bias = 0.514
+        
+        norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
+        cmap = cmocean.cm.balance
+
+        # Plotting: 4 rows (basins) x N cols (emulators)
+        num_emulators = len(emulators_dict)
+        
+        plt.style.use('seaborn-v0_8-talk')
+        fig, axes = plt.subplots(4, num_emulators, figsize=(7 * num_emulators, 18), 
+                                sharex=True, sharey=True, constrained_layout=True)
+        
+        # Ensure axes is 2D
+        if num_emulators == 1:
+            axes = axes.reshape(-1, 1)
+
+        for i, basin in enumerate(BASINS_TO_PLOT):
+            for j, (label, bias_profiles) in enumerate(all_bias_profiles.items()):
+                ax = axes[i, j]
+                p_mesh = bias_profiles[basin].plot.contourf(
+                    ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
+                    levels=np.linspace(-max_abs_bias, max_abs_bias, 25), yincrease=False,
+                    x='y', y='lev', add_labels=False
+                )
+                ax.set_facecolor('grey')
+                ax.set_xlabel(''); ax.set_ylabel('')
+                
+                # Row labels on the left column
+                if j == 0:
+                    ax.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+                
+                # Add RMSE to title in first row
+                if i == 0:
+                    ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})", 
+                               fontsize=14, fontweight='bold')
+                else:
+                    ax.set_title(f"RMSE: {all_rmse_vals[label][basin]:.3f} {units}", fontsize=11)
+        
+        # X-axis labels only on bottom row
+        for j in range(num_emulators):
+            axes[3, j].set_xlabel('Latitude index', fontsize=12)
+        
+        # Colorbar
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar.set_label(f"Bias ({units})", fontsize=12)
+        
+        fig.suptitle(f"Snapshot Zonal Mean Bias: {time_str} ({day_str}) - {variable_name}", fontsize=18, y=1.03)
+        plt.show()
+
+
+def plot_snapshot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, masks, TIME_INDICES, colorbar_fix=False):
+    """
+    Generates OHC Zonal Mean Bias plots for snapshots at specific time indices.
+    Layout: Rows = Ocean basins (4), Cols = Emulators (N)
+    
+    Parameters:
+    -----------
+    TIME_INDICES : list
+        List of time indices to plot (e.g., [0, 40, 80])
+    """
+    variable_name = 'OHC'
+    units = 'J/m^2'
+    
+    dx_truth = ds_truth['dx']
+    wet_mask_2d = (ds_truth['thetao'].isel(time=0, lev=0) * 0 + 1).compute()
+    weight_2d = (ds_truth['dy'] * ds_truth['dz']).mean('x').compute()
+    
+    # Process each time index
+    for time_idx in TIME_INDICES:
+        print(f"\nProcessing time index: {time_idx}")
+        
+        # Format time for title
+        try:
+            time_val = ds_truth.time[time_idx].values
+            if hasattr(time_val, 'strftime'):
+                time_str = time_val.strftime("%Y-%m-%d")
+            else:
+                time_str = str(time_val)[:10]
+        except:
+            time_str = f"Index {time_idx}"
+        
+        try:
+            t0_val = ds_truth.time.values[0]
+            ti_val = ds_truth.time.values[time_idx]
+            delta = ti_val - t0_val
+            
+            if isinstance(delta, np.timedelta64):
+                days_elapsed = float(delta) / (1e9 * 86400)
+            else:
+                days_elapsed = delta.days + delta.seconds / 86400.0
+            
+            if days_elapsed < 365:
+                day_str = f"t = {int(days_elapsed)} days"
+            else:
+                years = days_elapsed / 365
+                day_str = f"t = {years:.1f} years"
+        except:
+            day_str = f"Index {time_idx}"
+        
+        # Calculate OHC at this snapshot
+        truth_field_snapshot = calculate_ohc_2d(ds_truth).isel(time=time_idx).compute()
+        
+        # Calculate Truth Zonal Profiles
+        truth_profiles = {}
+        print(f"Calculating Truth OHC Zonal Profiles at time index {time_idx}...")
+        for basin in BASINS_TO_PLOT:
+            truth_profiles[basin] = calculate_zonal_mean_2d(
+                truth_field_snapshot, masks[basin], dx_truth, wet_mask_2d
+            ).compute()
+
+        # Compute all emulator profiles and biases
+        all_bias_profiles = {}
+        all_rmse_vals = {}
+        all_biases_flat = []
+
+        for label, emu_data in emulators_dict.items():
+            ds_emu = emu_data['ds']
+            emu_field_snapshot = calculate_ohc_2d(ds_emu).isel(time=time_idx).compute()
+            
+            print(f"Calculating OHC Zonal Bias for {label} at time index {time_idx}...")
+            all_bias_profiles[label] = {}
+            all_rmse_vals[label] = {}
+
+            for basin in BASINS_TO_PLOT:
+                prof_emu = calculate_zonal_mean_2d(
+                    emu_field_snapshot, masks[basin], dx_truth, wet_mask_2d
+                ).compute()
+                prof_truth = truth_profiles[basin]
+                
+                bias = prof_emu - prof_truth
+                # Time dimension already removed by isel, no need to drop
+                all_bias_profiles[label][basin] = bias
+                all_biases_flat.append(bias.values.flatten())
+                
+                sq_diff = bias**2
+                rmse = np.sqrt((sq_diff * weight_2d).sum(['y','lev']) / weight_2d.sum(['y','lev']))
+                all_rmse_vals[label][basin] = rmse.item()
+
+        # Determine colorbar range
+        flat_biases = np.concatenate(all_biases_flat)
+        flat_biases = flat_biases[~np.isnan(flat_biases)]
+        max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
+
+        if colorbar_fix:
+            max_abs_bias = 2*10**8
+        
+        norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
+        cmap = cmocean.cm.balance
+
+        # Plotting: 4 rows (basins) x N cols (emulators)
+        num_emulators = len(emulators_dict)
+        
+        plt.style.use('seaborn-v0_8-talk')
+        fig, axes = plt.subplots(4, num_emulators, figsize=(7 * num_emulators, 18),
+                                sharex=True, sharey=True, constrained_layout=True)
+        
+        # Ensure axes is 2D
+        if num_emulators == 1:
+            axes = axes.reshape(-1, 1)
+
+        for i, basin in enumerate(BASINS_TO_PLOT):
+            for j, (label, bias_profiles) in enumerate(all_bias_profiles.items()):
+                ax = axes[i, j]
+                p_mesh = bias_profiles[basin].plot.contourf(
+                    ax=ax, cmap=cmap, norm=norm, add_colorbar=False, 
+                    levels=np.linspace(-max_abs_bias, max_abs_bias, 25), yincrease=False,
+                    x='y', y='lev'
+                )
+                ax.set_facecolor('grey')
+                ax.set_xlabel(''); ax.set_ylabel('')
+                
+                # Row labels on the left column
+                if j == 0:
+                    ax.set_ylabel(f'{basin}\nDepth (m)', fontsize=12)
+                
+                # Add RMSE to title in first row
+                if i == 0:
+                    ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3e} {units})", 
+                               fontsize=14, fontweight='bold')
+                else:
+                    ax.set_title(f"RMSE: {all_rmse_vals[label][basin]:.3e} {units}", fontsize=11)
+        
+        # X-axis labels only on bottom row
+        for j in range(num_emulators):
+            axes[3, j].set_xlabel('Latitude index', fontsize=12)
+        
+        # Colorbar
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar.set_label(f"Bias ({units})", fontsize=12)
+        
+        fig.suptitle(f"Snapshot Zonal Mean Bias of OHC: {time_str} ({day_str})", fontsize=18, y=1.03)
+        plt.show()
