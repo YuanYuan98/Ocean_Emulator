@@ -355,7 +355,7 @@ def plot_ohc_zonal_bias_comparison(ds_truth, emulators_dict, masks,colorbar_fix 
             max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
 
         if colorbar_fix:
-            max_abs_bias = 2*10**8
+            max_abs_bias = 2.5*10**8
         
         norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
         cmap = cmocean.cm.balance
@@ -431,7 +431,10 @@ def calculate_ohc_map(dataset, dz, wet_mask, min_depth, max_depth):
     
     # 1. Integrate Vertically (Sum over lev)
     # Result is (time, y, x)
-    ohc_integrated = (RHO * CP * thetao_slice * dz_slice *dataset['areacello']* wet_slice).sum('lev')
+    #ohc_integrated = (RHO * CP * thetao_slice * dz_slice *dataset['areacello']* wet_slice).sum('lev')
+
+    ohc_integrated = (RHO * CP * thetao_slice * dz_slice * wet_slice).sum('lev')
+
     
     # 2. Time Average
     ohc_mean = ohc_integrated.mean('time')
@@ -439,7 +442,7 @@ def calculate_ohc_map(dataset, dz, wet_mask, min_depth, max_depth):
     # 3. Scale
     return ohc_mean / SCALE_FACTOR
 
-def plot_ohc_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth'):
+def plot_ohc_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth',colorbar_fix=False):
     """
     Generates a grid of OHC maps:
     Rows: Datasets (Truth, Emulator 1, Emulator 2...)
@@ -502,6 +505,15 @@ def plot_ohc_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth'):
         
         vmin = np.percentile(valid_data, .5)
         vmax = np.percentile(valid_data, 99.5)
+        
+        if colorbar_fix:
+            if key == 'Surface (0-700m)':
+                vmin, vmax = 0, 5*10**(-11)
+            elif key == 'Intermediate (700-2000m)':
+                vmin, vmax = 0, 5*10**(-11)
+            elif key == 'Deep (2000-7000m)':
+                vmin, vmax = 0, 4*10**(-11)
+        
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         
         # Iterate Row-by-Row (Datasets)
@@ -616,7 +628,7 @@ def calculate_temperature_map(dataset, var_name, dz, wet_mask, d_min, d_max, tim
     return result.compute()
 
 
-def plot_temperature_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth'):
+def plot_temperature_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth',colorbar_fix=False):
     VARIABLE_TO_PLOT = 'thetao'
     
     # Setup Metrics
@@ -681,6 +693,17 @@ def plot_temperature_mean_comparison(ds_truth, emulators_dict,TRUTH_LABEL='Truth
         
         vmin = np.percentile(valid_data, .5)
         vmax = np.percentile(valid_data, 99.5)
+
+        if colorbar_fix:
+            if j==0:
+                vmin, vmax = 0, 30
+            elif j==1:
+                vmin, vmax = 0, 15
+            elif j==2:
+                vmin, vmax = 0, 8
+            elif j==3:
+                vmin, vmax = 0, 4
+
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         
         # Iterate Row-by-Row (Datasets)
@@ -745,7 +768,7 @@ def calculate_zonal_mean(field_mean, mask, dx, wet):
     denominator = (mask * wet * dx).sum('x')
     return numerator / denominator
 
-def plot_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, masks):
+def plot_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, masks,colorbar_fix=False):
     """
     Generates a grid of OHC maps:
     Rows: Datasets (Truth, Emulator 1, Emulator 2...)
@@ -798,6 +821,11 @@ def plot_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, ma
             if iindex==0 and i==0:
                 vmin = np.percentile(valid_data, .5)
                 vmax = np.percentile(valid_data, 98)
+            
+            if colorbar_fix:
+                vmin = 0.54
+                vmax = 27.25
+
             norm = colors.Normalize(vmin=vmin, vmax=vmax)
             cmap = cmocean.cm.balance
 
@@ -846,7 +874,7 @@ def plot_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, ma
         fig.suptitle(f"Time-Averaged Zonal-Mean Temperature (Ground Truth)", fontsize=20, y=1.03)
         plt.show()
 
-def plot_zonal_mean_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES):
+def plot_zonal_mean_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES,colorbar_fix=False):
     """
     Generates zonal mean plots for snapshots at specific time indices.
     
@@ -944,6 +972,10 @@ def plot_zonal_mean_snapshot_comparison(ds_truth, emulators_dict, variable_name,
         valid_data = all_truth_data[~np.isnan(all_truth_data)]
         vmin = np.percentile(valid_data, .5)
         vmax = np.percentile(valid_data, 98)
+
+        if colorbar_fix:
+            vmin =0
+            vmax =25
         
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         cmap = cmocean.cm.thermal
@@ -990,7 +1022,7 @@ def plot_zonal_mean_snapshot_comparison(ds_truth, emulators_dict, variable_name,
         plt.show()
 
 
-def plot_ohc_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, masks):
+def plot_ohc_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units, masks,colorbar_fix=False):
     """
     Generates a grid of OHC maps:
     Rows: Datasets (Truth, Emulator 1, Emulator 2...)
@@ -1042,6 +1074,11 @@ def plot_ohc_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units
             if iindex==0 and i==0:
                 vmin = np.percentile(valid_data, .5)
                 vmax = np.percentile(valid_data, 98)
+
+            if colorbar_fix:
+                vmin = 0 * 10**9
+                vmax = 9 * 10**9
+
             norm = colors.Normalize(vmin=vmin, vmax=vmax)
             cmap = cmocean.cm.balance
 
@@ -1091,7 +1128,7 @@ def plot_ohc_zonal_mean_comparison(ds_truth, emulators_dict,variable_name, units
         plt.show()
 
 
-def plot_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units, masks):
+def plot_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units, masks,colorbar_fix=False):
     """
     Generates a grid of OHC maps:
     Rows: Datasets (Truth, Emulator 1, Emulator 2...)
@@ -1145,6 +1182,11 @@ def plot_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units
             if iindex==0 and i==0:
                 vmin = np.percentile(valid_data, .5)
                 vmax = np.percentile(valid_data, 98)
+            
+            if colorbar_fix:
+                vmin = 0.58
+                vmax = 28
+            
             norm = colors.Normalize(vmin=vmin, vmax=vmax)
             cmap = cmocean.cm.balance
 
@@ -1194,7 +1236,7 @@ def plot_zonal_snapshot_comparison(ds_truth, emulators_dict,variable_name, units
         plt.show()
 
 
-def plot_ohc_zonal_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES):
+def plot_ohc_zonal_snapshot_comparison(ds_truth, emulators_dict, variable_name, units, masks, TIME_INDICES,colorbar_fix=False):
     """
     Generates zonal mean OHC plots for snapshots at specific time indices.
     
@@ -1295,6 +1337,10 @@ def plot_ohc_zonal_snapshot_comparison(ds_truth, emulators_dict, variable_name, 
         valid_data = all_truth_data[~np.isnan(all_truth_data)]
         vmin = np.percentile(valid_data, .5)
         vmax = np.percentile(valid_data, 98)
+
+        if colorbar_fix:
+            vmin = 0 * 10**9
+            vmax = 9 * 10**9
         
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         cmap = cmocean.cm.balance
@@ -1364,6 +1410,12 @@ def plot_ohc_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
         truth_maps[key] = calculate_ohc_map(
             ds_truth, dz_truth, wet_mask, Slices['min'], Slices['max']
         ).compute()
+
+    fixed_limits = {
+        'Surface (0-700m)': 2.5*10**(-12),
+        'Intermediate (700-2000m)': 2.5*10**(-12),
+        'Deep (2000-7000m)': 1*10**(-12)
+    }
         
     # 2. Compute Emulator Maps
     emu_maps = {}
@@ -1450,7 +1502,11 @@ def plot_ohc_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
                 print(f"  > {key} Scale locked to: +/- {local_max:.3e} {units}")
             
             limit = shared_limits[key]
-            #norm = colors.Normalize(vmin=-limit, vmax=limit)
+
+            if colorbar_fix:
+                limit = fixed_limits[key]
+
+            norm = colors.Normalize(vmin=-limit, vmax=limit)
             
             # Plot with INDIVIDUAL colorbar
             p = bias.plot.pcolormesh(
@@ -1476,7 +1532,7 @@ def plot_ohc_bias_comparison(ds_truth, emulators_dict,colorbar_fix=False):
         plt.show()
 
 
-def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, colorbar_fix=False):
+def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, colorbar_fix=False,area=True):
     """
     Generates OHC snapshot bias comparison plots for each time point.
     For each time point, creates a grid comparing all emulators:
@@ -1529,7 +1585,7 @@ def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, co
             print(f"  Calculating OHC Snapshot Maps for {label}...")
             ds_emu = emu_data['ds']
             
-            for Slices in DEPTH_SLICES:
+            for slice_index, Slices in enumerate(DEPTH_SLICES):
                 key = Slices['title']
                 
                 # Calculate OHC for truth at this time index
@@ -1561,12 +1617,8 @@ def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, co
                     
                     shared_limits[key] = local_max
                     print(f"    > {key} Scale locked to: +/- {local_max:.3e} {units}")
-        
-        # Override with fixed limits if requested
-        if colorbar_fix:
-            vmin_global = -0.02
-            vmax_global = 0.02
-        
+
+                
         cmap = cmocean.cm.balance
         
         # --- Plotting Setup ---
@@ -1595,6 +1647,15 @@ def plot_ohc_snapshot_bias_comparison(ds_truth, emulators_dict, time_indices, co
                 
                 # Use independent color scale for each depth layer
                 if colorbar_fix:
+                    if j == 0:
+                        vmin_global = -6*10**(-12)
+                        vmax_global = 6*10**(-12)
+                    elif j == 1:
+                        vmin_global = -4*10**(-12)
+                        vmax_global = 4*10**(-12)
+                    elif j == 2:
+                        vmin_global = -2*10**(-12)
+                        vmax_global = 2*10**(-12)
                     norm = colors.Normalize(vmin=vmin_global, vmax=vmax_global)
                 else:
                     limit = shared_limits[key]
@@ -1805,10 +1866,10 @@ def plot_temperature_snapshot_bias_comparison(ds_truth, emulators_dict, time_ind
     
     # Fixed colorbar limits per depth layer (optional)
     fixed_limits = {
-        '2.5m': 1.2,
-        '700m': 0.7,
-        '2000m': 0.18,
-        '3000m': 0.1
+        '2.5m':2.5,
+        '700m': 1.5,
+        '2000m': 0.3,
+        '3000m': 0.2
     }
     
     cmap = cmocean.cm.balance
@@ -1870,6 +1931,9 @@ def plot_temperature_snapshot_bias_comparison(ds_truth, emulators_dict, time_ind
                     
                     shared_limits[key] = local_max
                     print(f"    > {key} Scale locked to: +/- {local_max:.3e} {units}")
+
+                if colorbar_fix:
+                    shared_limits[key] = fixed_limits[key]
         
         # --- Plotting Setup ---
         fig, axes = plt.subplots(
@@ -2041,14 +2105,14 @@ def plot_snapshot_comparison_SpecificLayer(ds_truth, emulators_dict, var_name, t
             vmin, vmax = 0, 1
 
         if fix_colorbar:
-            if DEPTH_CONFIG['index'] == 0:
+            if depth_config['index'] == 0:
                 vmin, vmax = -2, 32
-            elif DEPTH_CONFIG['index'] == 10:
+            elif depth_config['index'] == 10:
                 vmin, vmax = -2, 15
-            elif DEPTH_CONFIG['index'] == 14:
-                vmin, vmax = -2, 6
-            elif DEPTH_CONFIG['index'] == 15:
-                vmin, vmax = -2, 6
+            elif depth_config['index'] == 14:
+                vmin, vmax = -2, 10
+            elif depth_config['index'] == 15:
+                vmin, vmax = -2, 10
             
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         
@@ -2145,8 +2209,10 @@ def calculate_ohc_snapshot_map(dataset, dz, wet_mask, min_depth, max_depth, time
     
     # 1. Integrate Vertically (Sum over lev)
     # Result is (time, y, x)
-    ohc_integrated = (RHO * CP * thetao_slice * dz_slice *dataset['areacello']* wet_slice).sum('lev')
-    
+    #ohc_integrated = (RHO * CP * thetao_slice * dz_slice *dataset['areacello']* wet_slice).sum('lev')
+
+    ohc_integrated = (RHO * CP * thetao_slice * dz_slice * wet_slice).sum('lev')
+
     # 2. Time snapshot
     ohc_mean = ohc_integrated.isel(time=time_index)
     
@@ -2155,7 +2221,7 @@ def calculate_ohc_snapshot_map(dataset, dz, wet_mask, min_depth, max_depth, time
 
 
 
-def plot_ohc_snapshot_comparison(ds_truth, emulators_dict, var_name, time_indices, depth_config,TRUTH_LABEL='Truth'):
+def plot_ohc_snapshot_comparison(ds_truth, emulators_dict, var_name, time_indices, depth_config,TRUTH_LABEL='Truth',colorbar_fix=False):
     """
     Generates a grid of snapshot maps:
     Rows: Datasets
@@ -2235,9 +2301,18 @@ def plot_ohc_snapshot_comparison(ds_truth, emulators_dict, var_name, time_indice
                 vmax = np.percentile(valid_data, 99.75)
         else:
             vmin, vmax = 0, 1
+
+        if colorbar_fix:
+            if depth_config['title']=='Surface (0-700m)':
+                vmin, vmax = 0, 5*10**(-11)
+            elif depth_config['title']=='Intermediate (700-2000m)':
+                vmin, vmax = 0, 5*10**(-11)
+            elif depth_config['title']=='Deep (2000-7000m)':
+                vmin, vmax = 0, 5*10**(-11)
+
             
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
-        
+
         # Retrieve actual time string for title
         try:
             time_val = ds_truth.time[t_idx].values
@@ -2884,7 +2959,7 @@ def plot_zonal_bias_comparison(ds_truth, emulators_dict, variable_name, units, m
             max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
 
         if colorbar_fix:
-            max_abs_bias = 0.514
+            max_abs_bias = 0.727
         
         norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
         cmap = cmocean.cm.balance
@@ -3008,7 +3083,7 @@ def plot_zonal_bias_ocean_comparison(ds_truth, emulators_dict, variable_name, un
         axes[3, j].set_xlabel('Latitude index', fontsize=12)
     
     # Colorbar
-    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=30)
     cbar.set_label(f"Bias ({units})", fontsize=12)
     
     fig.suptitle(f"Zonal Mean Bias: All Emulators vs Truth ({variable_name})", fontsize=18, y=1.03)
@@ -3071,7 +3146,7 @@ def plot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, masks, colorb
     max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
 
     if colorbar_fix:
-        max_abs_bias = 2*10**8
+        max_abs_bias = 2.5*10**8
     
     norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
     cmap = cmocean.cm.balance
@@ -3114,7 +3189,7 @@ def plot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, masks, colorb
         axes[3, j].set_xlabel('Latitude index', fontsize=12)
     
     # Colorbar
-    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+    cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=30)
     cbar.set_label(f"Bias ({units})", fontsize=12)
     
     fig.suptitle(f"Zonal Mean Bias of OHC: All Emulators vs Truth", fontsize=18, y=1.03)
@@ -3210,8 +3285,8 @@ def plot_snapshot_zonal_bias_ocean_comparison(ds_truth, emulators_dict, variable
         max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
 
         if colorbar_fix:
-            max_abs_bias = 0.514
-        
+            max_abs_bias = 1.338
+            
         norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
         cmap = cmocean.cm.balance
 
@@ -3253,7 +3328,7 @@ def plot_snapshot_zonal_bias_ocean_comparison(ds_truth, emulators_dict, variable
             axes[3, j].set_xlabel('Latitude index', fontsize=12)
         
         # Colorbar
-        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=30)
         cbar.set_label(f"Bias ({units})", fontsize=12)
         
         fig.suptitle(f"Snapshot Zonal Mean Bias: {time_str} ({day_str}) - {variable_name}", fontsize=18, y=1.03)
@@ -3354,7 +3429,7 @@ def plot_snapshot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, mask
         max_abs_bias = np.percentile(np.abs(flat_biases), 98) if len(flat_biases) > 0 else 1.0
 
         if colorbar_fix:
-            max_abs_bias = 2*10**8
+            max_abs_bias = 4.2*10**8
         
         norm = colors.Normalize(vmin=-max_abs_bias, vmax=max_abs_bias)
         cmap = cmocean.cm.balance
@@ -3397,7 +3472,7 @@ def plot_snapshot_ohc_zonal_bias_ocean_comparison(ds_truth, emulators_dict, mask
             axes[3, j].set_xlabel('Latitude index', fontsize=12)
         
         # Colorbar
-        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=0.6, pad=0.02, aspect=30)
+        cbar = fig.colorbar(p_mesh, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=30)
         cbar.set_label(f"Bias ({units})", fontsize=12)
         
         fig.suptitle(f"Snapshot Zonal Mean Bias of OHC: {time_str} ({day_str})", fontsize=18, y=1.03)
