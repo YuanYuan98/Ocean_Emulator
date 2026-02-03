@@ -3616,18 +3616,42 @@ def plot_isotropic_spectrum_comparison(
             # Add vertical line at target wavenumber
             ax.axvline(x=actual_k, color='blue', linestyle='--', alpha=0.5, linewidth=1)
     
-    # Format axes
-    ax.set_xticks([0.01, 0.02, 0.05])
-    ax.set_xticklabels(['$10^{-2}$', '$2×10^{-2}$', '$5×10^{-2}$'])
+    # Format axes - use LogLocator for better tick placement
+    from matplotlib.ticker import LogLocator, LogFormatterMathtext
+    
+    # Show ticks at 10^n and intermediate values (2*10^n, 5*10^n) for better coverage
+    ax.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+    ax.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+    ax.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+    ax.xaxis.set_minor_formatter(plt.NullFormatter())  # Disable minor tick labels
+    
     ax.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)')
     ax.set_ylabel('Power Spectral Density')
     
-    # Get depth value for title
+    # Get depth value and spatial boundaries for title
     depth_value = dataset_truth.lev.values[lev_idx]
-    ax.set_title(f'Isotropic Power Spectrum of {var_to_eval} ({depth_value}m)')
+    
+    # Format longitude range
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    if lon_stop > 180:
+        lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    else:
+        lon_stop_display = f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    
+    # Format latitude range
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+    
+    ax.set_title(f'Isotropic Power Spectrum of {var_to_eval} ({depth_value}m)\n' + 
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
     
     ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-    ax.legend()
+    ax.legend(fontsize=9)
     
     plt.tight_layout()
     plt.show()
@@ -3785,18 +3809,42 @@ def plot_ke_spectrum_comparison(
             # Add vertical line at target wavenumber
             ax.axvline(x=actual_k, color='blue', linestyle='--', alpha=0.5, linewidth=1)
     
-    # Format axes
-    ax.set_xticks([0.01, 0.02, 0.05])
-    ax.set_xticklabels(['$10^{-2}$', '$2×10^{-2}$', '$5×10^{-2}$'])
+    # Format axes - use LogLocator for dynamic tick placement
+    from matplotlib.ticker import LogLocator, LogFormatter
+    
+    # Set up dynamic log-scale ticks
+    # subs parameter controls intermediate ticks (e.g., [1.0, 2.0, 5.0] gives ticks at 10^n, 2*10^n, 5*10^n)
+    ax.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0], numticks=8))
+    ax.xaxis.set_major_formatter(LogFormatter(base=10.0, labelOnlyBase=False))
+    ax.xaxis.set_minor_formatter(plt.NullFormatter())  # Disable minor tick labels to prevent overlap
+    
     ax.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)')
     ax.set_ylabel('Kinetic Energy Density')
     
-    # Get depth value for title
+    # Get depth value and spatial boundaries for title
     depth_value = dataset_truth.lev.values[lev_idx]
-    ax.set_title(f'Kinetic Energy Spectrum (Anomalies) at {depth_value}m')
+    
+    # Format longitude range
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    if lon_stop > 180:
+        lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    else:
+        lon_stop_display = f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    
+    # Format latitude range
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+    
+    ax.set_title(f'Kinetic Energy Spectrum (Anomalies) at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
     
     ax.grid(True, which='both', alpha=0.3)
-    ax.legend()
+    ax.legend(fontsize=9)
     
     plt.tight_layout()
     plt.show()
@@ -3998,9 +4046,27 @@ def plot_temporal_spectrum_comparison(
     ax.set_xlabel('Frequency (cycles/year)')
     ax.set_ylabel('Power Spectral Density')
     
-    # Get depth value for title
+    # Get depth value and spatial boundaries for title
     depth_value = dataset_truth.lev.values[lev_idx]
-    ax.set_title(f'Temporal Power Spectrum of {var_to_eval} at {depth_value}m')
+    
+    # Format longitude range
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    if lon_stop > 180:
+        lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    else:
+        lon_stop_display = f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    
+    # Format latitude range
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+    
+    ax.set_title(f'Temporal Power Spectrum of {var_to_eval} at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
     
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
     ax.legend()
@@ -4215,9 +4281,27 @@ def plot_ke_temporal_spectrum_comparison(
     ax.set_xlabel('Frequency (cycles/year)')
     ax.set_ylabel('Kinetic Energy Power Spectral Density')
     
-    # Get depth value for title
+    # Get depth value and spatial boundaries for title
     depth_value = dataset_truth.lev.values[lev_idx]
-    ax.set_title(f'Temporal KE Power Spectrum at {depth_value}m')
+    
+    # Format longitude range
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    if lon_stop > 180:
+        lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    else:
+        lon_stop_display = f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    
+    # Format latitude range
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+    
+    ax.set_title(f'Temporal KE Power Spectrum at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
     
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
     ax.legend()
