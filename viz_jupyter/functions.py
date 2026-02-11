@@ -2780,14 +2780,14 @@ def plot_variance_comparison(ds_truth, emulators_dict, variable_name, units, out
     Cols: Depth Slices.
     Colorbar: Shared per COLUMN (Depth Slice).
     """
-    print(f"\nGenerating Variance Comparison for {variable_name} (Per-Column Colorbars)...")
+    #print(f"\nGenerating Variance Comparison for {variable_name} (Per-Column Colorbars)...")
     
     # 1. Setup Metrics
     dz_truth = ds_truth['dz']
     wet_mask = (ds_truth[variable_name].isel(time=0) * 0 + 1).compute()
     
     # 2. Calculate Truth Variance (3D)
-    print("Calculating Truth Variance...")
+    #print("Calculating Truth Variance...")
     truth_var_3d = ds_truth[variable_name].var('time') 
     
     # 3. Pre-compute Maps
@@ -2803,7 +2803,7 @@ def plot_variance_comparison(ds_truth, emulators_dict, variable_name, units, out
 
     # Process Emulators
     for label, emu_data in emulators_dict.items():
-        print(f"Calculating Variance for {label}...")
+        #print(f"Calculating Variance for {label}...")
         ds_emu = emu_data['ds']
         emu_var_3d = ds_emu[variable_name].var('time')
         
@@ -4069,7 +4069,7 @@ def plot_temporal_spectrum_comparison(
                  fontsize=11)
     
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.legend()
+    ax.legend(fontsize=9)
     
     plt.tight_layout()
     plt.show()
@@ -6424,7 +6424,7 @@ def plot_temporal_spectrum_comparison_together(
                  fontsize=11)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.legend()
+    ax.legend(fontsize=9)
 
     plt.tight_layout()
     plt.show()
@@ -6624,7 +6624,7 @@ def plot_ke_temporal_spectrum_comparison_together(
                  fontsize=11)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.legend()
+    ax.legend(fontsize=9)
 
     plt.tight_layout()
     plt.show()
