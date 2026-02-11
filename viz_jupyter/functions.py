@@ -3710,7 +3710,7 @@ def plot_ke_spectrum_comparison(
     None (displays plot)
     """
     
-    print(f"\nGenerating Kinetic Energy Spectrum Comparison...")
+    #print(f"\nGenerating Kinetic Energy Spectrum Comparison...")
     
     # Calculate mean grid spacing
     dx_mean = float(dataset_truth.dx.sel({'x': lon_slice, 'y': lat_slice}).mean().values)
@@ -3745,7 +3745,7 @@ def plot_ke_spectrum_comparison(
         return k_km, spec_ke.cpu().numpy()
     
     # Calculate reference KE spectrum
-    print(f"Calculating KE spectrum for {TRUTH_LABEL}...")
+    #print(f"Calculating KE spectrum for {TRUTH_LABEL}...")
     k_ref, spec_ref = get_ke_spectrum(
         dataset_truth, lev_idx, time_window, lon_slice, lat_slice
     )
@@ -3753,7 +3753,7 @@ def plot_ke_spectrum_comparison(
     # Process all emulators
     ke_spectra = {}
     for label, emu_data in emulators_to_analyze.items():
-        print(f"Calculating KE spectrum for {label}...")
+        #print(f"Calculating KE spectrum for {label}...")
         k, spec = get_ke_spectrum(
             emu_data['ds'], lev_idx, time_window, lon_slice, lat_slice
         )
@@ -3785,15 +3785,15 @@ def plot_ke_spectrum_comparison(
             actual_k = k_ref[idx_ref]
             spec_ref_value = spec_ref.mean(0)[idx_ref]
             
-            print(f"\nRatios at wavenumber {actual_k:.4f}:")
-            print(f"{TRUTH_LABEL} PSD = {spec_ref_value:.2e}")
+            #print(f"\nRatios at wavenumber {actual_k:.4f}:")
+            #print(f"{TRUTH_LABEL} PSD = {spec_ref_value:.2e}")
             
             for i, (label, data) in enumerate(ke_spectra.items()):
                 idx_emu = np.argmin(np.abs(data['k'] - target_k))
                 spec_emu_value = data['spec'].mean(0)[idx_emu]
                 ratio = spec_emu_value / spec_ref_value
                 
-                print(f"{label} PSD = {spec_emu_value:.2e}, Ratio = {ratio:.3f}")
+                #print(f"{label} PSD = {spec_emu_value:.2e}, Ratio = {ratio:.3f}")
                 
                 color = emulators_to_analyze[label]['color']
                 x_pos = actual_k * 1.1
@@ -3903,7 +3903,7 @@ def plot_temporal_spectrum_comparison(
     if target_frequencies is None:
         target_frequencies = [1.0, 4.0]  # Annual and seasonal cycles
     
-    print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval}...")
+    #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval}...")
     
     def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
         """Helper function to compute temporal spectrum at each spatial point, then average."""
@@ -3975,7 +3975,7 @@ def plot_temporal_spectrum_comparison(
         return freqs, psd
     
     # Calculate reference spectrum
-    print(f"Calculating temporal spectrum for {TRUTH_LABEL}...")
+    #print(f"Calculating temporal spectrum for {TRUTH_LABEL}...")
     freq_ref, psd_ref = get_temporal_spectrum(
         dataset_truth, var_to_eval, lev_idx, lon_slice, lat_slice
     )
@@ -3990,7 +3990,7 @@ def plot_temporal_spectrum_comparison(
         emulator_spectra[label] = {'freq': freq, 'psd': psd}
     
     # Plotting
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(6, 4))
     
     # Plot truth
     ax.loglog(
@@ -4018,15 +4018,15 @@ def plot_temporal_spectrum_comparison(
             # Calculate period for display
             period_years = 1.0 / actual_f if actual_f > 0 else np.inf
             
-            print(f"\nRatios at frequency {actual_f:.4f} cycles/year (period: {period_years:.2f} years):")
-            print(f"{TRUTH_LABEL}: {psd_ref_value:.2e}")
+            #print(f"\nRatios at frequency {actual_f:.4f} cycles/year (period: {period_years:.2f} years):")
+            #print(f"{TRUTH_LABEL}: {psd_ref_value:.2e}")
             
             for i, (label, data) in enumerate(emulator_spectra.items()):
                 idx_emu = np.argmin(np.abs(data['freq'] - target_f))
                 psd_emu_value = data['psd'][idx_emu]
                 ratio = psd_emu_value / psd_ref_value if psd_ref_value > 0 else 0
                 
-                print(f"{label}: {psd_emu_value:.2e}, Ratio={ratio:.3f}")
+                #print(f"{label}: {psd_emu_value:.2e}, Ratio={ratio:.3f}")
                 
                 color = emulators_to_analyze[label]['color']
                 x_pos = actual_f * 1.2
@@ -4211,7 +4211,7 @@ def plot_ke_temporal_spectrum_comparison(
         return freqs, psd
     
     # Calculate reference spectrum
-    print(f"Calculating temporal KE spectrum for {TRUTH_LABEL}...")
+    #print(f"Calculating temporal KE spectrum for {TRUTH_LABEL}...")
     freq_ref, psd_ref = get_ke_temporal_spectrum(
         dataset_truth, lev_idx, lon_slice, lat_slice
     )
@@ -4219,14 +4219,14 @@ def plot_ke_temporal_spectrum_comparison(
     # Process all emulators
     ke_spectra = {}
     for label, emu_data in emulators_to_analyze.items():
-        print(f"Calculating temporal KE spectrum for {label}...")
+        #print(f"Calculating temporal KE spectrum for {label}...")
         freq, psd = get_ke_temporal_spectrum(
             emu_data['ds'], lev_idx, lon_slice, lat_slice
         )
         ke_spectra[label] = {'freq': freq, 'psd': psd}
     
     # Plotting
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(6, 4))
     
     # Plot truth
     ax.loglog(
@@ -4253,8 +4253,8 @@ def plot_ke_temporal_spectrum_comparison(
             
             period_years = 1.0 / actual_f if actual_f > 0 else np.inf
             
-            print(f"\nRatios at frequency {actual_f:.4f} cycles/year (period: {period_years:.2f} years):")
-            print(f"{TRUTH_LABEL} PSD = {psd_ref_value:.2e}")
+            #print(f"\nRatios at frequency {actual_f:.4f} cycles/year (period: {period_years:.2f} years):")
+            #print(f"{TRUTH_LABEL} PSD = {psd_ref_value:.2e}")
             
             for i, (label, data) in enumerate(ke_spectra.items()):
                 idx_emu = np.argmin(np.abs(data['freq'] - target_f))
@@ -5890,4 +5890,742 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
 
         fig.suptitle(f"OHC Snapshot at {time_str} (Multi-Resolution)", fontsize=18, y=0.96)
         plt.show()
+
+
+# =============================================================================
+# SPECTRUM _TOGETHER FUNCTIONS (Multi-Resolution)
+# Each emulator has its own corresponding ground truth.
+# emulators_dict format:
+#   {label: {'ds': ds_emu, 'color': color, 'truth': ds_truth, 'truth_label': str}}
+# =============================================================================
+
+def plot_isotropic_spectrum_comparison_together(
+    emulators_dict,
+    var_to_eval='thetao',
+    lev_idx=0,
+    time_window=100,
+    lon_slice=slice(180, 243),
+    lat_slice=slice(-40, 35),
+    target_wavenumbers=[0.01, 0.02],
+    show_ratios=True,
+    colorbar_fix=False
+):
+    """
+    Plots isotropic power spectrum comparison where each emulator uses its own corresponding truth.
+
+    Parameters:
+    -----------
+    emulators_dict : dict
+        Dictionary of emulators with structure:
+        {
+            'label': {
+                'ds': xr.Dataset,          # emulator dataset
+                'color': str,              # matplotlib color
+                'truth': xr.Dataset,       # corresponding ground truth dataset
+                'truth_label': str         # label for the truth dataset
+            }
+        }
+    var_to_eval : str, default='thetao'
+        Variable name to evaluate
+    lev_idx : int, default=0
+        Level index for depth slice
+    time_window : int, default=100
+        Number of time steps to use
+    lon_slice : slice, default=slice(180, 243)
+        Longitude slice for analysis
+    lat_slice : slice, default=slice(-40, 35)
+        Latitude slice for analysis
+    target_wavenumbers : list, default=[0.01, 0.02]
+        Wavenumbers at which to calculate and annotate ratios
+    show_ratios : bool, default=True
+        Whether to show ratio annotations at target wavenumbers
+    colorbar_fix : bool, default=False
+        Not used, kept for consistency
+
+    Returns:
+    --------
+    None (displays plot)
+    """
+
+    #print(f"\nGenerating Isotropic Power Spectrum Comparison for {var_to_eval} (Multi-Resolution)...")
+
+    def get_spectrum(ds_target, var_name, lev_i, t_window, x_sl, y_sl):
+        """Helper function to compute isotropic spectrum for a dataset."""
+        dx_mean = float(ds_target.dx.sel({'x': x_sl, 'y': y_sl}).mean().values)
+        dy_mean = float(ds_target.dy.sel({'x': x_sl, 'y': y_sl}).mean().values)
+
+        data_slice_raw = ds_target[var_name].isel(lev=lev_i, time=slice(None, t_window))
+        data_slice_raw = data_slice_raw.transpose('time', ...).sel({'x': x_sl, 'y': y_sl})
+
+        time_mean = data_slice_raw.mean(dim='time')
+        data_slice_anom = data_slice_raw - time_mean
+        data_prepared = data_slice_anom.fillna(0).values
+
+        k_cent, spec = compute_isotropic_spectrum_torch(
+            torch.as_tensor(data_prepared),
+            dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann', cutoff_before_bins=False
+        )
+        return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec.cpu().numpy()
+
+    # Compute spectra for each truth-emulator pair
+    all_spectra = {}  # {label: {'k_truth': ..., 'spec_truth': ..., 'k_emu': ..., 'spec_emu': ...}}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        #print(f"Calculating spectrum for {truth_label} (truth of {label})...")
+        k_truth, spec_truth = get_spectrum(ds_truth, var_to_eval, lev_idx, time_window, lon_slice, lat_slice)
+
+        #print(f"Calculating spectrum for {label}...")
+        k_emu, spec_emu = get_spectrum(ds_emu, var_to_eval, lev_idx, time_window, lon_slice, lat_slice)
+
+        all_spectra[label] = {
+            'k_truth': k_truth, 'spec_truth': spec_truth,
+            'k_emu': k_emu, 'spec_emu': spec_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    for label, data in all_spectra.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+
+        # Plot truth (dashed)
+        ax.loglog(
+            data['k_truth'], data['spec_truth'].mean(0), '--',
+            label=f'{truth_label} ({var_to_eval} Anomalies)',
+            linewidth=2, color=color, alpha=0.7
+        )
+        # Plot emulator (solid)
+        ax.loglog(
+            data['k_emu'], data['spec_emu'].mean(0), '-',
+            label=f'{label} ({var_to_eval} Anomalies)',
+            linewidth=2, color=color
+        )
+
+    # Add ratio annotations at target wavenumbers
+    if show_ratios:
+        for target_k in target_wavenumbers:
+            for i, (label, data) in enumerate(all_spectra.items()):
+                idx_truth = np.argmin(np.abs(data['k_truth'] - target_k))
+                idx_emu = np.argmin(np.abs(data['k_emu'] - target_k))
+                actual_k = data['k_truth'][idx_truth]
+                spec_truth_val = data['spec_truth'].mean(0)[idx_truth]
+                spec_emu_val = data['spec_emu'].mean(0)[idx_emu]
+                ratio = spec_emu_val / spec_truth_val if spec_truth_val > 0 else 0
+
+                print(f"{label} vs {data['truth_label']} at k={actual_k:.4f}: ratio={ratio:.3f}")
+
+                color = emulators_dict[label]['color']
+                x_pos = actual_k * 1.1
+                y_pos = spec_emu_val * (1.5 ** i)
+
+                ax.text(
+                    x_pos, y_pos,
+                    f'{label}/{data["truth_label"]}={ratio:.3f}',
+                    fontsize=8, color=color,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor=color)
+                )
+
+            ax.axvline(x=actual_k, color='blue', linestyle='--', alpha=0.5, linewidth=1)
+
+    # Format axes
+    from matplotlib.ticker import LogLocator, LogFormatterMathtext
+    ax.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+    ax.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+    ax.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+    ax.xaxis.set_minor_formatter(plt.NullFormatter())
+
+    ax.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)')
+    ax.set_ylabel('Power Spectral Density')
+
+    # Get depth value from first emulator's truth
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+
+    ax.set_title(f'Isotropic Power Spectrum of {var_to_eval} ({depth_value}m)\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
+
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax.legend(fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_ke_spectrum_comparison_together(
+    emulators_dict,
+    var_u='uo',
+    var_v='vo',
+    lev_idx=0,
+    time_window=100,
+    lon_slice=slice(180, 243),
+    lat_slice=slice(-40, 35),
+    target_wavenumbers=[0.01, 0.02],
+    show_ratios=True,
+    colorbar_fix=False
+):
+    """
+    Plots kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
+
+    Parameters:
+    -----------
+    emulators_dict : dict
+        Dictionary of emulators with structure:
+        {
+            'label': {
+                'ds': xr.Dataset,          # emulator dataset
+                'color': str,              # matplotlib color
+                'truth': xr.Dataset,       # corresponding ground truth dataset
+                'truth_label': str         # label for the truth dataset
+            }
+        }
+    var_u : str, default='uo'
+        U-velocity variable name
+    var_v : str, default='vo'
+        V-velocity variable name
+    lev_idx : int, default=0
+        Level index for depth slice
+    time_window : int, default=100
+        Number of time steps to use
+    lon_slice : slice, default=slice(180, 243)
+        Longitude slice for analysis
+    lat_slice : slice, default=slice(-40, 35)
+        Latitude slice for analysis
+    target_wavenumbers : list, default=[0.01, 0.02]
+        Wavenumbers at which to calculate and annotate ratios
+    show_ratios : bool, default=True
+        Whether to show ratio annotations at target wavenumbers
+    colorbar_fix : bool, default=False
+        Not used, kept for consistency
+
+    Returns:
+    --------
+    None (displays plot)
+    """
+
+    #print(f"\nGenerating Kinetic Energy Spectrum Comparison (Multi-Resolution)...")
+
+    def get_ke_spectrum(ds_target, lev_i, t_window, x_sl, y_sl):
+        """Helper function to compute KE spectrum for a dataset."""
+        dx_mean = float(ds_target.dx.sel({'x': x_sl, 'y': y_sl}).mean().values)
+        dy_mean = float(ds_target.dy.sel({'x': x_sl, 'y': y_sl}).mean().values)
+
+        def process_var(var_name):
+            data = ds_target[var_name].isel(lev=lev_i, time=slice(None, t_window))
+            data = data.transpose('time', ...).sel({'x': x_sl, 'y': y_sl})
+            data_anom = data - data.mean(dim='time')
+            return torch.as_tensor(data_anom.fillna(0).values)
+
+        u_tensor = process_var(var_u)
+        v_tensor = process_var(var_v)
+
+        k_cent, spec_u = compute_isotropic_spectrum_torch(
+            u_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann'
+        )
+        _, spec_v = compute_isotropic_spectrum_torch(
+            v_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann'
+        )
+
+        spec_ke = 0.5 * (spec_u + spec_v)
+        k_km = k_cent.cpu().numpy() * 1000 * 2 * np.pi
+        return k_km, spec_ke.cpu().numpy()
+
+    # Compute spectra for each truth-emulator pair
+    all_spectra = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        #print(f"Calculating KE spectrum for {truth_label} (truth of {label})...")
+        k_truth, spec_truth = get_ke_spectrum(ds_truth, lev_idx, time_window, lon_slice, lat_slice)
+
+        #print(f"Calculating KE spectrum for {label}...")
+        k_emu, spec_emu = get_ke_spectrum(ds_emu, lev_idx, time_window, lon_slice, lat_slice)
+
+        all_spectra[label] = {
+            'k_truth': k_truth, 'spec_truth': spec_truth,
+            'k_emu': k_emu, 'spec_emu': spec_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    for label, data in all_spectra.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+
+        # Plot truth (dashed)
+        ax.loglog(
+            data['k_truth'], data['spec_truth'].mean(0), '--',
+            label=f'{truth_label} (KE Anomalies)',
+            linewidth=2, color=color, alpha=0.7
+        )
+        # Plot emulator (solid)
+        ax.loglog(
+            data['k_emu'], data['spec_emu'].mean(0), '-',
+            label=f'{label} (KE Anomalies)',
+            linewidth=2, color=color
+        )
+
+    # Add ratio annotations at target wavenumbers
+    if show_ratios:
+        for target_k in target_wavenumbers:
+            for i, (label, data) in enumerate(all_spectra.items()):
+                idx_truth = np.argmin(np.abs(data['k_truth'] - target_k))
+                idx_emu = np.argmin(np.abs(data['k_emu'] - target_k))
+                actual_k = data['k_truth'][idx_truth]
+                spec_truth_val = data['spec_truth'].mean(0)[idx_truth]
+                spec_emu_val = data['spec_emu'].mean(0)[idx_emu]
+                ratio = spec_emu_val / spec_truth_val if spec_truth_val > 0 else 0
+
+                #print(f"{label} vs {data['truth_label']} at k={actual_k:.4f}: ratio={ratio:.3f}")
+
+                color = emulators_dict[label]['color']
+                x_pos = actual_k * 1.1
+                y_pos = spec_emu_val * (1.5 ** i)
+
+                ax.text(
+                    x_pos, y_pos,
+                    f'{label}/{data["truth_label"]}={ratio:.3f}',
+                    fontsize=8, color=color,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor=color)
+                )
+
+            ax.axvline(x=actual_k, color='blue', linestyle='--', alpha=0.5, linewidth=1)
+
+    # Format axes
+    from matplotlib.ticker import LogLocator, LogFormatter
+    ax.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0], numticks=8))
+    ax.xaxis.set_major_formatter(LogFormatter(base=10.0, labelOnlyBase=False))
+    ax.xaxis.set_minor_formatter(plt.NullFormatter())
+
+    ax.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)')
+    ax.set_ylabel('Kinetic Energy Density')
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+
+    ax.set_title(f'Kinetic Energy Spectrum (Anomalies) at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
+
+    ax.grid(True, which='both', alpha=0.3)
+    ax.legend(fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_temporal_spectrum_comparison_together(
+    emulators_dict,
+    var_to_eval='thetao',
+    lev_idx=0,
+    lon_slice=slice(180, 243),
+    lat_slice=slice(-40, 35),
+    target_frequencies=None,
+    show_ratios=True,
+    colorbar_fix=False
+):
+    """
+    Plots temporal power spectrum comparison where each emulator uses its own corresponding truth.
+
+    Parameters:
+    -----------
+    emulators_dict : dict
+        Dictionary of emulators with structure:
+        {
+            'label': {
+                'ds': xr.Dataset,          # emulator dataset
+                'color': str,              # matplotlib color
+                'truth': xr.Dataset,       # corresponding ground truth dataset
+                'truth_label': str         # label for the truth dataset
+            }
+        }
+    var_to_eval : str, default='thetao'
+        Variable name to evaluate
+    lev_idx : int, default=0
+        Level index for depth slice
+    lon_slice : slice, default=slice(180, 243)
+        Longitude slice for spatial averaging
+    lat_slice : slice, default=slice(-40, 35)
+        Latitude slice for spatial averaging
+    target_frequencies : list, optional
+        Frequencies (in cycles/year) at which to calculate and annotate ratios.
+        If None, defaults to [1.0, 4.0] (annual and seasonal cycles)
+    show_ratios : bool, default=True
+        Whether to show ratio annotations at target frequencies
+    colorbar_fix : bool, default=False
+        Not used, kept for consistency
+
+    Returns:
+    --------
+    None (displays plot)
+    """
+
+    if target_frequencies is None:
+        target_frequencies = [1.0, 4.0]
+
+    #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval} (Multi-Resolution)...")
+
+    def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
+        """Helper function to compute temporal spectrum at each spatial point, then average."""
+        from scipy import signal
+
+        data = ds_target[var_name].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        n_time = data.sizes['time']
+
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = (time_vals[1] - time_vals[0])
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except:
+            dt_days = 1.0
+
+        dt_years = dt_days / 365.25
+        fs = 1.0 / dt_years
+
+        data_np = np.nan_to_num(data.values, nan=0.0)
+        data_detrended = signal.detrend(data_np, axis=0, type='linear')
+
+        window = signal.windows.hann(n_time)
+        data_windowed = data_detrended * window[:, np.newaxis, np.newaxis]
+        window_correction = np.mean(window**2)
+
+        fft_result = np.fft.rfft(data_windowed, axis=0)
+        power_spectrum = np.abs(fft_result)**2
+        psd_spatial = 2.0 * power_spectrum / (fs * n_time * window_correction)
+        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
+        if n_time % 2 == 0:
+            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
+
+        psd = np.nanmean(psd_spatial, axis=(1, 2))
+        freqs = np.fft.rfftfreq(n_time, d=dt_years)
+
+        return freqs, psd
+
+    # Compute spectra for each truth-emulator pair
+    all_spectra = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        #print(f"Calculating temporal spectrum for {truth_label} (truth of {label})...")
+        freq_truth, psd_truth = get_temporal_spectrum(ds_truth, var_to_eval, lev_idx, lon_slice, lat_slice)
+
+        #print(f"Calculating temporal spectrum for {label}...")
+        freq_emu, psd_emu = get_temporal_spectrum(ds_emu, var_to_eval, lev_idx, lon_slice, lat_slice)
+
+        all_spectra[label] = {
+            'freq_truth': freq_truth, 'psd_truth': psd_truth,
+            'freq_emu': freq_emu, 'psd_emu': psd_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    for label, data in all_spectra.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+
+        # Plot truth (dashed), skip DC component
+        ax.loglog(
+            data['freq_truth'][1:], data['psd_truth'][1:], '--',
+            label=f'{truth_label} ({var_to_eval} Anomalies)',
+            linewidth=2, color=color, alpha=0.7
+        )
+        # Plot emulator (solid), skip DC component
+        ax.loglog(
+            data['freq_emu'][1:], data['psd_emu'][1:], '-',
+            label=f'{label} ({var_to_eval} Anomalies)',
+            linewidth=2, color=color
+        )
+
+    # Add ratio annotations at target frequencies
+    if show_ratios and len(target_frequencies) > 0:
+        for target_f in target_frequencies:
+            for i, (label, data) in enumerate(all_spectra.items()):
+                idx_truth = np.argmin(np.abs(data['freq_truth'] - target_f))
+                idx_emu = np.argmin(np.abs(data['freq_emu'] - target_f))
+                actual_f = data['freq_truth'][idx_truth]
+                psd_truth_val = data['psd_truth'][idx_truth]
+                psd_emu_val = data['psd_emu'][idx_emu]
+                ratio = psd_emu_val / psd_truth_val if psd_truth_val > 0 else 0
+
+                period_years = 1.0 / actual_f if actual_f > 0 else np.inf
+                print(f"{label} vs {data['truth_label']} at f={actual_f:.4f} cy/yr (period {period_years:.2f}yr): ratio={ratio:.3f}")
+
+                color = emulators_dict[label]['color']
+                x_pos = actual_f * 1.2
+                y_pos = psd_emu_val * (1.5 ** i)
+
+                ax.text(
+                    x_pos, y_pos,
+                    f'{label}/{data["truth_label"]}={ratio:.3f}',
+                    fontsize=8, color=color,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor=color)
+                )
+
+            ax.axvline(x=actual_f, color='blue', linestyle='--', alpha=0.5, linewidth=1)
+
+    # Format axes
+    ax.set_xlabel('Frequency (cycles/year)')
+    ax.set_ylabel('Power Spectral Density')
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+
+    ax.set_title(f'Temporal Power Spectrum of {var_to_eval} at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
+
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_ke_temporal_spectrum_comparison_together(
+    emulators_dict,
+    var_u='uo',
+    var_v='vo',
+    lev_idx=0,
+    lon_slice=slice(180, 243),
+    lat_slice=slice(-40, 35),
+    target_frequencies=None,
+    show_ratios=True,
+    colorbar_fix=False
+):
+    """
+    Plots temporal kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
+
+    Parameters:
+    -----------
+    emulators_dict : dict
+        Dictionary of emulators with structure:
+        {
+            'label': {
+                'ds': xr.Dataset,          # emulator dataset
+                'color': str,              # matplotlib color
+                'truth': xr.Dataset,       # corresponding ground truth dataset
+                'truth_label': str         # label for the truth dataset
+            }
+        }
+    var_u : str, default='uo'
+        U-velocity variable name
+    var_v : str, default='vo'
+        V-velocity variable name
+    lev_idx : int, default=0
+        Level index for depth slice
+    lon_slice : slice, default=slice(180, 243)
+        Longitude slice for spatial averaging
+    lat_slice : slice, default=slice(-40, 35)
+        Latitude slice for spatial averaging
+    target_frequencies : list, optional
+        Frequencies (in cycles/year) at which to calculate and annotate ratios.
+        If None, defaults to [1.0, 4.0] (annual and seasonal cycles)
+    show_ratios : bool, default=True
+        Whether to show ratio annotations at target frequencies
+    colorbar_fix : bool, default=False
+        Not used, kept for consistency
+
+    Returns:
+    --------
+    None (displays plot)
+    """
+
+    if target_frequencies is None:
+        target_frequencies = [1.0, 4.0]
+
+    #print(f"\nGenerating Temporal KE Power Spectrum Comparison (Multi-Resolution)...")
+
+    def get_ke_temporal_spectrum(ds_target, lev_i, x_sl, y_sl):
+        """Helper function to compute temporal KE spectrum at each spatial point, then average."""
+        from scipy import signal
+
+        u_data = ds_target[var_u].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        v_data = ds_target[var_v].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+
+        n_time = u_data.sizes['time']
+
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = (time_vals[1] - time_vals[0])
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except:
+            dt_days = 1.0
+
+        dt_years = dt_days / 365.25
+        fs = 1.0 / dt_years
+
+        u_np = np.nan_to_num(u_data.values, nan=0.0)
+        v_np = np.nan_to_num(v_data.values, nan=0.0)
+
+        u_detrended = signal.detrend(u_np, axis=0, type='linear')
+        v_detrended = signal.detrend(v_np, axis=0, type='linear')
+
+        window = signal.windows.hann(n_time)
+        u_windowed = u_detrended * window[:, np.newaxis, np.newaxis]
+        v_windowed = v_detrended * window[:, np.newaxis, np.newaxis]
+        window_correction = np.mean(window**2)
+
+        fft_u = np.fft.rfft(u_windowed, axis=0)
+        fft_v = np.fft.rfft(v_windowed, axis=0)
+
+        power_u = np.abs(fft_u)**2
+        power_v = np.abs(fft_v)**2
+        power_ke = 0.5 * (power_u + power_v)
+
+        psd_spatial = 2.0 * power_ke / (fs * n_time * window_correction)
+        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
+        if n_time % 2 == 0:
+            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
+
+        psd = np.nanmean(psd_spatial, axis=(1, 2))
+        freqs = np.fft.rfftfreq(n_time, d=dt_years)
+
+        return freqs, psd
+
+    # Compute spectra for each truth-emulator pair
+    all_spectra = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        #print(f"Calculating temporal KE spectrum for {truth_label} (truth of {label})...")
+        freq_truth, psd_truth = get_ke_temporal_spectrum(ds_truth, lev_idx, lon_slice, lat_slice)
+
+        #print(f"Calculating temporal KE spectrum for {label}...")
+        freq_emu, psd_emu = get_ke_temporal_spectrum(ds_emu, lev_idx, lon_slice, lat_slice)
+
+        all_spectra[label] = {
+            'freq_truth': freq_truth, 'psd_truth': psd_truth,
+            'freq_emu': freq_emu, 'psd_emu': psd_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    for label, data in all_spectra.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+
+        # Plot truth (dashed), skip DC component
+        ax.loglog(
+            data['freq_truth'][1:], data['psd_truth'][1:], '--',
+            label=f'{truth_label} (KE Anomalies)',
+            linewidth=2, color=color, alpha=0.7
+        )
+        # Plot emulator (solid), skip DC component
+        ax.loglog(
+            data['freq_emu'][1:], data['psd_emu'][1:], '-',
+            label=f'{label} (KE Anomalies)',
+            linewidth=2, color=color
+        )
+
+    # Add ratio annotations at target frequencies
+    if show_ratios and len(target_frequencies) > 0:
+        for target_f in target_frequencies:
+            for i, (label, data) in enumerate(all_spectra.items()):
+                idx_truth = np.argmin(np.abs(data['freq_truth'] - target_f))
+                idx_emu = np.argmin(np.abs(data['freq_emu'] - target_f))
+                actual_f = data['freq_truth'][idx_truth]
+                psd_truth_val = data['psd_truth'][idx_truth]
+                psd_emu_val = data['psd_emu'][idx_emu]
+                ratio = psd_emu_val / psd_truth_val if psd_truth_val > 0 else 0
+
+                period_years = 1.0 / actual_f if actual_f > 0 else np.inf
+                print(f"{label} vs {data['truth_label']} at f={actual_f:.4f} cy/yr (period {period_years:.2f}yr): ratio={ratio:.3f}")
+
+                color = emulators_dict[label]['color']
+                x_pos = actual_f * 1.2
+                y_pos = psd_emu_val * (1.5 ** i)
+
+                ax.text(
+                    x_pos, y_pos,
+                    f'{label}/{data["truth_label"]}={ratio:.3f}',
+                    fontsize=8, color=color,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor=color)
+                )
+
+            ax.axvline(x=actual_f, color='blue', linestyle='--', alpha=0.5, linewidth=1)
+
+    # Format axes
+    ax.set_xlabel('Frequency (cycles/year)')
+    ax.set_ylabel('Kinetic Energy Power Spectral Density')
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+
+    lon_start = lon_slice.start if lon_slice.start is not None else 0
+    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
+    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
+    lon_start_display = f"{lon_start}°E"
+    lat_start = lat_slice.start if lat_slice.start is not None else -90
+    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
+    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
+    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
+
+    ax.set_title(f'Temporal KE Power Spectrum at {depth_value}m\n' +
+                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 fontsize=11)
+
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.show()
 
