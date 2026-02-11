@@ -415,7 +415,7 @@ def calculate_vertical_mean_simple(field, dz, wet_mask, min_depth, max_depth):
     numerator = (f_slice * dz_slice * wet_slice).sum('lev')
     denominator = (dz_slice * wet_slice).sum('lev')
     
-    return numerator / denominator
+    return numerator / denominator.where(denominator != 0)
 
 
 def calculate_ohc_map(dataset, dz, wet_mask, min_depth, max_depth):
@@ -4414,8 +4414,9 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
                 emu_var_3d, dz_truth, wet_mask, Slices['min'], Slices['max']
             ).compute()
     
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows),
-        subplot_kw={'projection': ccrs.Robinson(central_longitude=210)}, constrained_layout=True)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
+        subplot_kw={'projection': ccrs.Robinson(central_longitude=210)}, 
+        gridspec_kw={'hspace': 0.1, 'wspace': 0.05})
     if nrows == 1: axes = np.expand_dims(axes, 0)
     if ncols == 1: axes = np.expand_dims(axes, 1)
 
@@ -4582,7 +4583,7 @@ def plot_ohc_zonal_bias_ocean_comparison_together(emulators_dict, masks_list, co
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3e} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3e}", fontsize=11)
     for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-    fig.suptitle(f"OHC Zonal Mean Bias: All Emulators (Multi-Resolution)", fontsize=18, y=1.03)
+    fig.suptitle(f"Time-Averaged OHC Zonal Mean Bias: All Emulators (Multi-Resolution)", fontsize=18, y=1.03)
     plt.show()
 
 
@@ -4632,7 +4633,7 @@ def plot_zonal_bias_ocean_comparison_together(emulators_dict, variable_name, uni
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3f}", fontsize=11)
     for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-    fig.suptitle(f"Zonal Mean Bias: All Emulators ({variable_name}, Multi-Resolution)", fontsize=18, y=1.03)
+    fig.suptitle(f"Time-Averaged Zonal Mean Bias: All Emulators ({variable_name}, Multi-Resolution)", fontsize=18, y=1.03)
     plt.show()
 
 
@@ -4799,7 +4800,7 @@ def plot_ohc_bias_comparison_together(emulators_dict, colorbar_fix=False):
         limit = np.percentile(np.abs(flat), 99) if len(flat) > 0 else 1.0
         
         if colorbar_fix:
-            limit = {'Surface (0-700m)': 2.5e-12, 'Intermediate (700-2000m)': 2.5e-12, 'Deep (2000-7000m)': 1e-12}.get(key, limit)
+            limit = {'Surface (0-700m)': 3e-12, 'Intermediate (700-2000m)': 2.5e-12, 'Deep (2000-7000m)': 2e-12}.get(key, limit)
         limits[key] = limit
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
@@ -4830,7 +4831,7 @@ def plot_ohc_bias_comparison_together(emulators_dict, colorbar_fix=False):
         
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-    fig.suptitle(f"8-yr-Mean OHC Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
+    fig.suptitle(f"Time-Averaged OHC Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
     plt.show()
 
 
@@ -4874,7 +4875,7 @@ def plot_temperature_bias_comparison_together(emulators_dict, colorbar_fix=False
         limit = np.percentile(np.abs(flat), 99) if len(flat) > 0 else 1.0
         
         if colorbar_fix:
-            limit = {0:1.2, 1:0.7, 2:0.18, 3:0.1}.get(i, limit)
+            limit = {0:2, 1:0.7, 2:0.2, 3:0.1}.get(i, limit)
         limits[key] = limit
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
@@ -4905,7 +4906,7 @@ def plot_temperature_bias_comparison_together(emulators_dict, colorbar_fix=False
         
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-    fig.suptitle(f"8-yr-Mean Temperature Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
+    fig.suptitle(f"Time-Averaged Temperature Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
     plt.show()
 
 
@@ -4958,7 +4959,7 @@ def plot_ohc_snapshot_bias_comparison_together(emulators_dict, time_indices, col
         for j, Slices in enumerate(DEPTH_SLICES):
             key = Slices['title']
             limit = shared_limits[key]
-            if colorbar_fix: limit = {0:6e-12, 1:4e-12, 2:1e-12}.get(j, limit)
+            if colorbar_fix: limit = {0:3e-12, 1:2.5e-12, 2:2e-12}.get(j, limit)
             norm = colors.Normalize(vmin=-limit, vmax=limit)
             
             for i, label in enumerate(emulator_labels):
@@ -5031,7 +5032,7 @@ def plot_temperature_snapshot_bias_comparison_together(emulators_dict, time_indi
         if num_emulators == 1: axes = axes.reshape(1, -1)
         if len(DEPTH_LAYERS) == 1: axes = axes.reshape(-1, 1)
         
-        fixed_limits = {'2.5m':2.5, '700m':1.5, '2000m':0.3, '3000m':0.2}
+        fixed_limits = {'2.5m':2, '700m':0.7, '2000m':0.2, '3000m':0.1}
         
         for j, layer in enumerate(DEPTH_LAYERS):
             key = layer['title']
@@ -5285,7 +5286,7 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
             if i == 0: ax.set_title(label, fontsize=12, fontweight='bold')
     
     for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
-    fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.04)
+    fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
     fig.suptitle(f"Time-Averaged Zonal Mean {variable_name} (Multi-Resolution)", fontsize=16, y=0.935)
     plt.show()
 
@@ -5350,7 +5351,7 @@ def plot_ohc_zonal_mean_comparison_together(emulators_dict, masks_list, variable
             if i == 0: ax.set_title(label, fontsize=12, fontweight='bold')
     
     for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
-    fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.04)
+    fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
     fig.suptitle(f"Time-Averaged Zonal Mean OHC ({units}, Multi-Resolution)", fontsize=16, y=0.935)
     plt.show()
 
@@ -5401,7 +5402,7 @@ def plot_zonal_snapshot_comparison_together(emulators_dict, variable_name, units
         valid_data = all_data[~np.isnan(all_data)]
         vmin = np.percentile(valid_data, .5)
         vmax = np.percentile(valid_data, 98)
-        if colorbar_fix: vmin, vmax = 0.58, 28
+        if colorbar_fix: vmin, vmax = 0, 25
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         cmap = cmocean.cm.thermal
         
@@ -5423,7 +5424,7 @@ def plot_zonal_snapshot_comparison_together(emulators_dict, variable_name, units
                 if i == 0: ax.set_title(label, fontsize=12, fontweight='bold')
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
-        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.04)
+        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
         fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Resolution)", fontsize=16, y=0.935)
         plt.show()
 
@@ -5497,7 +5498,7 @@ def plot_ohc_zonal_snapshot_comparison_together(emulators_dict, masks_list, TIME
                 if i == 0: ax.set_title(label, fontsize=12, fontweight='bold')
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
-        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.04)
+        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
         fig.suptitle(f"Snapshot Zonal Mean OHC at {time_str} ({units}, Multi-Resolution)", fontsize=16, y=0.935)
         plt.show()
 
@@ -5569,7 +5570,7 @@ def plot_zonal_mean_snapshot_comparison_together(emulators_dict, variable_name, 
                 if i == 0: ax.set_title(label, fontsize=12, fontweight='bold')
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
-        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.04)
+        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
         fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Resolution)", fontsize=16, y=0.935)
         plt.show()
 
