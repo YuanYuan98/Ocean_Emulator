@@ -3942,11 +3942,19 @@ def plot_temporal_spectrum_comparison(
         # Apply linear detrending along time axis for each spatial point
         # This removes both mean and linear trend (a*t + b)
         data_detrended = signal.detrend(data_np, axis=0, type='linear')
-        
+
+        # Remove seasonal cycle (monthly climatology)
+        steps_per_year = int(round(365.25 / dt_days))
+        n_full = (n_time // steps_per_year) * steps_per_year
+        if n_full >= steps_per_year:
+            climatology = data_detrended[:n_full].reshape(-1, steps_per_year, *data_detrended.shape[1:]).mean(axis=0)
+            seasonal = np.tile(climatology, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            data_detrended = data_detrended - seasonal
+
         # Apply Hanning window along time axis
         window = signal.windows.hann(n_time)
         data_windowed = data_detrended * window[:, np.newaxis, np.newaxis]
-        
+
         # Compute window correction factor
         window_correction = np.mean(window**2)
         
@@ -4171,26 +4179,37 @@ def plot_ke_temporal_spectrum_comparison(
         # Apply linear detrending along time axis for each spatial point
         u_detrended = signal.detrend(u_np, axis=0, type='linear')
         v_detrended = signal.detrend(v_np, axis=0, type='linear')
-        
+
+        # Remove seasonal cycle (monthly climatology)
+        steps_per_year = int(round(365.25 / dt_days))
+        n_full = (n_time // steps_per_year) * steps_per_year
+        if n_full >= steps_per_year:
+            clim_u = u_detrended[:n_full].reshape(-1, steps_per_year, *u_detrended.shape[1:]).mean(axis=0)
+            clim_v = v_detrended[:n_full].reshape(-1, steps_per_year, *v_detrended.shape[1:]).mean(axis=0)
+            seasonal_u = np.tile(clim_u, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            seasonal_v = np.tile(clim_v, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            u_detrended = u_detrended - seasonal_u
+            v_detrended = v_detrended - seasonal_v
+
         # Apply Hanning window along time axis
         window = signal.windows.hann(n_time)
         u_windowed = u_detrended * window[:, np.newaxis, np.newaxis]
         v_windowed = v_detrended * window[:, np.newaxis, np.newaxis]
-        
+
         # Compute window correction factor
         window_correction = np.mean(window**2)
-        
+
         # Compute FFT along time axis for each spatial point
         fft_u = np.fft.rfft(u_windowed, axis=0)
         fft_v = np.fft.rfft(v_windowed, axis=0)
-        
+
         # Compute power spectrum for u and v at each spatial point
         power_u = np.abs(fft_u)**2
         power_v = np.abs(fft_v)**2
-        
+
         # Compute KE power spectrum: 0.5 * (|FFT(u)|^2 + |FFT(v)|^2)
         power_ke = 0.5 * (power_u + power_v)
-        
+
         # Convert to PSD for one-sided spectrum (rfft)
         # Multiply by 2 to account for negative frequencies
         psd_spatial = 2.0 * power_ke / (fs * n_time * window_correction)
@@ -5990,16 +6009,19 @@ def plot_isotropic_spectrum_comparison_together(
     # Plotting
     fig, ax = plt.subplots(figsize=(6, 4))
 
+    plotted_truths = set()
     for label, data in all_spectra.items():
         color = emulators_dict[label]['color']
         truth_label = data['truth_label']
 
-        # Plot truth (dashed)
-        ax.loglog(
-            data['k_truth'], data['spec_truth'].mean(0), '--',
-            label=f'{truth_label} ({var_to_eval} Anomalies)',
-            linewidth=2, color=color, alpha=0.7
-        )
+        # Plot truth (dashed) — skip if already plotted for this truth_label
+        if truth_label not in plotted_truths:
+            ax.loglog(
+                data['k_truth'], data['spec_truth'].mean(0), '--',
+                label=f'{truth_label} ({var_to_eval} Anomalies)',
+                linewidth=2, color=color, alpha=0.7
+            )
+            plotted_truths.add(truth_label)
         # Plot emulator (solid)
         ax.loglog(
             data['k_emu'], data['spec_emu'].mean(0), '-',
@@ -6169,16 +6191,19 @@ def plot_ke_spectrum_comparison_together(
     # Plotting
     fig, ax = plt.subplots(figsize=(6, 4))
 
+    plotted_truths = set()
     for label, data in all_spectra.items():
         color = emulators_dict[label]['color']
         truth_label = data['truth_label']
 
-        # Plot truth (dashed)
-        ax.loglog(
-            data['k_truth'], data['spec_truth'].mean(0), '--',
-            label=f'{truth_label} (KE Anomalies)',
-            linewidth=2, color=color, alpha=0.7
-        )
+        # Plot truth (dashed) — skip if already plotted for this truth_label
+        if truth_label not in plotted_truths:
+            ax.loglog(
+                data['k_truth'], data['spec_truth'].mean(0), '--',
+                label=f'{truth_label} (KE Anomalies)',
+                linewidth=2, color=color, alpha=0.7
+            )
+            plotted_truths.add(truth_label)
         # Plot emulator (solid)
         ax.loglog(
             data['k_emu'], data['spec_emu'].mean(0), '-',
@@ -6321,6 +6346,14 @@ def plot_temporal_spectrum_comparison_together(
         data_np = np.nan_to_num(data.values, nan=0.0)
         data_detrended = signal.detrend(data_np, axis=0, type='linear')
 
+        # Remove seasonal cycle
+        steps_per_year = int(round(365.25 / dt_days))
+        n_full = (n_time // steps_per_year) * steps_per_year
+        if n_full >= steps_per_year:
+            climatology = data_detrended[:n_full].reshape(-1, steps_per_year, *data_detrended.shape[1:]).mean(axis=0)
+            seasonal = np.tile(climatology, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            data_detrended = data_detrended - seasonal
+
         window = signal.windows.hann(n_time)
         data_windowed = data_detrended * window[:, np.newaxis, np.newaxis]
         window_correction = np.mean(window**2)
@@ -6359,16 +6392,19 @@ def plot_temporal_spectrum_comparison_together(
     # Plotting
     fig, ax = plt.subplots(figsize=(6, 4))
 
+    plotted_truths = set()
     for label, data in all_spectra.items():
         color = emulators_dict[label]['color']
         truth_label = data['truth_label']
 
-        # Plot truth (dashed), skip DC component
-        ax.loglog(
-            data['freq_truth'][1:], data['psd_truth'][1:], '--',
-            label=f'{truth_label} ({var_to_eval} Anomalies)',
-            linewidth=2, color=color, alpha=0.7
-        )
+        # Plot truth (dashed), skip DC component — skip if already plotted for this truth_label
+        if truth_label not in plotted_truths:
+            ax.loglog(
+                data['freq_truth'][1:], data['psd_truth'][1:], '--',
+                label=f'{truth_label} ({var_to_eval} Anomalies)',
+                linewidth=2, color=color, alpha=0.7
+            )
+            plotted_truths.add(truth_label)
         # Plot emulator (solid), skip DC component
         ax.loglog(
             data['freq_emu'][1:], data['psd_emu'][1:], '-',
@@ -6515,6 +6551,17 @@ def plot_ke_temporal_spectrum_comparison_together(
         u_detrended = signal.detrend(u_np, axis=0, type='linear')
         v_detrended = signal.detrend(v_np, axis=0, type='linear')
 
+        # Remove seasonal cycle
+        steps_per_year = int(round(365.25 / dt_days))
+        n_full = (n_time // steps_per_year) * steps_per_year
+        if n_full >= steps_per_year:
+            clim_u = u_detrended[:n_full].reshape(-1, steps_per_year, *u_detrended.shape[1:]).mean(axis=0)
+            clim_v = v_detrended[:n_full].reshape(-1, steps_per_year, *v_detrended.shape[1:]).mean(axis=0)
+            seasonal_u = np.tile(clim_u, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            seasonal_v = np.tile(clim_v, (n_time // steps_per_year + 1, 1, 1))[:n_time]
+            u_detrended = u_detrended - seasonal_u
+            v_detrended = v_detrended - seasonal_v
+
         window = signal.windows.hann(n_time)
         u_windowed = u_detrended * window[:, np.newaxis, np.newaxis]
         v_windowed = v_detrended * window[:, np.newaxis, np.newaxis]
@@ -6559,16 +6606,19 @@ def plot_ke_temporal_spectrum_comparison_together(
     # Plotting
     fig, ax = plt.subplots(figsize=(6, 4))
 
+    plotted_truths = set()
     for label, data in all_spectra.items():
         color = emulators_dict[label]['color']
         truth_label = data['truth_label']
 
-        # Plot truth (dashed), skip DC component
-        ax.loglog(
-            data['freq_truth'][1:], data['psd_truth'][1:], '--',
-            label=f'{truth_label} (KE Anomalies)',
-            linewidth=2, color=color, alpha=0.7
-        )
+        # Plot truth (dashed), skip DC component — skip if already plotted for this truth_label
+        if truth_label not in plotted_truths:
+            ax.loglog(
+                data['freq_truth'][1:], data['psd_truth'][1:], '--',
+                label=f'{truth_label} (KE Anomalies)',
+                linewidth=2, color=color, alpha=0.7
+            )
+            plotted_truths.add(truth_label)
         # Plot emulator (solid), skip DC component
         ax.loglog(
             data['freq_emu'][1:], data['psd_emu'][1:], '-',
