@@ -4339,7 +4339,7 @@ def plot_mean_timeseries_comparison_together(emulators_dict, variable_name, var_
     Time series comparison where each emulator uses its corresponding truth.
     emulators_dict: dict with 'ds', 'color', 'truth', 'truth_label' for each emulator
     """
-    print(f"Generating Time Series for {var_label} (Multi-Resolution)...")
+    print(f"Generating Time Series for {var_label} (Multi-Scale)...")
     num_plots = len(DEPTH_SLICES)
     
     plt.style.use('seaborn-v0_8-darkgrid')
@@ -4389,7 +4389,7 @@ def plot_mean_timeseries_comparison_together(emulators_dict, variable_name, var_
         ax.legend(fontsize=9, loc='upper left', bbox_to_anchor=(1, 1))
 
     axes[-1].set_xlabel("Year", fontsize=12)
-    fig.suptitle(f"Global Mean {var_label} Time Series (Multi-Resolution)", fontsize=14, y=1.02)
+    fig.suptitle(f"Global Mean {var_label} Time Series (Multi-Scale)", fontsize=14, y=1.02)
     plt.show()
 
 
@@ -4397,7 +4397,7 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
     """Variance comparison where each emulator uses its corresponding truth.
     Also plots the ground truth variance from the first emulator as the top row.
     """
-    print(f"\nGenerating Variance Comparison for {variable_name} (Multi-Resolution)...")
+    print(f"\nGenerating Variance Comparison for {variable_name} (Multi-Scale)...")
     
     datasets = list(emulators_dict.keys())
     nrows = len(datasets) + 1  # +1 for ground truth row
@@ -4473,7 +4473,7 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
 
         fig.colorbar(p_mesh, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
 
-    fig.suptitle(f"Temporal Variance: {variable_name} (Multi-Resolution)", fontsize=18, y=0.96)
+    fig.suptitle(f"Temporal Variance: {variable_name} (Multi-Scale)", fontsize=18, y=0.96)
     plt.show()
 
 
@@ -4602,7 +4602,7 @@ def plot_ohc_zonal_bias_ocean_comparison_together(emulators_dict, masks_list, co
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3e} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3e}", fontsize=11)
     for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-    fig.suptitle(f"Time-Averaged OHC Zonal Mean Bias: All Emulators (Multi-Resolution)", fontsize=18, y=1.03)
+    fig.suptitle(f"Time-Averaged OHC Zonal Mean Bias: All Emulators (Multi-Scale)", fontsize=18, y=1.03)
     plt.show()
 
 
@@ -4652,7 +4652,7 @@ def plot_zonal_bias_ocean_comparison_together(emulators_dict, variable_name, uni
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3f}", fontsize=11)
     for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-    fig.suptitle(f"Time-Averaged Zonal Mean Bias: All Emulators ({variable_name}, Multi-Resolution)", fontsize=18, y=1.03)
+    fig.suptitle(f"Time-Averaged Zonal Mean Bias: All Emulators ({variable_name}, Multi-Scale)", fontsize=18, y=1.03)
     plt.show()
 
 
@@ -4714,7 +4714,7 @@ def plot_snapshot_zonal_bias_ocean_comparison_together(emulators_dict, variable_
                 ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3f}", fontsize=11)
         for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-        fig.suptitle(f"Snapshot Zonal Bias at {time_str} ({variable_name}, Multi-Resolution)", fontsize=18, y=1.03)
+        fig.suptitle(f"Snapshot Zonal Bias at {time_str} ({variable_name}, Multi-Scale)", fontsize=18, y=1.03)
         plt.show()
 
 
@@ -4777,13 +4777,13 @@ def plot_snapshot_ohc_zonal_bias_ocean_comparison_together(emulators_dict, masks
                 ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3e} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3e}", fontsize=11)
         for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index', fontsize=12)
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02)
-        fig.suptitle(f"Snapshot OHC Zonal Bias at {time_str} (Multi-Resolution)", fontsize=18, y=1.03)
+        fig.suptitle(f"Snapshot OHC Zonal Bias at {time_str} (Multi-Scale)", fontsize=18, y=1.03)
         plt.show()
 
 
 def plot_ohc_bias_comparison_together(emulators_dict, colorbar_fix=False):
-    """OHC Bias comparison (Multi-Resolution) in one figure."""
-    print(f"\nGenerating OHC Bias Comparison (Multi-Resolution)...")
+    """OHC Bias comparison (Multi-Scale) in one figure."""
+    print(f"\nGenerating OHC Bias Comparison (Multi-Scale)...")
     units = 'ZJ'
     
     datasets = list(emulators_dict.keys())
@@ -4850,13 +4850,13 @@ def plot_ohc_bias_comparison_together(emulators_dict, colorbar_fix=False):
         
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-    fig.suptitle(f"Time-Averaged OHC Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
+    fig.suptitle(f"Time-Averaged OHC Bias Comparison (Multi-Scale)", fontsize=18, y=0.98)
     plt.show()
 
 
 def plot_temperature_bias_comparison_together(emulators_dict, colorbar_fix=False):
-    """Temperature Bias comparison (Multi-Resolution) in one figure."""
-    print(f"\nGenerating Temperature Bias Comparison (Multi-Resolution)...")
+    """Temperature Bias comparison (Multi-Scale) in one figure."""
+    print(f"\nGenerating Temperature Bias Comparison (Multi-Scale)...")
     VARIABLE_TO_PLOT = 'thetao'
     units = '$^\\circ$C'
     
@@ -4925,7 +4925,7 @@ def plot_temperature_bias_comparison_together(emulators_dict, colorbar_fix=False
         
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-    fig.suptitle(f"Time-Averaged Temperature Bias Comparison (Multi-Resolution)", fontsize=18, y=0.98)
+    fig.suptitle(f"Time-Averaged Temperature Bias Comparison (Multi-Scale)", fontsize=18, y=0.98)
     plt.show()
 
 
@@ -5000,7 +5000,7 @@ def plot_ohc_snapshot_bias_comparison_together(emulators_dict, time_indices, col
 
             fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-        fig.suptitle(f"OHC Snapshot Bias at {time_str} (Multi-Resolution)", fontsize=18, y=0.98)
+        fig.suptitle(f"OHC Snapshot Bias at {time_str} (Multi-Scale)", fontsize=18, y=0.98)
         plt.show()
 
 
@@ -5077,12 +5077,12 @@ def plot_temperature_snapshot_bias_comparison_together(emulators_dict, time_indi
         
             fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03, label=f"Bias ({units})")
         
-        fig.suptitle(f"Temperature Snapshot Bias at {time_str} (Multi-Resolution)", fontsize=18, y=0.98)
+        fig.suptitle(f"Temperature Snapshot Bias at {time_str} (Multi-Scale)", fontsize=18, y=0.98)
         plt.show()
 
 
 # ============================================================================
-# MULTI-RESOLUTION _TOGETHER FUNCTIONS
+# Multi-Scale _TOGETHER FUNCTIONS
 # ============================================================================
 
 def plot_ohc_mean_comparison_together(emulators_dict, variable_name=None, units=None, colorbar_fix=False):
@@ -5090,7 +5090,7 @@ def plot_ohc_mean_comparison_together(emulators_dict, variable_name=None, units=
     Rows: Truth, Emulator1, Emulator2, ...
     Cols: Depth Slices
     """
-    print("\nGenerating OHC Mean Comparison (Multi-Resolution)...")
+    print("\nGenerating OHC Mean Comparison (Multi-Scale)...")
     
     # Get first emulator's truth
     first_label = list(emulators_dict.keys())[0]
@@ -5160,13 +5160,13 @@ def plot_ohc_mean_comparison_together(emulators_dict, variable_name=None, units=
         # Colorbar per column
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
     
-    fig.suptitle("8-yr-Mean OHC Comparison (Multi-Resolution)", fontsize=18, y=0.96)
+    fig.suptitle("8-yr-Mean OHC Comparison (Multi-Scale)", fontsize=18, y=0.96)
     plt.show()
 
 
 def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False):
     """Temperature Mean Comparison: Ground truth (first emulator) + all emulators on one figure."""
-    print("\nGenerating Temperature Mean Comparison (Multi-Resolution)...")
+    print("\nGenerating Temperature Mean Comparison (Multi-Scale)...")
     VARIABLE_TO_PLOT = 'thetao'
     
     first_label = list(emulators_dict.keys())[0]
@@ -5234,7 +5234,7 @@ def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False
         
         fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
     
-    fig.suptitle("8-yr-Mean Temperature Comparison (Multi-Resolution)", fontsize=18, y=0.96)
+    fig.suptitle("8-yr-Mean Temperature Comparison (Multi-Scale)", fontsize=18, y=0.96)
     plt.show()
 
 
@@ -5242,7 +5242,7 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
     """Zonal Mean Comparison: Ground truth (first emulator) + all emulators on one figure.
     Layout: 4 basins x (1 truth + N emulators) columns
     """
-    print(f"\nGenerating Zonal Mean Comparison for {variable_name} (Multi-Resolution)...")
+    print(f"\nGenerating Zonal Mean Comparison for {variable_name} (Multi-Scale)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5306,13 +5306,13 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
     
     for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
-    fig.suptitle(f"Time-Averaged Zonal Mean {variable_name} (Multi-Resolution)", fontsize=16, y=0.935)
+    fig.suptitle(f"Time-Averaged Zonal Mean {variable_name} (Multi-Scale)", fontsize=16, y=0.935)
     plt.show()
 
 
 def plot_ohc_zonal_mean_comparison_together(emulators_dict, masks_list, variable_name=None, units=None, colorbar_fix=False):
     """OHC Zonal Mean Comparison: Ground truth (first emulator) + all emulators."""
-    print("\nGenerating OHC Zonal Mean Comparison (Multi-Resolution)...")
+    print("\nGenerating OHC Zonal Mean Comparison (Multi-Scale)...")
     units = 'J/m^3'
     
     first_label = list(emulators_dict.keys())[0]
@@ -5371,13 +5371,13 @@ def plot_ohc_zonal_mean_comparison_together(emulators_dict, masks_list, variable
     
     for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
-    fig.suptitle(f"Time-Averaged Zonal Mean OHC ({units}, Multi-Resolution)", fontsize=16, y=0.935)
+    fig.suptitle(f"Time-Averaged Zonal Mean OHC ({units}, Multi-Scale)", fontsize=16, y=0.935)
     plt.show()
 
 
 def plot_zonal_snapshot_comparison_together(emulators_dict, variable_name, units, masks_list, time_indices=None, colorbar_fix=False):
     """Zonal Snapshot Comparison: Ground truth (first emulator) + all emulators."""
-    print(f"\nGenerating Zonal Snapshot Comparison for {variable_name} (Multi-Resolution)...")
+    print(f"\nGenerating Zonal Snapshot Comparison for {variable_name} (Multi-Scale)...")
     if time_indices is None:
         time_indices = [0]
     
@@ -5444,13 +5444,13 @@ def plot_zonal_snapshot_comparison_together(emulators_dict, variable_name, units
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
-        fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Resolution)", fontsize=16, y=0.935)
+        fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Scale)", fontsize=16, y=0.935)
         plt.show()
 
 
 def plot_ohc_zonal_snapshot_comparison_together(emulators_dict, masks_list, TIME_INDICES, variable_name=None, units=None, colorbar_fix=False):
     """OHC Zonal Snapshot Comparison: Ground truth (first emulator) + all emulators."""
-    print("\nGenerating OHC Zonal Snapshot Comparison (Multi-Resolution)...")
+    print("\nGenerating OHC Zonal Snapshot Comparison (Multi-Scale)...")
     units = 'J/m^2'
     
     first_label = list(emulators_dict.keys())[0]
@@ -5518,13 +5518,13 @@ def plot_ohc_zonal_snapshot_comparison_together(emulators_dict, masks_list, TIME
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
-        fig.suptitle(f"Snapshot Zonal Mean OHC at {time_str} ({units}, Multi-Resolution)", fontsize=16, y=0.935)
+        fig.suptitle(f"Snapshot Zonal Mean OHC at {time_str} ({units}, Multi-Scale)", fontsize=16, y=0.935)
         plt.show()
 
 
 def plot_zonal_mean_snapshot_comparison_together(emulators_dict, variable_name, units, masks_list, TIME_INDICES, colorbar_fix=False):
     """Zonal Mean Snapshot Comparison at specific time indices."""
-    print(f"\nGenerating Zonal Mean Snapshot Comparison for {variable_name} (Multi-Resolution)...")
+    print(f"\nGenerating Zonal Mean Snapshot Comparison for {variable_name} (Multi-Scale)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5590,14 +5590,14 @@ def plot_zonal_mean_snapshot_comparison_together(emulators_dict, variable_name, 
         
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index', fontsize=11)
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08)
-        fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Resolution)", fontsize=16, y=0.935)
+        fig.suptitle(f"Snapshot Zonal Mean {variable_name} at {time_str} (Multi-Scale)", fontsize=16, y=0.935)
         plt.show()
 
 
 def plot_snapshot_comparison_SpecificLayer_together(emulators_dict, var_name, time_indices, depth_config, fix_colorbar=False):
     """Snapshot Comparison at Specific Layer: Ground truth (first emulator) + all emulators."""
     config = VAR_CONFIG.get(var_name, {'cmap': 'viridis', 'units': '', 'label': var_name, 'centered': False})
-    print(f"\nGenerating Snapshot Comparison for {config['label']} at {depth_config['title']} (Multi-Resolution)...")
+    print(f"\nGenerating Snapshot Comparison for {config['label']} at {depth_config['title']} (Multi-Scale)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5662,13 +5662,13 @@ def plot_snapshot_comparison_SpecificLayer_together(emulators_dict, var_name, ti
                    transform=ax.transAxes, fontsize=12, fontweight='bold')
         
         fig.colorbar(p, ax=axes, orientation='vertical', shrink=0.8, pad=0.02)
-        fig.suptitle(f"{config['label']} Snapshot at {depth_config['title']}, {time_str} (Multi-Resolution)", fontsize=16, y=0.96)
+        fig.suptitle(f"{config['label']} Snapshot at {depth_config['title']}, {time_str} (Multi-Scale)", fontsize=16, y=0.96)
         plt.show()
 
 
 def plot_ohc_snapshot_comparison_together(emulators_dict, time_indices, depth_config, variable_name=None, units=None, colorbar_fix=False):
     """OHC Snapshot Comparison: Ground truth (first emulator) + all emulators."""
-    print(f"\nGenerating OHC Snapshot Comparison at {depth_config['title']} (Multi-Resolution)...")
+    print(f"\nGenerating OHC Snapshot Comparison at {depth_config['title']} (Multi-Scale)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5729,7 +5729,7 @@ def plot_ohc_snapshot_comparison_together(emulators_dict, time_indices, depth_co
                    transform=ax.transAxes, fontsize=12, fontweight='bold')
         
         fig.colorbar(p, ax=axes, orientation='vertical', shrink=0.8, pad=0.02)
-        fig.suptitle(f"OHC Snapshot at {depth_config['title']}, {time_str} (Multi-Resolution)", fontsize=16, y=0.96)
+        fig.suptitle(f"OHC Snapshot at {depth_config['title']}, {time_str} (Multi-Scale)", fontsize=16, y=0.96)
         plt.show()
 
 
@@ -5740,7 +5740,7 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
     Cols: Depths
     """
     config = VAR_CONFIG.get(var_name, {'cmap': 'viridis', 'units': '', 'label': var_name, 'centered': False})
-    print(f"\nGenerating Snapshot Comparison for {config['label']} (Multi-Resolution, Multi-Depth)...")
+    print(f"\nGenerating Snapshot Comparison for {config['label']} (Multi-Scale, Multi-Depth)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5759,19 +5759,30 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
         else:
             time_str = str(time_val)[:10]
 
-        fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
-            subplot_kw={'projection': ccrs.Robinson(central_longitude=210)}, gridspec_kw={'hspace': 0.15, 'wspace': 0.05})
-        if nrows == 1: axes = np.expand_dims(axes, 0)
-        if ncols == 1: axes = np.expand_dims(axes, 1)
+        from matplotlib.gridspec import GridSpec
+
+        fig = plt.figure(figsize=(5*ncols, 3*nrows + 0.8))
+        # nrows for maps + 1 thin row for colorbars
+        gs = GridSpec(nrows + 1, ncols, figure=fig,
+                      height_ratios=[1]*nrows + [0.04],
+                      hspace=0.08, wspace=0.05,
+                      top=0.93, bottom=0.03, left=0.07, right=0.97)
+
+        proj = ccrs.Robinson(central_longitude=210)
+        axes = np.empty((nrows, ncols), dtype=object)
+        for i in range(nrows):
+            for j in range(ncols):
+                axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
+        cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
 
         # Loop Columns (Depths)
         for j, d_conf in enumerate(depth_configs):
             key = d_conf['title']
             d_idx = d_conf['index']
-            
+
             # Truth Map
             truth_map = calculate_snapshot_map_SpecificLayer(ds_truth, var_name, dz_truth, wet_mask, d_idx, time_idx).compute()
-            
+
             # Emulator Maps
             emu_maps = {}
             for label, emu_data in emulators_dict.items():
@@ -5780,7 +5791,7 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                 dz_emu = ds_emu_truth['dz']
                 wet_emu = (ds_emu_truth[var_name].isel(time=0) * 0 + 1).compute()
                 emu_maps[label] = calculate_snapshot_map_SpecificLayer(ds_emu, var_name, dz_emu, wet_emu, d_idx, time_idx).compute()
-            
+
             valid_data = truth_map.values[~np.isnan(truth_map.values)]
             if len(valid_data) > 0:
                 if config['centered']:
@@ -5791,13 +5802,13 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                     vmax = np.percentile(valid_data, 99.75)
             else:
                 vmin, vmax = 0, 1
-            
+
             if fix_colorbar:
                 fixed = {0: (-2, 32), 10: (-2, 15), 14: (-2, 10), 15: (-2, 10)}
                 vmin, vmax = fixed.get(d_idx, (vmin, vmax))
-            
+
             norm = colors.Normalize(vmin=vmin, vmax=vmax)
-            
+
             # Plot Rows (Datasets)
             for i, ds_name in enumerate(datasets):
                 ax = axes[i, j]
@@ -5805,21 +5816,21 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                     data_to_plot = truth_map
                 else:
                     data_to_plot = emu_maps[ds_name]
-                
+
                 p = data_to_plot.plot.pcolormesh(ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
                     cmap=config['cmap'], norm=norm, add_colorbar=False, rasterized=True)
                 ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
                 ax.coastlines(zorder=11)
-                
-                if i == 0: ax.set_title(key, fontsize=14, fontweight='bold')
-                else: ax.set_title("")
-                
-                if j == 0: ax.text(-0.07, 0.55, ds_name, va='center', ha='right', rotation='vertical',
-                                  transform=ax.transAxes, fontsize=12, fontweight='bold')
-            
-            fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
 
-        fig.suptitle(f"{config['label']} Snapshot at {time_str} (Multi-Resolution)", fontsize=18, y=0.96)
+                if i == 0: ax.set_title(key, fontsize=16, fontweight='bold')
+                else: ax.set_title("")
+
+                if j == 0: ax.text(-0.07, 0.55, ds_name, va='center', ha='right', rotation='vertical',
+                                  transform=ax.transAxes, fontsize=14, fontweight='bold')
+
+            fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal')
+
+        fig.suptitle(f"{config['label']} Snapshot at {time_str} (Multi-Scale)", fontsize=22, y=0.97)
         plt.show()
 
 
@@ -5829,7 +5840,7 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
     Rows: Emulators
     Cols: Depth Slices
     """
-    print(f"\nGenerating OHC Snapshot Comparison (Multi-Resolution, Multi-Depth)...")
+    print(f"\nGenerating OHC Snapshot Comparison (Multi-Scale, Multi-Depth)...")
     
     first_label = list(emulators_dict.keys())[0]
     ds_truth = emulators_dict[first_label]['truth']
@@ -5849,20 +5860,30 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
         else:
             time_str = str(time_val)[:10]
 
-        fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
-            subplot_kw={'projection': ccrs.Robinson(central_longitude=210)}, gridspec_kw={'hspace': 0.15, 'wspace': 0.05})
-        if nrows == 1: axes = np.expand_dims(axes, 0)
-        if ncols == 1: axes = np.expand_dims(axes, 1)
+        from matplotlib.gridspec import GridSpec
+
+        fig = plt.figure(figsize=(5*ncols, 3*nrows + 0.8))
+        gs = GridSpec(nrows + 1, ncols, figure=fig,
+                      height_ratios=[1]*nrows + [0.04],
+                      hspace=0.08, wspace=0.05,
+                      top=0.93, bottom=0.03, left=0.07, right=0.97)
+
+        proj = ccrs.Robinson(central_longitude=210)
+        axes = np.empty((nrows, ncols), dtype=object)
+        for i in range(nrows):
+            for j in range(ncols):
+                axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
+        cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
 
         # Loop Columns (Depths)
         for j, d_conf in enumerate(depth_configs):
             key = d_conf['title']
             d_min = d_conf['min']
             d_max = d_conf['max']
-            
+
             # Truth Map
             truth_map = calculate_ohc_snapshot_map(ds_truth, dz_truth, wet_mask, d_min, d_max, time_idx).compute()
-            
+
             # Emulator Maps
             emu_maps = {}
             for label, emu_data in emulators_dict.items():
@@ -5871,21 +5892,21 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
                 dz_emu = ds_emu_truth['dz']
                 wet_emu = (ds_emu_truth['thetao'].isel(time=0) * 0 + 1).compute()
                 emu_maps[label] = calculate_ohc_snapshot_map(ds_emu, dz_emu, wet_emu, d_min, d_max, time_idx).compute()
-            
+
             valid_data = truth_map.values[~np.isnan(truth_map.values)]
             if len(valid_data) > 0:
                 vmin = np.percentile(valid_data, .25)
                 vmax = np.percentile(valid_data, 99.75)
             else:
                 vmin, vmax = 0, 1
-            
+
             if colorbar_fix:
                 if key == 'Surface (0-700m)': vmin, vmax = 0, 5e-11
                 elif key == 'Intermediate (700-2000m)': vmin, vmax = 0, 5e-11
                 elif key == 'Deep (2000-7000m)': vmin, vmax = 0, 5e-11
-            
+
             norm = colors.Normalize(vmin=vmin, vmax=vmax)
-            
+
             # Plot Rows (Datasets)
             for i, ds_name in enumerate(datasets):
                 ax = axes[i, j]
@@ -5893,26 +5914,446 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
                     data_to_plot = truth_map
                 else:
                     data_to_plot = emu_maps[ds_name]
-                
+
                 p = data_to_plot.plot.pcolormesh(ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
                     cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
                 ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
                 ax.coastlines(zorder=11)
-                
-                if i == 0: ax.set_title(key, fontsize=14, fontweight='bold')
-                else: ax.set_title("")
-                
-                if j == 0: ax.text(-0.07, 0.55, ds_name, va='center', ha='right', rotation='vertical',
-                                  transform=ax.transAxes, fontsize=12, fontweight='bold')
-            
-            fig.colorbar(p, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
 
-        fig.suptitle(f"OHC Snapshot at {time_str} (Multi-Resolution)", fontsize=18, y=0.96)
+                if i == 0: ax.set_title(key, fontsize=16, fontweight='bold')
+                else: ax.set_title("")
+
+                if j == 0: ax.text(-0.07, 0.55, ds_name, va='center', ha='right', rotation='vertical',
+                                  transform=ax.transAxes, fontsize=14, fontweight='bold')
+
+            fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal')
+
+        fig.suptitle(f"OHC Snapshot at {time_str} (Multi-Scale)", fontsize=22, y=0.97)
         plt.show()
 
 
 # =============================================================================
-# SPECTRUM _TOGETHER FUNCTIONS (Multi-Resolution)
+# MOVIE / ANIMATION HELPERS
+# Generate animated GIFs from snapshot plotting functions.
+# Each frame = one year, starting from a configurable time index.
+# =============================================================================
+import io
+
+
+def _get_time_indices(ds, start_idx=0, end_idx=None, freq='yearly'):
+    """Return time indices at the requested frequency.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset whose ``time`` coordinate is used.
+    start_idx : int
+        First time index to consider.
+    end_idx : int or None
+        Exclusive upper bound on time index.  ``None`` means use all
+        time steps up to the end of the dataset.
+    freq : str
+        ``'yearly'`` – one frame per year, anchored to the start_idx date
+        (i.e. the closest time step to each anniversary of the start date).
+        ``'monthly'`` – one frame per month, anchored to the start_idx date.
+        ``'all'`` – every time step, i.e. every 5-day point (no subsampling).
+    """
+    n_times = len(ds.time.values)
+    stop = min(end_idx, n_times) if end_idx is not None else n_times
+
+    if freq == 'all':
+        return list(range(start_idx, stop))
+
+    times = ds.time.values[start_idx:stop]
+    t0 = times[0]
+
+    if freq == 'yearly':
+        step_days = 365
+    elif freq == 'monthly':
+        step_days = 30
+    else:
+        raise ValueError(f"Unknown freq {freq!r}; use 'yearly', 'monthly', or 'all'.")
+
+    # Build target dates using cftime-compatible arithmetic
+    # cftime objects support + datetime.timedelta
+    from datetime import timedelta
+
+    indices = [start_idx]  # always include the start point
+    k = 1
+    while True:
+        if freq == 'yearly':
+            # Use the same month/day but increment year to handle cftime
+            try:
+                target = t0.replace(year=t0.year + k)
+            except ValueError:
+                # Handle edge cases like leap day
+                target = t0.replace(year=t0.year + k, day=t0.day - 1)
+        elif freq == 'monthly':
+            new_month = t0.month + k
+            new_year = t0.year + (new_month - 1) // 12
+            new_month = (new_month - 1) % 12 + 1
+            try:
+                target = t0.replace(year=new_year, month=new_month)
+            except ValueError:
+                # Handle months with fewer days (e.g. day=31 in a 30-day month)
+                target = t0.replace(year=new_year, month=new_month, day=28)
+
+        if target > times[-1]:
+            break
+
+        # Find the closest time step to the target
+        min_diff = None
+        min_idx = 0
+        for ii, t in enumerate(times):
+            diff = abs((t - target).total_seconds()) if hasattr(t - target, 'total_seconds') else abs(
+                (t.year - target.year) * 365 * 86400 + (t.dayofyr - target.dayofyr) * 86400)
+            if min_diff is None or diff < min_diff:
+                min_diff = diff
+                min_idx = ii
+        indices.append(start_idx + min_idx)
+        k += 1
+    return indices
+
+
+def _save_gif(frames, output_path, fps=2):
+    """Save a list of PIL Images as an animated GIF."""
+    if not frames:
+        print("  Warning: no frames captured, GIF not saved.")
+        return
+    duration_ms = int(1000 / fps)
+    frames[0].save(
+        output_path, save_all=True, append_images=frames[1:],
+        duration=duration_ms, loop=0,
+    )
+    print(f"  -> Saved movie: {output_path} ({len(frames)} frames, {fps} fps)")
+
+
+def _save_mp4(frames, output_path, fps=2):
+    """Save a list of PIL Images as an MP4 video via ffmpeg pipe."""
+    import subprocess
+
+    if not frames:
+        print("  Warning: no frames captured, MP4 not saved.")
+        return
+
+    w, h = frames[0].size
+    cmd = [
+        'ffmpeg', '-y',
+        '-f', 'rawvideo', '-pix_fmt', 'rgb24',
+        '-s', f'{w}x{h}', '-r', str(fps),
+        '-i', '-',
+        '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+        '-crf', '23', '-preset', 'medium',
+        output_path,
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    for frame in frames:
+        proc.stdin.write(frame.convert('RGB').tobytes())
+    proc.stdin.close()
+    proc.wait()
+    if proc.returncode != 0:
+        err = proc.stderr.read().decode()
+        raise RuntimeError(f"ffmpeg failed (rc={proc.returncode}):\n{err}")
+    print(f"  -> Saved movie: {output_path} ({len(frames)} frames, {fps} fps)")
+
+
+# ---------------------------------------------------------------------------
+# Parallel rendering helpers
+# ---------------------------------------------------------------------------
+# Shared state populated before forking workers (read-only in children via COW).
+_parallel_render_ctx = {}
+
+
+def _render_frame_worker(time_idx):
+    """Render a single movie frame in a worker process. Returns PNG bytes."""
+    import os, sys
+    # Limit each worker to 1 thread to avoid oversubscription
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    # Suppress per-frame print output from plot functions
+    devnull = open(os.devnull, 'w')
+    old_stdout = sys.stdout
+    sys.stdout = devnull
+
+    ctx = _parallel_render_ctx
+    kwargs = dict(ctx['plot_kwargs'])
+    kwargs[ctx['time_indices_kwarg']] = [time_idx]
+
+    frame_data = None
+    _orig_show = plt.show
+
+    def _capture(*a, **kw):
+        nonlocal frame_data
+        fig = plt.gcf()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=ctx['dpi'], bbox_inches='tight')
+        buf.seek(0)
+        frame_data = buf.getvalue()
+        buf.close()
+        plt.close(fig)
+
+    plt.show = _capture
+    try:
+        ctx['plot_func'](emulators_dict=ctx['emulators_dict'], **kwargs)
+    finally:
+        plt.show = _orig_show
+        sys.stdout = old_stdout
+        devnull.close()
+    return frame_data
+
+
+def make_snapshot_movie(plot_func, output_path, emulators_dict, start_idx=0,
+                        end_idx=None, fps=2, dpi=100,
+                        time_indices_kwarg='time_indices',
+                        freq='yearly', n_workers=None, **plot_kwargs):
+    """Generic wrapper: turn any snapshot *_together* plotting function into an
+    animated GIF or MP4 with one frame per selected frequency.
+
+    Parameters
+    ----------
+    plot_func : callable
+        A snapshot plotting function (e.g.
+        ``plot_ohc_snapshot_bias_comparison_together``).
+    output_path : str
+        File path for the output movie (.gif or .mp4).
+    emulators_dict : dict
+        The emulators dictionary.
+    start_idx : int
+        Starting time index for the first frame (default: 0).
+    end_idx : int or None
+        Exclusive upper bound on time index.  ``None`` means use all
+        time steps up to the end of the dataset (default: ``None``).
+    fps : int
+        Frames per second (default: 2).
+    dpi : int
+        Resolution of each frame (default: 100).
+    time_indices_kwarg : str
+        Name of the time-indices parameter in *plot_func*
+        (``'time_indices'`` or ``'TIME_INDICES'``).
+    freq : str
+        Temporal frequency for frames: ``'yearly'``, ``'monthly'``,
+        or ``'all'`` (default: ``'yearly'``).
+    n_workers : int or None
+        Number of parallel rendering workers.  ``None`` auto-selects
+        based on CPU count (capped at 32).  Set to 1 to disable
+        parallel rendering.
+    **plot_kwargs
+        All other keyword arguments forwarded to *plot_func*.
+    """
+    from PIL import Image as PILImage
+    import multiprocessing as mp
+
+    first_label = list(emulators_dict.keys())[0]
+    ds_truth = emulators_dict[first_label]['truth']
+    time_indices = _get_time_indices(ds_truth, start_idx, end_idx=end_idx, freq=freq)
+    n_frames = len(time_indices)
+    print(f"  Generating movie: {n_frames} {freq} frames "
+          f"(index {start_idx} to {end_idx or 'end'}) ...")
+
+    if n_workers is None:
+        n_workers = min(mp.cpu_count(), n_frames, 32)
+
+    if n_workers > 1 and n_frames > 1:
+        # -- Parallel rendering --
+        # Preload only the variables needed for rendering into memory
+        # so forked workers share via COW instead of each doing Zarr I/O.
+        _preload_vars = {'thetao', 'dz'}
+        if 'var_name' in plot_kwargs and plot_kwargs['var_name'] != 'thetao':
+            _preload_vars.add(plot_kwargs['var_name'])
+        print(f"  Preloading variables {_preload_vars} into memory...")
+        for _label, _emu_data in emulators_dict.items():
+            for _v in _preload_vars:
+                if _v in _emu_data['ds']:
+                    _emu_data['ds'][_v] = _emu_data['ds'][_v].compute()
+                if _v in _emu_data['truth']:
+                    _emu_data['truth'][_v] = _emu_data['truth'][_v].compute()
+        print(f"  Parallel rendering with {n_workers} workers...")
+        _parallel_render_ctx.update({
+            'plot_func': plot_func,
+            'emulators_dict': emulators_dict,
+            'time_indices_kwarg': time_indices_kwarg,
+            'dpi': dpi,
+            'plot_kwargs': plot_kwargs,
+        })
+        ctx = mp.get_context('fork')
+        with ctx.Pool(n_workers) as pool:
+            frame_bytes_list = pool.map(_render_frame_worker, time_indices)
+
+        frames = []
+        for fb in frame_bytes_list:
+            if fb is not None:
+                frames.append(PILImage.open(io.BytesIO(fb)).copy())
+    else:
+        # -- Serial rendering (original path) --
+        frames = []
+        _orig_show = plt.show
+
+        def _capture(*args, **kwargs):
+            fig = plt.gcf()
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight')
+            buf.seek(0)
+            frames.append(PILImage.open(buf).copy())
+            buf.close()
+            plt.close(fig)
+
+        plt.show = _capture
+        try:
+            plot_kwargs[time_indices_kwarg] = time_indices
+            plot_func(emulators_dict=emulators_dict, **plot_kwargs)
+        finally:
+            plt.show = _orig_show
+
+    if output_path.endswith('.mp4'):
+        _save_mp4(frames, output_path, fps=fps)
+    else:
+        _save_gif(frames, output_path, fps=fps)
+
+
+# ---------------------------------------------------------------------------
+# Convenience movie functions (thin wrappers around make_snapshot_movie)
+# ---------------------------------------------------------------------------
+
+def movie_snapshot_zonal_bias_ocean_together(
+    emulators_dict, output_path, variable_name, units, masks_list,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False,
+):
+    """Animated GIF of snapshot zonal bias by ocean basin over yearly time steps."""
+    print(f"\nGenerating Zonal Bias Movie for {variable_name}...")
+    make_snapshot_movie(
+        plot_snapshot_zonal_bias_ocean_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='TIME_INDICES',
+        variable_name=variable_name, units=units,
+        masks_list=masks_list, colorbar_fix=colorbar_fix,
+    )
+
+
+def movie_snapshot_ohc_zonal_bias_ocean_together(
+    emulators_dict, output_path, masks_list,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False,
+):
+    """Animated GIF of snapshot OHC zonal bias by ocean basin over yearly time steps."""
+    print("\nGenerating OHC Zonal Bias Movie...")
+    make_snapshot_movie(
+        plot_snapshot_ohc_zonal_bias_ocean_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='TIME_INDICES',
+        masks_list=masks_list, colorbar_fix=colorbar_fix,
+    )
+
+
+def movie_ohc_snapshot_bias_together(
+    emulators_dict, output_path,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False, area=True,
+):
+    """Animated GIF of OHC snapshot bias maps over yearly time steps."""
+    print("\nGenerating OHC Snapshot Bias Movie...")
+    make_snapshot_movie(
+        plot_ohc_snapshot_bias_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices',
+        colorbar_fix=colorbar_fix, area=area,
+    )
+
+
+def movie_temperature_snapshot_bias_together(
+    emulators_dict, output_path,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False,
+):
+    """Animated GIF of temperature snapshot bias maps over yearly time steps."""
+    print("\nGenerating Temperature Snapshot Bias Movie...")
+    make_snapshot_movie(
+        plot_temperature_snapshot_bias_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices',
+        colorbar_fix=colorbar_fix,
+    )
+
+
+def movie_zonal_snapshot_together(
+    emulators_dict, output_path, variable_name, units, masks_list,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False,
+):
+    """Animated GIF of zonal snapshot comparison over yearly time steps."""
+    print(f"\nGenerating Zonal Snapshot Movie for {variable_name}...")
+    make_snapshot_movie(
+        plot_zonal_snapshot_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices',
+        variable_name=variable_name, units=units,
+        masks_list=masks_list, colorbar_fix=colorbar_fix,
+    )
+
+
+def movie_ohc_zonal_snapshot_together(
+    emulators_dict, output_path, masks_list,
+    start_idx=0, fps=2, dpi=100, colorbar_fix=False,
+):
+    """Animated GIF of OHC zonal snapshot comparison over yearly time steps."""
+    print("\nGenerating OHC Zonal Snapshot Movie...")
+    make_snapshot_movie(
+        plot_ohc_zonal_snapshot_comparison_together, output_path,
+        emulators_dict, start_idx=start_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='TIME_INDICES',
+        masks_list=masks_list, colorbar_fix=colorbar_fix,
+    )
+
+
+def movie_snapshot_multidepth_together(
+    emulators_dict, output_path, var_name, depth_configs,
+    start_idx=0, end_idx=None, fps=2, dpi=100, fix_colorbar=False, freq='yearly',
+):
+    """Animated GIF of snapshot comparison at multiple depths.
+
+    Parameters
+    ----------
+    end_idx : int or None
+        Exclusive upper bound on time index. ``None`` = all time steps.
+    freq : str
+        Frame frequency: ``'yearly'``, ``'monthly'``, or ``'all'`` (every 5-day point).
+    """
+    print(f"\nGenerating Multi-Depth Snapshot Movie for {var_name} ({freq})...")
+    make_snapshot_movie(
+        plot_snapshot_comparison_multidepth_together, output_path,
+        emulators_dict, start_idx=start_idx, end_idx=end_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices', freq=freq,
+        var_name=var_name, depth_configs=depth_configs, fix_colorbar=fix_colorbar,
+    )
+
+
+def movie_ohc_snapshot_multidepth_together(
+    emulators_dict, output_path, depth_configs,
+    start_idx=0, end_idx=None, fps=2, dpi=100, colorbar_fix=False, freq='yearly',
+):
+    """Animated GIF of OHC snapshot comparison at multiple depths.
+
+    Parameters
+    ----------
+    end_idx : int or None
+        Exclusive upper bound on time index. ``None`` = all time steps.
+    freq : str
+        Frame frequency: ``'yearly'``, ``'monthly'``, or ``'all'`` (every 5-day point).
+    """
+    print(f"\nGenerating OHC Multi-Depth Snapshot Movie ({freq})...")
+    make_snapshot_movie(
+        plot_ohc_snapshot_comparison_multidepth_together, output_path,
+        emulators_dict, start_idx=start_idx, end_idx=end_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices', freq=freq,
+        depth_configs=depth_configs, colorbar_fix=colorbar_fix,
+    )
+
+
+# =============================================================================
+# SPECTRUM _TOGETHER FUNCTIONS (Multi-Scale)
 # Each emulator has its own corresponding ground truth.
 # emulators_dict format:
 #   {label: {'ds': ds_emu, 'color': color, 'truth': ds_truth, 'truth_label': str}}
@@ -5966,7 +6407,7 @@ def plot_isotropic_spectrum_comparison_together(
     None (displays plot)
     """
 
-    #print(f"\nGenerating Isotropic Power Spectrum Comparison for {var_to_eval} (Multi-Resolution)...")
+    #print(f"\nGenerating Isotropic Power Spectrum Comparison for {var_to_eval} (Multi-Scale)...")
 
     def get_spectrum(ds_target, var_name, lev_i, t_window, x_sl, y_sl):
         """Helper function to compute isotropic spectrum for a dataset."""
@@ -6140,7 +6581,7 @@ def plot_ke_spectrum_comparison_together(
     None (displays plot)
     """
 
-    #print(f"\nGenerating Kinetic Energy Spectrum Comparison (Multi-Resolution)...")
+    #print(f"\nGenerating Kinetic Energy Spectrum Comparison (Multi-Scale)...")
 
     def get_ke_spectrum(ds_target, lev_i, t_window, x_sl, y_sl):
         """Helper function to compute KE spectrum for a dataset."""
@@ -6318,7 +6759,7 @@ def plot_temporal_spectrum_comparison_together(
     if target_frequencies is None:
         target_frequencies = [1.0, 4.0]
 
-    #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval} (Multi-Resolution)...")
+    #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval} (Multi-Scale)...")
 
     def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
         """Helper function to compute temporal spectrum at each spatial point, then average."""
@@ -6518,7 +6959,7 @@ def plot_ke_temporal_spectrum_comparison_together(
     if target_frequencies is None:
         target_frequencies = [1.0, 4.0]
 
-    #print(f"\nGenerating Temporal KE Power Spectrum Comparison (Multi-Resolution)...")
+    #print(f"\nGenerating Temporal KE Power Spectrum Comparison (Multi-Scale)...")
 
     def get_ke_temporal_spectrum(ds_target, lev_i, x_sl, y_sl):
         """Helper function to compute temporal KE spectrum at each spatial point, then average."""

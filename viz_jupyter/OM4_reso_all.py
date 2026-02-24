@@ -95,32 +95,32 @@ storage_options = {"key": my_key, "secret": my_secret, "client_kwargs": {"endpoi
 
 # 2. Emulator Configuration
 EMULATOR_CONFIGS = [
-    (
-        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.LOCAL/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
-        "Samudra",
-        "tab:gray"
-    ),
+    # (
+    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.LOCAL/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
+    #     "Samudra",
+    #     "tab:gray"
+    # ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
-        "WDMSE-1deg",
+        "Samudra++ (1$^\\circ$)",
         "tab:orange"
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr',
-        "WDMSE-1/2deg",
+        "Samudra++ (1/2$^\\circ$)",
         "tab:green"
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr',
-        "WDMSE-1/4deg",
+        "Samudra++ (1/4$^\\circ$)",
         "tab:blue"
     )
 ]
 
 # 3. Truth & Aux Paths
 TRUTH_CONFIGS = [
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4-1deg"),
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4-1deg"),
+    #("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4-1deg"),
+    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "Ground Truth"),
     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/halfdeg/OM4.zarr", "OM4-1/2deg"),
     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr", "OM4-1/4deg")
 ]
@@ -172,10 +172,20 @@ for i in range(len(data_truth_ocean_list)):
 
 # Load Aux Data
 print("Loading Auxiliary Data...")
-levs = xr.open_zarr(LEVS_PATH)['lev'].values
-ocean_test = xr.open_dataset(OCEAN_SAMPLE_PATH)
-depth_levels = concat_levels(ocean_test, 'idepth', 'levels')
-dz_from_data = (depth_levels[1:] - depth_levels[:-1]).data
+# levs = xr.open_zarr(LEVS_PATH)['lev'].values
+# ocean_test = xr.open_dataset(OCEAN_SAMPLE_PATH)
+# depth_levels = concat_levels(ocean_test, 'idepth', 'levels')
+# dz_from_data = (depth_levels[1:] - depth_levels[:-1]).data
+
+levs = np.array([
+    2.5, 10, 22.5, 40, 65, 105, 165, 250, 375,
+    550, 775, 1050, 1400, 1850, 2400, 3100, 4000, 5000, 6000,
+])
+depth_levels = np.array([
+    0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650,
+    900, 1200, 1600, 2100, 2700, 3500, 4500, 5500, 6750,
+], dtype=float)
+dz_from_data = (depth_levels[1:] - depth_levels[:-1])
 
 # Load Grid & Generate Masks
 shape_processed = (emulators_raw[0].y.size, emulators_raw[0].x.size)
@@ -260,6 +270,100 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
+
+
+# ============================================================
+# Animated Movies (GIF) — one frame per year
+# ============================================================
+print("\n" + "="*60)
+print("Animated Movies (GIF)")
+print("="*60)
+
+GIF_DIR = os.path.join(OUTPUT_DIR, "gif_movies")
+os.makedirs(GIF_DIR, exist_ok=True)
+
+# # OHC Snapshot Bias Movie
+# movie_ohc_snapshot_bias_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_ohc_snapshot_bias.gif"),
+#     colorbar_fix=True,
+# )
+
+# # Temperature Snapshot Bias Movie
+# movie_temperature_snapshot_bias_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_temperature_snapshot_bias.gif"),
+#     colorbar_fix=True,
+# )
+
+# # Zonal Bias by Ocean Basin Movie
+# movie_snapshot_zonal_bias_ocean_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_snapshot_zonal_bias_thetao.gif"),
+#     variable_name='thetao',
+#     units='°C',
+#     masks_list=masks_list,
+#     colorbar_fix=True,
+# )
+
+# # OHC Zonal Bias Movie
+# movie_snapshot_ohc_zonal_bias_ocean_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_snapshot_ohc_zonal_bias.gif"),
+#     masks_list=masks_list,
+#     colorbar_fix=True,
+# )
+
+# # Zonal Snapshot Comparison Movie
+# movie_zonal_snapshot_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_zonal_snapshot_thetao.gif"),
+#     variable_name='thetao',
+#     units='$^\\circ$C',
+#     masks_list=masks_list,
+#     colorbar_fix=True,
+# )
+
+# # OHC Zonal Snapshot Movie
+# movie_ohc_zonal_snapshot_together(
+#     emulators_to_analyze,
+#     output_path=os.path.join(GIF_DIR, "movie_ohc_zonal_snapshot.gif"),
+#     masks_list=masks_list,
+#     colorbar_fix=True,
+# )
+
+# Multi-Depth Temperature Snapshot Movie
+
+MOVIE_FPS = {'yearly': 2, 'monthly': 8, 'all': 15}
+MOVIE_DPI = {'yearly': 200, 'monthly': 200, 'all': 200}
+
+for MOVIE_FREQ in ['yearly', 'monthly', 'all']:
+
+    movie_snapshot_multidepth_together(
+        emulators_to_analyze,
+        output_path=os.path.join(GIF_DIR, f"movie_snapshot_multidepth_thetao_{MOVIE_FREQ}.gif"),
+        var_name='thetao',
+        depth_configs=DEPTH_LAYERS,
+        fix_colorbar=True,
+        end_idx=None,
+        freq=MOVIE_FREQ,
+        fps=MOVIE_FPS[MOVIE_FREQ],
+        dpi=MOVIE_DPI[MOVIE_FREQ]
+    )
+
+    # OHC Multi-Depth Snapshot Movie
+    movie_ohc_snapshot_multidepth_together(
+        emulators_to_analyze,
+        output_path=os.path.join(GIF_DIR, f"movie_ohc_snapshot_multidepth_{MOVIE_FREQ}.gif"),
+        depth_configs=DEPTH_SLICES,
+        colorbar_fix=True,
+        end_idx=None,
+        freq=MOVIE_FREQ,
+        fps=MOVIE_FPS[MOVIE_FREQ],
+        dpi=MOVIE_DPI[MOVIE_FREQ]
+    )
+
+exit()
 
 # ============================================================
 # Spectral Analysis
@@ -527,6 +631,7 @@ plot_ohc_snapshot_comparison_multidepth_together(
     colorbar_fix=True
 )
 save_current_fig("ohc_snapshot_multidepth", PDF_DIR)
+
 
 
 print("\n" + "="*60)
