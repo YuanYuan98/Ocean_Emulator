@@ -4,6 +4,15 @@ Auto-generated from OM4_reso_all.ipynb.
 All _together figures are saved as PDF vector graphics (dpi=200).
 """
 
+import argparse
+
+parser = argparse.ArgumentParser(description='OM4 resolution analysis: movies and static plots')
+parser.add_argument('--freq', choices=['yearly', 'monthly','all'], default='yearly',
+                    help='Movie frequency: yearly or monthly')
+parser.add_argument('--var', choices=['temperature', 'ohc'], default='temperature',
+                    help='What to generate: temperature movies, ohc movies')
+args = parser.parse_args()
+
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for saving figures
 
@@ -100,29 +109,29 @@ EMULATOR_CONFIGS = [
     #     "Samudra",
     #     "tab:gray"
     # ),
-    (
-        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
-        "Samudra++ (1$^\\circ$)",
-        "tab:orange"
-    ),
-    (
-        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr',
-        "Samudra++ (1/2$^\\circ$)",
-        "tab:green"
-    ),
+    # (
+    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
+    #     "Samudra-v2",
+    #     "tab:orange"
+    # ),
+    # (
+    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr',
+    #     "Samudra++ (1/2$^\\circ$)",
+    #     "tab:green"
+    # ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr',
-        "Samudra++ (1/4$^\\circ$)",
-        "tab:blue"
-    )
+        "Samudra-v2",
+        "tab:blue", 
+)
 ]
 
 # 3. Truth & Aux Paths
 TRUTH_CONFIGS = [
     #("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4-1deg"),
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "Ground Truth"),
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/halfdeg/OM4.zarr", "OM4-1/2deg"),
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr", "OM4-1/4deg")
+    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "Ground Truth"),
+    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/halfdeg/OM4.zarr", "OM4-1/2deg"),
+    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr", "Ground Truth")
 ]
 
 LEVS_PATH = '/pscratch/sd/a/asubel/Data/Chapter_2/CM4_CMIP_New.zarr/'
@@ -270,8 +279,6 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
-
-
 # ============================================================
 # Animated Movies (GIF) — one frame per year
 # ============================================================
@@ -334,14 +341,36 @@ os.makedirs(GIF_DIR, exist_ok=True)
 
 # Multi-Depth Temperature Snapshot Movie
 
-MOVIE_FPS = {'yearly': 2, 'monthly': 8, 'all': 15}
+MOVIE_FPS = {'yearly': 2, 'monthly': 8, 'all': 50}
 MOVIE_DPI = {'yearly': 200, 'monthly': 200, 'all': 200}
 
-for MOVIE_FREQ in ['yearly', 'monthly', 'all']:
+MOVIE_FREQ = args.freq
 
+
+if args.var == 'temperature':
+    print(f"  -> Generating SST tropical Pacific movie ({MOVIE_FREQ})...")
+    movie_sst_tropical_pacific_together(
+        emulators_to_analyze,
+        output_path=os.path.join(GIF_DIR, f"movie_sst_tropical_pacific_{MOVIE_FREQ}_{MOVIE_FPS[MOVIE_FREQ]}.gif"),
+        var_name='thetao',
+        depth_index=0,
+        lon_range=(-230, -70),
+        lat_range=(-30, 35),
+        fix_colorbar=True,
+        vmin=18,
+        vmax=32,
+        end_idx=None,
+        freq=MOVIE_FREQ,
+        fps=MOVIE_FPS[MOVIE_FREQ],
+        dpi=MOVIE_DPI[MOVIE_FREQ],
+    )
+
+    exit()
+
+    print(f"  -> Generating temperature movie ({MOVIE_FREQ})...")
     movie_snapshot_multidepth_together(
         emulators_to_analyze,
-        output_path=os.path.join(GIF_DIR, f"movie_snapshot_multidepth_thetao_{MOVIE_FREQ}.gif"),
+        output_path=os.path.join(GIF_DIR, f"movie_snapshot_multidepth_thetao_{MOVIE_FREQ}_{MOVIE_FPS[MOVIE_FREQ]}.gif"),
         var_name='thetao',
         depth_configs=DEPTH_LAYERS,
         fix_colorbar=True,
@@ -351,7 +380,9 @@ for MOVIE_FREQ in ['yearly', 'monthly', 'all']:
         dpi=MOVIE_DPI[MOVIE_FREQ]
     )
 
+elif args.var =='ohc':
     # OHC Multi-Depth Snapshot Movie
+    print(f"  -> Generating OHC movie ({MOVIE_FREQ})...")
     movie_ohc_snapshot_multidepth_together(
         emulators_to_analyze,
         output_path=os.path.join(GIF_DIR, f"movie_ohc_snapshot_multidepth_{MOVIE_FREQ}.gif"),
@@ -363,7 +394,9 @@ for MOVIE_FREQ in ['yearly', 'monthly', 'all']:
         dpi=MOVIE_DPI[MOVIE_FREQ]
     )
 
-exit()
+# ============================================================
+# Static Plots (--var static or --var all)
+# ============================================================
 
 # ============================================================
 # Spectral Analysis
@@ -431,6 +464,74 @@ for lev_idx in [0, 9]:
         )
         save_current_fig(f"ke_temporal_spectrum_{region_tag}", PDF_DIR)
 
+
+SPECTRUM_REGIONS = [
+    ('Gulf',     slice(300, 320), slice(25, 45)),
+    ('Kuroshio', slice(150, 170), slice(25, 45)),
+    ('Agulhas',  slice(40, 60),   slice(-50, -30)),
+    ('Malvinas', slice(311, 331), slice(-51, -31)),
+]
+
+for region_name, lon_slice, lat_slice in SPECTRUM_REGIONS:
+    region_tag = f"lev0_{region_name}"
+
+    print(f"\n=== Evaluating isotropic spectrum at surface for {region_name} ===")
+    plot_isotropic_spectrum_comparison_together(
+        emulators_dict=emulators_to_analyze,
+        show_ratios=False,
+        var_to_eval=var_to_eval,
+        lev_idx=0,
+        time_window=time_window,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_wavenumbers=[0.01, 0.02],
+        region_name=region_name
+    )
+    save_current_fig(f"isotropic_spectrum_{region_tag}", PDF_DIR)
+
+    print(f"\n=== Evaluating kinetic energy spectrum at surface for {region_name} ===")
+    plot_ke_spectrum_comparison_together(
+        emulators_dict=emulators_to_analyze,
+        show_ratios=False,
+        var_u='uo',
+        var_v='vo',
+        lev_idx=0,
+        time_window=time_window,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_wavenumbers=[0.01, 0.02],
+        region_name=region_name
+    )
+    save_current_fig(f"ke_spectrum_{region_tag}", PDF_DIR)
+
+    print(f"\n=== Evaluating temporal spectrum at surface for {region_name} ===")
+    plot_temporal_spectrum_comparison_together(
+        emulators_dict=emulators_to_analyze,
+        var_to_eval='thetao',
+        show_ratios=False,
+        lev_idx=0,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_frequencies=[1.0, 4.0],
+        region_name=region_name
+    )
+    save_current_fig(f"temporal_spectrum_{region_tag}", PDF_DIR)
+
+    print(f"\n=== Evaluating kinetic energy temporal spectrum at surface for {region_name} ===")
+    plot_ke_temporal_spectrum_comparison_together(
+        emulators_dict=emulators_to_analyze,
+        show_ratios=False,
+        var_u='uo',
+        var_v='vo',
+        lev_idx=0,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_frequencies=[1.0, 4.0],
+        region_name=region_name
+    )
+    save_current_fig(f"ke_temporal_spectrum_{region_tag}", PDF_DIR)
+
+
 # ============================================================
 # Time Series
 # ============================================================
@@ -483,6 +584,15 @@ plot_variance_comparison_together(
     colorbar_fix=True
 )
 save_current_fig("variance_so", PDF_DIR)
+
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_ke", PDF_DIR)
 
 
 # ============================================================

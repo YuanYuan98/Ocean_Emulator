@@ -4393,6 +4393,92 @@ def plot_mean_timeseries_comparison_together(emulators_dict, variable_name, var_
     plt.show()
 
 
+def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo', units='m$^2$/s$^2$', output_dir=None, colorbar_fix=False):
+    """KE temporal variance comparison where each emulator uses its corresponding truth.
+    Computes KE = 0.5*(u^2 + v^2) at each timestep, then takes temporal variance.
+    """
+    print(f"\nGenerating KE Variance Comparison (Multi-Scale)...")
+
+    datasets = list(emulators_dict.keys())
+    nrows = len(datasets) + 1
+    ncols = len(DEPTH_SLICES)
+
+    def compute_ke_variance(ds, var_u_name, var_v_name):
+        ke = 0.5 * (ds[var_u_name]**2 + ds[var_v_name]**2)
+        return ke.var('time')
+
+    # Ground truth (first emulator's truth)
+    first_label = datasets[0]
+    first_emu_data = emulators_dict[first_label]
+    ds_truth_first = first_emu_data['truth']
+    truth_label = first_emu_data.get('truth_label', 'Truth')
+    dz_truth_first = ds_truth_first['dz']
+    wet_mask_first = (ds_truth_first[var_u].isel(time=0) * 0 + 1).compute()
+    truth_var_3d = compute_ke_variance(ds_truth_first, var_u, var_v)
+
+    plot_data_truth = {}
+    for Slices in DEPTH_SLICES:
+        plot_data_truth[Slices['title']] = calculate_vertical_mean_simple(
+            truth_var_3d, dz_truth_first, wet_mask_first, Slices['min'], Slices['max']
+        ).compute()
+
+    # Emulator KE variance
+    plot_data = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        dz_truth = ds_truth['dz']
+        wet_mask = (ds_truth[var_u].isel(time=0) * 0 + 1).compute()
+        emu_var_3d = compute_ke_variance(emu_data['ds'], var_u, var_v)
+
+        plot_data[label] = {}
+        for Slices in DEPTH_SLICES:
+            plot_data[label][Slices['title']] = calculate_vertical_mean_simple(
+                emu_var_3d, dz_truth, wet_mask, Slices['min'], Slices['max']
+            ).compute()
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
+        subplot_kw={'projection': ccrs.Robinson(central_longitude=210)},
+        gridspec_kw={'hspace': 0.1, 'wspace': 0.05})
+    if nrows == 1: axes = np.expand_dims(axes, 0)
+    if ncols == 1: axes = np.expand_dims(axes, 1)
+
+    for j, Slices in enumerate(DEPTH_SLICES):
+        key = Slices['title']
+        all_data = [plot_data_truth[key].values.flatten()] + [plot_data[ds][key].values.flatten() for ds in datasets]
+        flat_data = np.concatenate(all_data)
+        flat_data = flat_data[~np.isnan(flat_data)]
+        vmax = np.percentile(flat_data, 95) if len(flat_data) > 0 else 1.0
+        norm = colors.Normalize(vmin=0, vmax=vmax)
+
+        # Row 0: Ground truth
+        ax = axes[0, j]
+        p_mesh = plot_data_truth[key].plot.pcolormesh(
+            ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+            cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+        ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+        ax.coastlines(zorder=11)
+        if j == 0: ax.text(-0.07, 0.55, truth_label, va='center', ha='right', rotation='vertical',
+                           transform=ax.transAxes, fontsize=14, fontweight='bold')
+        ax.set_title(key, fontsize=14, fontweight='bold')
+
+        # Rows 1+: Emulators
+        for i, ds_name in enumerate(datasets):
+            ax = axes[i + 1, j]
+            p_mesh = plot_data[ds_name][key].plot.pcolormesh(
+                ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+                cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+            ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax.coastlines(zorder=11)
+            if j == 0: ax.text(-0.07, 0.55, ds_name, va='center', ha='right', rotation='vertical',
+                               transform=ax.transAxes, fontsize=14, fontweight='bold')
+            ax.set_title("")
+
+        fig.colorbar(p_mesh, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
+
+    fig.suptitle(f"Temporal Variance: Kinetic Energy (Multi-Scale)", fontsize=18, y=0.96)
+    plt.show()
+
+
 def plot_variance_comparison_together(emulators_dict, variable_name, units, output_dir=None, colorbar_fix=False):
     """Variance comparison where each emulator uses its corresponding truth.
     Also plots the ground truth variance from the first emulator as the top row.
@@ -6183,9 +6269,35 @@ def make_snapshot_movie(plot_func, output_path, emulators_dict, start_idx=0,
             'dpi': dpi,
             'plot_kwargs': plot_kwargs,
         })
+        # Reset matplotlib state before forking to prevent inherited-lock
+        # deadlocks when make_snapshot_movie is called multiple times in
+        # the same process (e.g. generating several movies in sequence).
+        import matplotlib, gc, os as _os
+        plt.close('all')
+        matplotlib.use('Agg')  # re-arm backend to clean state
+        # Prevent BLAS/OpenMP from spawning background threads in the
+        # parent *before* fork — their mutexes would be copied in a
+        # held state, deadlocking the children.
+        for _tvar in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS',
+                      'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
+            _os.environ.setdefault(_tvar, '1')
         ctx = mp.get_context('fork')
-        with ctx.Pool(n_workers) as pool:
+        pool = ctx.Pool(n_workers, maxtasksperchild=1)
+        try:
             frame_bytes_list = pool.map(_render_frame_worker, time_indices)
+        finally:
+            # Graceful shutdown: close() tells workers no more tasks are
+            # coming and lets them exit cleanly; join() waits for them.
+            # This is safer than terminate() (used by the `with` context
+            # manager) which sends SIGTERM and can leave internal
+            # pipe/queue state dirty, causing the *next* Pool to hang.
+            pool.close()
+            pool.join()
+            # Release any dangling references so internal thread locks
+            # held by numpy/matplotlib helpers can be freed before the
+            # next fork().
+            plt.close('all')
+            gc.collect()
 
         frames = []
         for fb in frame_bytes_list:
@@ -6330,6 +6442,189 @@ def movie_snapshot_multidepth_together(
     )
 
 
+def plot_sst_tropical_pacific_together(
+    emulators_dict, time_indices, var_name='thetao', depth_index=0,
+    lon_range=(-230, -70), lat_range=(-30, 35), fix_colorbar=False,
+    vmin=18, vmax=32,
+):
+    """SST snapshot comparison zoomed into the tropical Pacific.
+
+    Rows: Truth + each emulator.  One column (SST at 2.5 m).
+    Uses a plain PlateCarree view (no Robinson projection) so the
+    rectangular lon/lat crop is straightforward.
+
+    Parameters
+    ----------
+    emulators_dict : dict
+        Standard emulators dictionary.
+    time_indices : list[int]
+        Time indices to plot (one figure per index).
+    var_name : str
+        Variable name (default ``'thetao'``).
+    depth_index : int
+        Level index for the surface layer (default ``0`` → 2.5 m).
+    lon_range : tuple
+        ``(lon_min, lon_max)`` in degrees east. Negative values are
+        supported (e.g. ``-230`` → ``130`` E).
+    lat_range : tuple
+        ``(lat_min, lat_max)`` in degrees north.
+    fix_colorbar : bool
+        If ``True``, use ``vmin``/``vmax`` for the colour range.
+    vmin, vmax : float
+        Colour-bar limits when *fix_colorbar* is ``True``.
+    """
+    config = VAR_CONFIG.get(var_name, {'cmap': 'viridis', 'units': '', 'label': var_name, 'centered': False})
+    print(f"\nGenerating SST Tropical Pacific Snapshot for {config['label']}...")
+
+    first_label = list(emulators_dict.keys())[0]
+    ds_truth = emulators_dict[first_label]['truth']
+    truth_label = emulators_dict[first_label].get('truth_label', 'Truth')
+    dz_truth = ds_truth['dz']
+    wet_mask = (ds_truth[var_name].isel(time=0) * 0 + 1).compute()
+
+    datasets = [truth_label] + list(emulators_dict.keys())
+    n_datasets = len(datasets)
+    # Use horizontal layout (1 row, N cols) when few datasets, else vertical
+    use_horizontal = (n_datasets <= 3)
+
+    for time_idx in time_indices:
+        time_val = ds_truth.time.isel(time=time_idx).values
+        if hasattr(time_val, 'year'):
+            time_str = f"{time_val.year:04d}-{time_val.month:02d}-{time_val.day:02d}"
+        else:
+            time_str = str(time_val)[:10]
+
+        from matplotlib.gridspec import GridSpec
+
+        if use_horizontal:
+            # Horizontal layout: 1 row of panels + vertical colorbar on right
+            # Each panel ~5" x 3"
+            fig_w = 5 * n_datasets + 1.5
+            fig = plt.figure(figsize=(fig_w, 4.2))
+            gs = GridSpec(1, n_datasets + 1, figure=fig,
+                          width_ratios=[1] * n_datasets + [0.03],
+                          wspace=0.12,
+                          top=0.85, bottom=0.10, left=0.06, right=0.95)
+            axes = [fig.add_subplot(gs[0, i]) for i in range(n_datasets)]
+            cbar_ax = fig.add_subplot(gs[0, n_datasets])
+        else:
+            # Original vertical layout
+            fig = plt.figure(figsize=(10, 3.2 * n_datasets + 0.6))
+            gs = GridSpec(n_datasets + 1, 1, figure=fig,
+                          height_ratios=[1] * n_datasets + [0.04],
+                          hspace=0.15, top=0.93, bottom=0.04, left=0.10, right=0.88)
+            axes = [fig.add_subplot(gs[i, 0]) for i in range(n_datasets)]
+            cbar_ax = fig.add_subplot(gs[n_datasets, 0])
+
+        # ----- compute maps -----
+        truth_map = calculate_snapshot_map_SpecificLayer(
+            ds_truth, var_name, dz_truth, wet_mask, depth_index, time_idx,
+        ).compute()
+
+        emu_maps = {}
+        for label, emu_data in emulators_dict.items():
+            ds_emu = emu_data['ds']
+            ds_emu_truth = emu_data['truth']
+            dz_emu = ds_emu_truth['dz']
+            wet_emu = (ds_emu_truth[var_name].isel(time=0) * 0 + 1).compute()
+            emu_maps[label] = calculate_snapshot_map_SpecificLayer(
+                ds_emu, var_name, dz_emu, wet_emu, depth_index, time_idx,
+            ).compute()
+
+        # ----- colour limits -----
+        if fix_colorbar:
+            c_vmin, c_vmax = vmin, vmax
+        else:
+            valid = truth_map.values[~np.isnan(truth_map.values)]
+            if len(valid) > 0:
+                c_vmin = np.percentile(valid, 0.25)
+                c_vmax = np.percentile(valid, 99.75)
+            else:
+                c_vmin, c_vmax = 0, 1
+
+        norm = colors.Normalize(vmin=c_vmin, vmax=c_vmax)
+
+        # ----- plot each panel -----
+        for i, ds_name in enumerate(datasets):
+            ax = axes[i]
+            data_to_plot = truth_map if ds_name == truth_label else emu_maps[ds_name]
+
+            # Convert x coordinate to degrees east offset for tropical Pacific crop
+            x_vals = data_to_plot.x.values
+            y_vals = data_to_plot.y.values
+
+            # Build lon/lat arrays that can go negative (matching image convention)
+            lon = x_vals.copy().astype(float)
+            lon[lon > 180] -= 360  # wrap to -180..180
+            # Shift further to match the -230..-70 convention in the image
+            lon[lon > 0] -= 360    # everything into negative domain
+
+            lat = y_vals.copy().astype(float)
+
+            # Crop
+            lon_mask = (lon >= lon_range[0]) & (lon <= lon_range[1])
+            lat_mask = (lat >= lat_range[0]) & (lat <= lat_range[1])
+
+            data_crop = data_to_plot.values[np.ix_(lat_mask, lon_mask)]
+            lon_crop = lon[lon_mask]
+            lat_crop = lat[lat_mask]
+
+            p = ax.pcolormesh(
+                lon_crop, lat_crop, data_crop,
+                cmap=config['cmap'], norm=norm, shading='auto', rasterized=True,
+            )
+            ax.set_xlim(lon_range)
+            ax.set_ylim(lat_range)
+            ax.set_title(ds_name, fontsize=12, fontweight='bold', loc='left')
+
+            if use_horizontal:
+                ax.set_xlabel('Longitude [degrees_east]', fontsize=9)
+                if i == 0:
+                    ax.set_ylabel('Latitude [degrees_north]', fontsize=9)
+                else:
+                    ax.set_yticklabels([])
+            else:
+                ax.set_ylabel('Latitude [degrees_north]', fontsize=9)
+                if i == n_datasets - 1:
+                    ax.set_xlabel('Longitude [degrees_east]', fontsize=9)
+
+        if use_horizontal:
+            fig.colorbar(p, cax=cbar_ax, orientation='vertical',
+                         label='SST [degC]')
+        else:
+            fig.colorbar(p, cax=cbar_ax, orientation='horizontal',
+                         label='SST [degC]')
+        fig.suptitle(f'SST Tropical Pacific  —  {time_str}', fontsize=14,
+                     fontweight='bold', y=0.98)
+        plt.show()
+
+
+def movie_sst_tropical_pacific_together(
+    emulators_dict, output_path, var_name='thetao', depth_index=0,
+    lon_range=(-230, -70), lat_range=(-30, 35),
+    fix_colorbar=True, vmin=18, vmax=32,
+    start_idx=0, end_idx=None, fps=2, dpi=100, freq='yearly',
+):
+    """Animated GIF of SST snapshots zoomed into the tropical Pacific.
+
+    Parameters
+    ----------
+    end_idx : int or None
+        Exclusive upper bound on time index. ``None`` = all time steps.
+    freq : str
+        Frame frequency: ``'yearly'``, ``'monthly'``, or ``'all'`` (every 5-day point).
+    """
+    print(f"\nGenerating SST Tropical Pacific Movie ({freq})...")
+    make_snapshot_movie(
+        plot_sst_tropical_pacific_together, output_path,
+        emulators_dict, start_idx=start_idx, end_idx=end_idx, fps=fps, dpi=dpi,
+        time_indices_kwarg='time_indices', freq=freq,
+        var_name=var_name, depth_index=depth_index,
+        lon_range=lon_range, lat_range=lat_range,
+        fix_colorbar=fix_colorbar, vmin=vmin, vmax=vmax,
+    )
+
+
 def movie_ohc_snapshot_multidepth_together(
     emulators_dict, output_path, depth_configs,
     start_idx=0, end_idx=None, fps=2, dpi=100, colorbar_fix=False, freq='yearly',
@@ -6368,7 +6663,8 @@ def plot_isotropic_spectrum_comparison_together(
     lat_slice=slice(-40, 35),
     target_wavenumbers=[0.01, 0.02],
     show_ratios=True,
-    colorbar_fix=False
+    colorbar_fix=False,
+    region_name=None,
 ):
     """
     Plots isotropic power spectrum comparison where each emulator uses its own corresponding truth.
@@ -6512,15 +6808,16 @@ def plot_isotropic_spectrum_comparison_together(
 
     lon_start = lon_slice.start if lon_slice.start is not None else 0
     lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lon_start_display = f"{lon_start}°E"
+    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
+    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
     lat_start = lat_slice.start if lat_slice.start is not None else -90
     lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
     lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
     lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
 
+    region_str = f'{region_name}: ' if region_name else ''
     ax.set_title(f'Isotropic Power Spectrum of {var_to_eval} ({depth_value}m)\n' +
-                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
                  fontsize=11)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5)
@@ -6540,7 +6837,8 @@ def plot_ke_spectrum_comparison_together(
     lat_slice=slice(-40, 35),
     target_wavenumbers=[0.01, 0.02],
     show_ratios=True,
-    colorbar_fix=False
+    colorbar_fix=False,
+    region_name=None,
 ):
     """
     Plots kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
@@ -6692,15 +6990,16 @@ def plot_ke_spectrum_comparison_together(
 
     lon_start = lon_slice.start if lon_slice.start is not None else 0
     lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lon_start_display = f"{lon_start}°E"
+    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
+    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
     lat_start = lat_slice.start if lat_slice.start is not None else -90
     lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
     lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
     lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
 
+    region_str = f'{region_name}: ' if region_name else ''
     ax.set_title(f'Kinetic Energy Spectrum (Anomalies) at {depth_value}m\n' +
-                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
                  fontsize=11)
 
     ax.grid(True, which='both', alpha=0.3)
@@ -6718,7 +7017,8 @@ def plot_temporal_spectrum_comparison_together(
     lat_slice=slice(-40, 35),
     target_frequencies=None,
     show_ratios=True,
-    colorbar_fix=False
+    colorbar_fix=False,
+    region_name=None,
 ):
     """
     Plots temporal power spectrum comparison where each emulator uses its own corresponding truth.
@@ -6889,15 +7189,16 @@ def plot_temporal_spectrum_comparison_together(
 
     lon_start = lon_slice.start if lon_slice.start is not None else 0
     lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lon_start_display = f"{lon_start}°E"
+    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
+    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
     lat_start = lat_slice.start if lat_slice.start is not None else -90
     lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
     lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
     lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
 
+    region_str = f'{region_name}: ' if region_name else ''
     ax.set_title(f'Temporal Power Spectrum of {var_to_eval} at {depth_value}m\n' +
-                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
                  fontsize=11)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
@@ -6916,7 +7217,8 @@ def plot_ke_temporal_spectrum_comparison_together(
     lat_slice=slice(-40, 35),
     target_frequencies=None,
     show_ratios=True,
-    colorbar_fix=False
+    colorbar_fix=False,
+    region_name=None,
 ):
     """
     Plots temporal kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
@@ -7103,15 +7405,16 @@ def plot_ke_temporal_spectrum_comparison_together(
 
     lon_start = lon_slice.start if lon_slice.start is not None else 0
     lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_stop_display = f"{lon_stop - 360}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lon_start_display = f"{lon_start}°E"
+    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
+    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
     lat_start = lat_slice.start if lat_slice.start is not None else -90
     lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
     lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
     lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
 
+    region_str = f'{region_name}: ' if region_name else ''
     ax.set_title(f'Temporal KE Power Spectrum at {depth_value}m\n' +
-                 f'Region: {lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
+                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
                  fontsize=11)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
