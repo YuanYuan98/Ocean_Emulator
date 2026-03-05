@@ -22,5 +22,12 @@
 
 > **Model Performance:** Ground truth (left) vs. Ocean Emulator prediction (right) for sea surface temperature in the tropical Pacific.
 
+<p align="center">
+  <video width="800" controls autoplay loop muted playsinline>
+    <source src="https://github.com/YuanYuan98/Ocean_Emulator/raw/main/assets/sst_tropical_pacific_ultra.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</p>
+
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
