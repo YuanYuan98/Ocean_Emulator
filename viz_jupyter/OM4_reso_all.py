@@ -18,6 +18,7 @@ matplotlib.use('Agg')  # Non-interactive backend for saving figures
 
 import xarray as xr
 import torch
+import xrft
 import numpy as np
 import datetime
 import cftime
@@ -35,7 +36,6 @@ import os
 from functions import *
 import warnings
 warnings.simplefilter("ignore", category=RuntimeWarning)
-
 
 # ============================================================
 # Helper: save current figure as PDF
@@ -94,7 +94,7 @@ TIME_INDICES = [0, 300, 580]
 # ============================================================
 # 1. Output Directory (Configurable Name)
 # ============================================================
-OUTPUT_DIR = "Emulator_Evaluation_Figures"
+OUTPUT_DIR = "Emulator_Evaluation_Figures-v3"
 PDF_DIR = os.path.join(OUTPUT_DIR, "pdf_figures")
 
 my_key = "XL8EJRUDQ7QPDJSUUC8Q"
@@ -104,34 +104,34 @@ storage_options = {"key": my_key, "secret": my_secret, "client_kwargs": {"endpoi
 
 # 2. Emulator Configuration
 EMULATOR_CONFIGS = [
-    # (
-    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.LOCAL/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
-    #     "Samudra",
-    #     "tab:gray"
-    # ),
-    # (
-    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
-    #     "Samudra-v2",
-    #     "tab:orange"
-    # ),
-    # (
-    #     '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr',
-    #     "Samudra++ (1/2$^\\circ$)",
-    #     "tab:green"
-    # ),
     (
-        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr',
-        "Samudra-v2",
-        "tab:blue", 
-)
+        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.LOCAL/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
+        "Samudra",
+        "tab:grey"
+    ),
+    (
+        '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
+        "Samudra-v2 (1$^\\circ$)",
+        "tab:orange"
+    ),
+#     (
+#         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr',
+#         "Samudra-v2 (1/2$^\\circ$)",
+#         "tab:green"
+#     ),
+#     (
+#         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr',
+#         "Samudra-v2 (1/4$^\\circ$)",
+#         "tab:blue", 
+# )
 ]
 
 # 3. Truth & Aux Paths
 TRUTH_CONFIGS = [
-    #("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4-1deg"),
-    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "Ground Truth"),
-    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/halfdeg/OM4.zarr", "OM4-1/2deg"),
-    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr", "Ground Truth")
+    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4 (1$^\\circ$)"),
+    ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4 (1$^\\circ$)"),
+    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/halfdeg/OM4.zarr", "OM4 (1/2$^\\circ$)"),
+    # ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr", "OM4 (1/4$^\\circ$)")
 ]
 
 LEVS_PATH = '/pscratch/sd/a/asubel/Data/Chapter_2/CM4_CMIP_New.zarr/'
@@ -279,190 +279,154 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
-# ============================================================
-# Animated Movies (GIF) — one frame per year
-# ============================================================
-print("\n" + "="*60)
-print("Animated Movies (GIF)")
-print("="*60)
 
-GIF_DIR = os.path.join(OUTPUT_DIR, "gif_movies")
-os.makedirs(GIF_DIR, exist_ok=True)
+# # ============================================================
+# # ACF evaluation
+# # ============================================================
+# SPECTRUM_REGIONS = [
+#     ('Gulf',     slice(300, 320), slice(25, 45)),
+#     ('Kuroshio', slice(150, 170), slice(25, 45)),
+#     ('Agulhas',  slice(40, 60),   slice(-50, -30)),
+#     ('Malvinas', slice(311, 331), slice(-51, -31)),
+# ]
 
-# # OHC Snapshot Bias Movie
-# movie_ohc_snapshot_bias_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_ohc_snapshot_bias.gif"),
-#     colorbar_fix=True,
-# )
+# ACF_MAX_LAG_YEARS = 2
 
-# # Temperature Snapshot Bias Movie
-# movie_temperature_snapshot_bias_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_temperature_snapshot_bias.gif"),
-#     colorbar_fix=True,
-# )
+# n_regions = len(SPECTRUM_REGIONS)
+# nrows = 2
+# ncols = (n_regions + 1) // 2
 
-# # Zonal Bias by Ocean Basin Movie
-# movie_snapshot_zonal_bias_ocean_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_snapshot_zonal_bias_thetao.gif"),
-#     variable_name='thetao',
-#     units='°C',
-#     masks_list=masks_list,
-#     colorbar_fix=True,
-# )
+# # --- SSH ACF (all regions in one figure) ---
+# print("\n=== SSH ACF (all regions) ===")
+# fig_acf_zos, axes_acf_zos = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_acf_zos_flat = axes_acf_zos.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_acf_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         var_to_eval='zos',
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         max_lag_years=ACF_MAX_LAG_YEARS,
+#         region_name=region_name,
+#         ax=axes_acf_zos_flat[idx],
+#     )
+# handles, labels = axes_acf_zos_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_acf_zos.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.01)
+# fig_acf_zos.tight_layout()
+# save_current_fig("acf_zos_all_regions", PDF_DIR)
 
-# # OHC Zonal Bias Movie
-# movie_snapshot_ohc_zonal_bias_ocean_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_snapshot_ohc_zonal_bias.gif"),
-#     masks_list=masks_list,
-#     colorbar_fix=True,
-# )
-
-# # Zonal Snapshot Comparison Movie
-# movie_zonal_snapshot_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_zonal_snapshot_thetao.gif"),
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     masks_list=masks_list,
-#     colorbar_fix=True,
-# )
-
-# # OHC Zonal Snapshot Movie
-# movie_ohc_zonal_snapshot_together(
-#     emulators_to_analyze,
-#     output_path=os.path.join(GIF_DIR, "movie_ohc_zonal_snapshot.gif"),
-#     masks_list=masks_list,
-#     colorbar_fix=True,
-# )
-
-# Multi-Depth Temperature Snapshot Movie
-
-MOVIE_FPS = {'yearly': 2, 'monthly': 8, 'all': 50}
-MOVIE_DPI = {'yearly': 200, 'monthly': 200, 'all': 200}
-
-MOVIE_FREQ = args.freq
-
-
-if args.var == 'temperature':
-    print(f"  -> Generating SST tropical Pacific movie ({MOVIE_FREQ})...")
-    movie_sst_tropical_pacific_together(
-        emulators_to_analyze,
-        output_path=os.path.join(GIF_DIR, f"movie_sst_tropical_pacific_{MOVIE_FREQ}_{MOVIE_FPS[MOVIE_FREQ]}.gif"),
-        var_name='thetao',
-        depth_index=0,
-        lon_range=(-230, -70),
-        lat_range=(-30, 35),
-        fix_colorbar=True,
-        vmin=18,
-        vmax=32,
-        end_idx=None,
-        freq=MOVIE_FREQ,
-        fps=MOVIE_FPS[MOVIE_FREQ],
-        dpi=MOVIE_DPI[MOVIE_FREQ],
-    )
-
-    exit()
-
-    print(f"  -> Generating temperature movie ({MOVIE_FREQ})...")
-    movie_snapshot_multidepth_together(
-        emulators_to_analyze,
-        output_path=os.path.join(GIF_DIR, f"movie_snapshot_multidepth_thetao_{MOVIE_FREQ}_{MOVIE_FPS[MOVIE_FREQ]}.gif"),
-        var_name='thetao',
-        depth_configs=DEPTH_LAYERS,
-        fix_colorbar=True,
-        end_idx=None,
-        freq=MOVIE_FREQ,
-        fps=MOVIE_FPS[MOVIE_FREQ],
-        dpi=MOVIE_DPI[MOVIE_FREQ]
-    )
-
-elif args.var =='ohc':
-    # OHC Multi-Depth Snapshot Movie
-    print(f"  -> Generating OHC movie ({MOVIE_FREQ})...")
-    movie_ohc_snapshot_multidepth_together(
-        emulators_to_analyze,
-        output_path=os.path.join(GIF_DIR, f"movie_ohc_snapshot_multidepth_{MOVIE_FREQ}.gif"),
-        depth_configs=DEPTH_SLICES,
-        colorbar_fix=True,
-        end_idx=None,
-        freq=MOVIE_FREQ,
-        fps=MOVIE_FPS[MOVIE_FREQ],
-        dpi=MOVIE_DPI[MOVIE_FREQ]
-    )
-
-# ============================================================
-# Static Plots (--var static or --var all)
-# ============================================================
+# # --- Velocity ACF (all regions in one figure) ---
+# print("\n=== Velocity ACF (all regions) ===")
+# fig_acf_vel, axes_acf_vel = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_acf_vel_flat = axes_acf_vel.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_velocity_acf_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         var_u='uo',
+#         var_v='vo',
+#         lev_idx=0,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         max_lag_years=ACF_MAX_LAG_YEARS,
+#         region_name=region_name,
+#         ax=axes_acf_vel_flat[idx],
+#     )
+# handles, labels = axes_acf_vel_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_acf_vel.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.01)
+# fig_acf_vel.tight_layout()
+# save_current_fig("acf_velocity_all_regions", PDF_DIR)
 
 # ============================================================
 # Spectral Analysis
 # ============================================================
-print("\n" + "="*60)
-print("Spectral Analysis")
-print("="*60)
+# print("\n" + "="*60)
+# print("Spectral Analysis")
+# print("="*60)
 
-var_to_eval = 'thetao'
-time_window = 100
+# var_to_eval = 'thetao'
+# time_window = None  # Use all time steps for better mean estimation and spectral averaging
 
-for lev_idx in [0, 9]:
-    for lon_slice, lat_slice in [(slice(180, 243), slice(-40, 35)), (slice(120, 280), slice(-15, 15))]:
-        region_tag = f"lev{lev_idx}_lon{lon_slice.start}-{lon_slice.stop}_lat{lat_slice.start}-{lat_slice.stop}"
+# for lev_idx in [0, 9]:
+#     for lon_slice, lat_slice in [(slice(180, 243), slice(-40, 35)), (slice(120, 280), slice(-15, 15))]:
+#         region_tag = f"lev{lev_idx}_lon{lon_slice.start}-{lon_slice.stop}_lat{lat_slice.start}-{lat_slice.stop}"
 
-        print(f"\n=== Evaluating isotropic spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
-        plot_isotropic_spectrum_comparison_together(
-            emulators_dict=emulators_to_analyze,
-            show_ratios=False,
-            var_to_eval=var_to_eval,
-            lev_idx=lev_idx,
-            time_window=time_window,
-            lon_slice=lon_slice,
-            lat_slice=lat_slice,
-            target_wavenumbers=[0.01, 0.02],
-        )
-        save_current_fig(f"isotropic_spectrum_{region_tag}", PDF_DIR)
+#         print(f"\n=== Evaluating isotropic spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
+#         plot_isotropic_spectrum_comparison_together(
+#             emulators_dict=emulators_to_analyze,
+#             show_ratios=False,
+#             var_to_eval=var_to_eval,
+#             lev_idx=lev_idx,
+#             time_window=time_window,
+#             lon_slice=lon_slice,
+#             lat_slice=lat_slice,
+#             target_wavenumbers=[0.01, 0.02],
+#         )
+#         save_current_fig(f"isotropic_spectrum_{region_tag}", PDF_DIR)
 
-        print(f"\n=== Evaluating kinetic energy spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
-        plot_ke_spectrum_comparison_together(
-            emulators_dict=emulators_to_analyze,
-            show_ratios=False,
-            var_u='uo',
-            var_v='vo',
-            lev_idx=lev_idx,
-            time_window=time_window,
-            lon_slice=lon_slice,
-            lat_slice=lat_slice,
-            target_wavenumbers=[0.01, 0.02],
-        )
-        save_current_fig(f"ke_spectrum_{region_tag}", PDF_DIR)
+#         print(f"\n=== Evaluating kinetic energy spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
+#         plot_ke_spectrum_comparison_together(
+#             emulators_dict=emulators_to_analyze,
+#             show_ratios=False,
+#             var_u='uo',
+#             var_v='vo',
+#             lev_idx=lev_idx,
+#             time_window=time_window,
+#             lon_slice=lon_slice,
+#             lat_slice=lat_slice,
+#             target_wavenumbers=[0.01, 0.02],
+#         )
+#         save_current_fig(f"ke_spectrum_{region_tag}", PDF_DIR)
 
-        print(f"\n=== Evaluating temporal spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
-        plot_temporal_spectrum_comparison_together(
-            emulators_dict=emulators_to_analyze,
-            var_to_eval='thetao',
-            show_ratios=False,
-            lev_idx=lev_idx,
-            lon_slice=lon_slice,
-            lat_slice=lat_slice,
-            target_frequencies=[1.0, 4.0],
-        )
-        save_current_fig(f"temporal_spectrum_{region_tag}", PDF_DIR)
+#         print(f"\n=== Evaluating temporal spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
+#         plot_temporal_spectrum_comparison_together(
+#             emulators_dict=emulators_to_analyze,
+#             var_to_eval='thetao',
+#             show_ratios=False,
+#             lev_idx=lev_idx,
+#             lon_slice=lon_slice,
+#             lat_slice=lat_slice,
+#             target_frequencies=[1.0, 4.0],
+#         )
+#         save_current_fig(f"temporal_spectrum_{region_tag}", PDF_DIR)
 
-        print(f"\n=== Evaluating kinetic energy temporal spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
-        plot_ke_temporal_spectrum_comparison_together(
-            emulators_dict=emulators_to_analyze,
-            show_ratios=False,
-            var_u='uo',
-            var_v='vo',
-            lev_idx=lev_idx,
-            lon_slice=lon_slice,
-            lat_slice=lat_slice,
-            target_frequencies=[1.0, 4.0]
-        )
-        save_current_fig(f"ke_temporal_spectrum_{region_tag}", PDF_DIR)
+#         print(f"\n=== Evaluating kinetic energy temporal spectrum at level index {lev_idx} for longitude {lon_slice} and latitude {lat_slice} ===")
+#         plot_ke_temporal_spectrum_comparison_together(
+#             emulators_dict=emulators_to_analyze,
+#             show_ratios=False,
+#             var_u='uo',
+#             var_v='vo',
+#             lev_idx=lev_idx,
+#             lon_slice=lon_slice,
+#             lat_slice=lat_slice,
+#             target_frequencies=[1.0, 4.0]
+#         )
+#         save_current_fig(f"ke_temporal_spectrum_{region_tag}", PDF_DIR)
 
 
 SPECTRUM_REGIONS = [
@@ -472,65 +436,197 @@ SPECTRUM_REGIONS = [
     ('Malvinas', slice(311, 331), slice(-51, -31)),
 ]
 
-for region_name, lon_slice, lat_slice in SPECTRUM_REGIONS:
-    region_tag = f"lev0_{region_name}"
+var_to_eval = 'thetao'
+time_window = None
 
-    print(f"\n=== Evaluating isotropic spectrum at surface for {region_name} ===")
-    plot_isotropic_spectrum_comparison_together(
-        emulators_dict=emulators_to_analyze,
-        show_ratios=False,
-        var_to_eval=var_to_eval,
-        lev_idx=0,
-        time_window=time_window,
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        target_wavenumbers=[0.01, 0.02],
-        region_name=region_name
-    )
-    save_current_fig(f"isotropic_spectrum_{region_tag}", PDF_DIR)
+n_regions = len(SPECTRUM_REGIONS)
+nrows = 2
+ncols = (n_regions + 1) // 2
 
-    print(f"\n=== Evaluating kinetic energy spectrum at surface for {region_name} ===")
-    plot_ke_spectrum_comparison_together(
-        emulators_dict=emulators_to_analyze,
-        show_ratios=False,
-        var_u='uo',
-        var_v='vo',
-        lev_idx=0,
-        time_window=time_window,
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        target_wavenumbers=[0.01, 0.02],
-        region_name=region_name
-    )
-    save_current_fig(f"ke_spectrum_{region_tag}", PDF_DIR)
+# #--- Isotropic spectrum (all regions in one figure) ---
+# print("\n=== Evaluating isotropic spectrum at surface (all regions) ===")
+# fig_iso, axes_iso = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_iso_flat = axes_iso.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_isotropic_spectrum_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         show_ratios=False,
+#         var_to_eval=var_to_eval,
+#         lev_idx=0,
+#         time_window=time_window,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         target_wavenumbers=[0.01, 0.02],
+#         region_name=region_name,
+#         ax=axes_iso_flat[idx],
+#     )
+# # Reorder legend: row 1 = OM4 (truth, dashed), row 2 = emulators (solid), ncol=3
+# handles, labels = axes_iso_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# # Interleave for matplotlib's column-by-column legend fill
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_iso.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#                bbox_to_anchor=(0.5, -0.06), frameon=False)
+# fig_iso.suptitle(f'Isotropic Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
+# fig_iso.tight_layout()
+# save_current_fig("isotropic_spectrum_all_regions", PDF_DIR)
 
-    print(f"\n=== Evaluating temporal spectrum at surface for {region_name} ===")
-    plot_temporal_spectrum_comparison_together(
-        emulators_dict=emulators_to_analyze,
-        var_to_eval='thetao',
-        show_ratios=False,
-        lev_idx=0,
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        target_frequencies=[1.0, 4.0],
-        region_name=region_name
-    )
-    save_current_fig(f"temporal_spectrum_{region_tag}", PDF_DIR)
+# # --- KE spectrum (all regions in one figure) ---
+# print("\n=== Evaluating kinetic energy spectrum at surface (all regions) ===")
+# fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_ke_flat = axes_ke.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_ke_spectrum_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         show_ratios=False,
+#         var_u='uo',
+#         var_v='vo',
+#         lev_idx=0,
+#         time_window=time_window,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         target_wavenumbers=[0.01, 0.02],
+#         region_name=region_name,
+#         ax=axes_ke_flat[idx],
+#     )
+# handles, labels = axes_ke_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_ke.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#               bbox_to_anchor=(0.5, -0.08), frameon=False)
+# fig_ke.suptitle('Kinetic Energy Spectrum (Surface)', fontsize=18, y=1.01)
+# fig_ke.tight_layout()
+# save_current_fig("ke_spectrum_all_regions", PDF_DIR)
 
-    print(f"\n=== Evaluating kinetic energy temporal spectrum at surface for {region_name} ===")
-    plot_ke_temporal_spectrum_comparison_together(
-        emulators_dict=emulators_to_analyze,
-        show_ratios=False,
-        var_u='uo',
-        var_v='vo',
-        lev_idx=0,
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        target_frequencies=[1.0, 4.0],
-        region_name=region_name
-    )
-    save_current_fig(f"ke_temporal_spectrum_{region_tag}", PDF_DIR)
+# # --- Temporal spectrum (all regions in one figure) ---
+# print("\n=== Evaluating temporal spectrum at surface (all regions) ===")
+# fig_ts, axes_ts = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_ts_flat = axes_ts.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_temporal_spectrum_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         var_to_eval='thetao',
+#         show_ratios=False,
+#         lev_idx=0,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         target_frequencies=[1.0, 4.0],
+#         region_name=region_name,
+#         ax=axes_ts_flat[idx],
+#     )
+# handles, labels = axes_ts_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_ts.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#               bbox_to_anchor=(0.5, -0.08), frameon=False)
+# fig_ts.suptitle(f'Temporal Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
+# fig_ts.tight_layout()
+# save_current_fig("temporal_spectrum_all_regions", PDF_DIR)
 
+# # --- KE temporal spectrum (all regions in one figure) ---
+# print("\n=== Evaluating KE temporal spectrum at surface (all regions) ===")
+# fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+# axes_kets_flat = axes_kets.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_ke_temporal_spectrum_comparison_together(
+#         emulators_dict=emulators_to_analyze,
+#         show_ratios=False,
+#         var_u='uo',
+#         var_v='vo',
+#         lev_idx=0,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         target_frequencies=[1.0, 4.0],
+#         region_name=region_name,
+#         ax=axes_kets_flat[idx],
+#     )
+# handles, labels = axes_kets_flat[0].get_legend_handles_labels()
+# truth_h, truth_l, emu_h, emu_l = [], [], [], []
+# for h, l in zip(handles, labels):
+#     if l.startswith('OM4'):
+#         truth_h.append(h); truth_l.append(l)
+#     else:
+#         emu_h.append(h); emu_l.append(l)
+# ordered_handles, ordered_labels = [], []
+# for th, tl, eh, el in zip(truth_h, truth_l, emu_h, emu_l):
+#     ordered_handles.extend([th, eh])
+#     ordered_labels.extend([tl, el])
+# fig_kets.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+#                 bbox_to_anchor=(0.5, -0.08), frameon=False)
+# fig_kets.suptitle('Temporal KE Power Spectrum (Surface)', fontsize=18, y=1.01)
+# fig_kets.tight_layout()
+# save_current_fig("ke_temporal_spectrum_all_regions", PDF_DIR)
+
+
+# # --- Isotropic spectrum with ratio (4 rows × 2 cols) ---
+# print("\n=== Isotropic spectrum + ratio (all regions) ===")
+# plot_isotropic_spectrum_with_ratio(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+#     var_to_eval=var_to_eval,
+#     lev_idx=0,
+#     time_window=time_window,
+# )
+# save_current_fig("isotropic_spectrum_with_ratio", PDF_DIR)
+
+# # --- KE spectrum with ratio (4 rows × 2 cols) ---
+# print("\n=== KE spectrum + ratio (all regions) ===")
+# plot_ke_spectrum_with_ratio(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+#     lev_idx=0,
+#     time_window=time_window,
+# )
+# save_current_fig("ke_spectrum_with_ratio", PDF_DIR)
+
+# # --- Temporal spectrum with ratio (4 rows × 2 cols) ---
+# print("\n=== Temporal spectrum + ratio (all regions) ===")
+# plot_temporal_spectrum_with_ratio(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+#     var_to_eval='thetao',
+#     lev_idx=0,
+# )
+# save_current_fig("temporal_spectrum_with_ratio", PDF_DIR)
+
+# # --- KE temporal spectrum with ratio (4 rows × 2 cols) ---
+# print("\n=== KE temporal spectrum + ratio (all regions) ===")
+# plot_ke_temporal_spectrum_with_ratio(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+#     lev_idx=0,
+# )
+# save_current_fig("ke_temporal_spectrum_with_ratio", PDF_DIR)
+
+# exit()
 
 # ============================================================
 # Time Series
@@ -547,7 +643,7 @@ plot_mean_timeseries_comparison_together(
     var_label='Temperature',
     output_dir=OUTPUT_DIR
 )
-save_current_fig("timeseries_thetao", PDF_DIR)
+save_current_fig("timeseries_thetao_only", PDF_DIR)
 
 # Time Series (Salinity)
 plot_mean_timeseries_comparison_together(
@@ -557,8 +653,9 @@ plot_mean_timeseries_comparison_together(
     var_label='Salinity',
     output_dir=OUTPUT_DIR
 )
-save_current_fig("timeseries_so", PDF_DIR)
+save_current_fig("timeseries_so_only", PDF_DIR)
 
+exit()
 
 # ============================================================
 # Temporal Variance Maps

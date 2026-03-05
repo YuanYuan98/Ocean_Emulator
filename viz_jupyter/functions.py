@@ -3906,16 +3906,11 @@ def plot_temporal_spectrum_comparison(
     #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval}...")
     
     def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
-        """Helper function to compute temporal spectrum at each spatial point, then average."""
-        from scipy import signal
-        
-        # Extract data at specified depth and region
+        """Helper function to compute temporal spectrum using xrft, then average over space."""
+        import xrft
+
         data = ds_target[var_name].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
-        
-        # Get dimensions
-        n_time = data.sizes['time']
-        
-        # Get time step for frequency calculation
+
         try:
             time_vals = ds_target.time.values
             if len(time_vals) > 1:
@@ -3928,60 +3923,29 @@ def plot_temporal_spectrum_comparison(
                 dt_days = 1.0
         except:
             dt_days = 1.0
-        
-        # Convert to years for sampling frequency
         dt_years = dt_days / 365.25
-        fs = 1.0 / dt_years  # Sampling frequency in cycles/year
-        
-        # Convert to numpy array (time, y, x)
-        data_np = data.values
-        
-        # Replace NaN with 0
-        data_np = np.nan_to_num(data_np, nan=0.0)
-        
-        # Apply linear detrending along time axis for each spatial point
-        # This removes both mean and linear trend (a*t + b)
-        data_detrended = signal.detrend(data_np, axis=0, type='linear')
 
-        # Remove seasonal cycle (monthly climatology)
-        steps_per_year = int(round(365.25 / dt_days))
-        n_full = (n_time // steps_per_year) * steps_per_year
-        if n_full >= steps_per_year:
-            climatology = data_detrended[:n_full].reshape(-1, steps_per_year, *data_detrended.shape[1:]).mean(axis=0)
-            seasonal = np.tile(climatology, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            data_detrended = data_detrended - seasonal
+        # Remove seasonal cycle
+        climatology = data.groupby('time.dayofyear').mean('time')
+        data = data.groupby('time.dayofyear') - climatology
 
-        # Apply Hanning window along time axis
-        window = signal.windows.hann(n_time)
-        data_windowed = data_detrended * window[:, np.newaxis, np.newaxis]
+        # Prepare for xrft: fill NaN, replace time with evenly-spaced years
+        data = data.drop_vars('dayofyear').fillna(0.0)
+        drop_coords = [c for c in data.coords if c not in data.dims and 'time' in (data[c].dims or [])]
+        if drop_coords:
+            data = data.drop_vars(drop_coords)
+        data['time'] = np.arange(len(data.time)) * dt_years
+        data = data.compute()
 
-        # Compute window correction factor
-        window_correction = np.mean(window**2)
-        
-        # Compute FFT along time axis for each spatial point
-        fft_result = np.fft.rfft(data_windowed, axis=0)
-        
-        # Compute power spectral density at each spatial point
-        # For one-sided spectrum (rfft), multiply by 2 to account for negative frequencies
-        # PSD = 2 * |FFT|^2 / (fs * N * window_correction)
-        power_spectrum = np.abs(fft_result)**2
-        psd_spatial = 2.0 * power_spectrum / (fs * n_time * window_correction)
-        
-        # DC component (frequency = 0) should not be multiplied by 2
-        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
-        
-        # If n_time is even, Nyquist frequency should not be multiplied by 2
-        if n_time % 2 == 0:
-            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
-        
-        # Average PSD over all spatial points
-        psd = np.nanmean(psd_spatial, axis=(1, 2))
-        
-        # Get frequency array
-        freqs = np.fft.rfftfreq(n_time, d=dt_years)
-        
-        return freqs, psd
-    
+        # Compute power spectrum using xrft
+        power = xrft.power_spectrum(data, dim='time', detrend='linear', window='hann')
+        psd = power.mean(dim=[d for d in power.dims if d != 'freq_time'])
+
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
+
     # Calculate reference spectrum
     #print(f"Calculating temporal spectrum for {TRUTH_LABEL}...")
     freq_ref, psd_ref = get_temporal_spectrum(
@@ -4145,16 +4109,11 @@ def plot_ke_temporal_spectrum_comparison(
         """Helper function to compute temporal KE spectrum at each spatial point, then average.
         Correctly computes: 0.5 * (|FFT(u)|^2 + |FFT(v)|^2)
         """
-        from scipy import signal
-        
-        # Extract velocity components at specified depth and region
+        import xrft
+
         u_data = ds_target[var_u].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
         v_data = ds_target[var_v].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
-        
-        # Get dimensions
-        n_time = u_data.sizes['time']
-        
-        # Get time step for frequency calculation
+
         try:
             time_vals = ds_target.time.values
             if len(time_vals) > 1:
@@ -4167,68 +4126,35 @@ def plot_ke_temporal_spectrum_comparison(
                 dt_days = 1.0
         except:
             dt_days = 1.0
-        
-        # Convert to years for sampling frequency
         dt_years = dt_days / 365.25
-        fs = 1.0 / dt_years  # Sampling frequency in cycles/year
-        
-        # Convert to numpy arrays (time, y, x)
-        u_np = np.nan_to_num(u_data.values, nan=0.0)
-        v_np = np.nan_to_num(v_data.values, nan=0.0)
-        
-        # Apply linear detrending along time axis for each spatial point
-        u_detrended = signal.detrend(u_np, axis=0, type='linear')
-        v_detrended = signal.detrend(v_np, axis=0, type='linear')
 
-        # Remove seasonal cycle (monthly climatology)
-        steps_per_year = int(round(365.25 / dt_days))
-        n_full = (n_time // steps_per_year) * steps_per_year
-        if n_full >= steps_per_year:
-            clim_u = u_detrended[:n_full].reshape(-1, steps_per_year, *u_detrended.shape[1:]).mean(axis=0)
-            clim_v = v_detrended[:n_full].reshape(-1, steps_per_year, *v_detrended.shape[1:]).mean(axis=0)
-            seasonal_u = np.tile(clim_u, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            seasonal_v = np.tile(clim_v, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            u_detrended = u_detrended - seasonal_u
-            v_detrended = v_detrended - seasonal_v
+        # Remove seasonal cycle
+        u_data = u_data.groupby('time.dayofyear') - u_data.groupby('time.dayofyear').mean('time')
+        v_data = v_data.groupby('time.dayofyear') - v_data.groupby('time.dayofyear').mean('time')
 
-        # Apply Hanning window along time axis
-        window = signal.windows.hann(n_time)
-        u_windowed = u_detrended * window[:, np.newaxis, np.newaxis]
-        v_windowed = v_detrended * window[:, np.newaxis, np.newaxis]
+        # Prepare for xrft
+        u_data = u_data.drop_vars('dayofyear').fillna(0.0)
+        v_data = v_data.drop_vars('dayofyear').fillna(0.0)
+        drop_coords = [c for c in u_data.coords if c not in u_data.dims and 'time' in (u_data[c].dims or [])]
+        if drop_coords:
+            u_data = u_data.drop_vars(drop_coords)
+            v_data = v_data.drop_vars(drop_coords)
+        u_data['time'] = np.arange(len(u_data.time)) * dt_years
+        v_data['time'] = np.arange(len(v_data.time)) * dt_years
+        u_data = u_data.compute()
+        v_data = v_data.compute()
 
-        # Compute window correction factor
-        window_correction = np.mean(window**2)
-
-        # Compute FFT along time axis for each spatial point
-        fft_u = np.fft.rfft(u_windowed, axis=0)
-        fft_v = np.fft.rfft(v_windowed, axis=0)
-
-        # Compute power spectrum for u and v at each spatial point
-        power_u = np.abs(fft_u)**2
-        power_v = np.abs(fft_v)**2
-
-        # Compute KE power spectrum: 0.5 * (|FFT(u)|^2 + |FFT(v)|^2)
+        # Compute power spectrum using xrft
+        power_u = xrft.power_spectrum(u_data, dim='time', detrend='linear', window='hann')
+        power_v = xrft.power_spectrum(v_data, dim='time', detrend='linear', window='hann')
         power_ke = 0.5 * (power_u + power_v)
 
-        # Convert to PSD for one-sided spectrum (rfft)
-        # Multiply by 2 to account for negative frequencies
-        psd_spatial = 2.0 * power_ke / (fs * n_time * window_correction)
-        
-        # DC component (frequency = 0) should not be multiplied by 2
-        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
-        
-        # If n_time is even, Nyquist frequency should not be multiplied by 2
-        if n_time % 2 == 0:
-            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
-        
-        # Average PSD over all spatial points
-        psd = np.nanmean(psd_spatial, axis=(1, 2))
-        
-        # Get frequency array
-        freqs = np.fft.rfftfreq(n_time, d=dt_years)
-        
-        return freqs, psd
-    
+        psd = power_ke.mean(dim=[d for d in power_ke.dims if d != 'freq_time'])
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
+
     # Calculate reference spectrum
     #print(f"Calculating temporal KE spectrum for {TRUTH_LABEL}...")
     freq_ref, psd_ref = get_ke_temporal_spectrum(
@@ -4346,29 +4272,36 @@ def plot_mean_timeseries_comparison_together(emulators_dict, variable_name, var_
     fig, axes = plt.subplots(num_plots, 1, figsize=(10, 3.5 * num_plots), sharex=True, constrained_layout=True)
     if num_plots == 1: axes = [axes]
     
+    unique_truths = {emu_data.get('truth_label', 'Truth') for emu_data in emulators_dict.values()}
+    single_truth = len(unique_truths) == 1
+
     for i, Slices in enumerate(DEPTH_SLICES):
         ax = axes[i]
         depth_slice = slice(Slices['min'], Slices['max'])
         stats_text = []
-        
+        plotted_truths = set()
+
         for label, emu_data in emulators_dict.items():
             ds_truth = emu_data['truth']
             ds_emu = emu_data['ds']
             color = emu_data['color']
             truth_label = emu_data.get('truth_label', 'Truth')
-            
+
             area = ds_truth['areacello']
             wet_mask = xr.where(np.isnan(ds_truth[variable_name].isel(time=0)), 0.0, 1.0)
-            
+
             field_truth = ds_truth[variable_name].sel(lev=depth_slice)
             dz_truth = ds_truth['dz'].sel(lev=depth_slice)
             vol_weight_truth = dz_truth * area
             ts_truth = (field_truth * vol_weight_truth).sum(['x', 'y', 'lev']).compute() / \
                        (vol_weight_truth * wet_mask.sel(lev=depth_slice)).sum(['x', 'y', 'lev']).compute()
-            
+
             # Convert cftime to numerical year values for matplotlib
             time_truth = np.array([t.year + (t.dayofyr - 1) / 365.25 for t in ts_truth.time.values])
-            ax.plot(time_truth, ts_truth.values, label=f'{truth_label}', color=color, lw=2, linestyle='--', alpha=0.7)
+            if truth_label not in plotted_truths:
+                truth_color = 'black' if single_truth else color
+                ax.plot(time_truth, ts_truth.values, label=f'{truth_label}', color=truth_color, lw=2, linestyle='--', alpha=0.7)
+                plotted_truths.add(truth_label)
             
             field_emu = ds_emu[variable_name].sel(lev=depth_slice)
             dz_emu = ds_emu['dz'].sel(lev=depth_slice)
@@ -4394,18 +4327,21 @@ def plot_mean_timeseries_comparison_together(emulators_dict, variable_name, var_
 
 
 def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo', units='m$^2$/s$^2$', output_dir=None, colorbar_fix=False):
-    """KE temporal variance comparison where each emulator uses its corresponding truth.
-    Computes KE = 0.5*(u^2 + v^2) at each timestep, then takes temporal variance.
+    """EKE comparison where each emulator uses its corresponding truth.
+    Computes EKE = 0.5*(u'^2 + v'^2) where u', v' are velocity anomalies,
+    then takes the time mean.
     """
-    print(f"\nGenerating KE Variance Comparison (Multi-Scale)...")
+    print(f"\nGenerating EKE Comparison (Multi-Scale)...")
 
     datasets = list(emulators_dict.keys())
     nrows = len(datasets) + 1
     ncols = len(DEPTH_SLICES)
 
-    def compute_ke_variance(ds, var_u_name, var_v_name):
-        ke = 0.5 * (ds[var_u_name]**2 + ds[var_v_name]**2)
-        return ke.var('time')
+    def compute_eke(ds, var_u_name, var_v_name):
+        u_prime = ds[var_u_name] - ds[var_u_name].mean('time')
+        v_prime = ds[var_v_name] - ds[var_v_name].mean('time')
+        eke = 0.5 * (u_prime**2 + v_prime**2)
+        return eke.mean('time')
 
     # Ground truth (first emulator's truth)
     first_label = datasets[0]
@@ -4414,26 +4350,26 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
     truth_label = first_emu_data.get('truth_label', 'Truth')
     dz_truth_first = ds_truth_first['dz']
     wet_mask_first = (ds_truth_first[var_u].isel(time=0) * 0 + 1).compute()
-    truth_var_3d = compute_ke_variance(ds_truth_first, var_u, var_v)
+    truth_eke_3d = compute_eke(ds_truth_first, var_u, var_v)
 
     plot_data_truth = {}
     for Slices in DEPTH_SLICES:
         plot_data_truth[Slices['title']] = calculate_vertical_mean_simple(
-            truth_var_3d, dz_truth_first, wet_mask_first, Slices['min'], Slices['max']
+            truth_eke_3d, dz_truth_first, wet_mask_first, Slices['min'], Slices['max']
         ).compute()
 
-    # Emulator KE variance
+    # Emulator EKE
     plot_data = {}
     for label, emu_data in emulators_dict.items():
         ds_truth = emu_data['truth']
         dz_truth = ds_truth['dz']
         wet_mask = (ds_truth[var_u].isel(time=0) * 0 + 1).compute()
-        emu_var_3d = compute_ke_variance(emu_data['ds'], var_u, var_v)
+        emu_eke_3d = compute_eke(emu_data['ds'], var_u, var_v)
 
         plot_data[label] = {}
         for Slices in DEPTH_SLICES:
             plot_data[label][Slices['title']] = calculate_vertical_mean_simple(
-                emu_var_3d, dz_truth, wet_mask, Slices['min'], Slices['max']
+                emu_eke_3d, dz_truth, wet_mask, Slices['min'], Slices['max']
             ).compute()
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3.5*nrows),
@@ -4447,8 +4383,10 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
         all_data = [plot_data_truth[key].values.flatten()] + [plot_data[ds][key].values.flatten() for ds in datasets]
         flat_data = np.concatenate(all_data)
         flat_data = flat_data[~np.isnan(flat_data)]
-        vmax = np.percentile(flat_data, 95) if len(flat_data) > 0 else 1.0
-        norm = colors.Normalize(vmin=0, vmax=vmax)
+        flat_pos = flat_data[flat_data > 0]
+        vmin = np.percentile(flat_pos, 5) if len(flat_pos) > 0 else 1e-10
+        vmax = np.percentile(flat_pos, 99) if len(flat_pos) > 0 else 1.0
+        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
 
         # Row 0: Ground truth
         ax = axes[0, j]
@@ -4475,7 +4413,7 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
 
         fig.colorbar(p_mesh, ax=axes[:, j], orientation='horizontal', shrink=0.7, pad=0.03)
 
-    fig.suptitle(f"Temporal Variance: Kinetic Energy (Multi-Scale)", fontsize=18, y=0.96)
+    fig.suptitle(f"Eddy Kinetic Energy (Multi-Scale)", fontsize=18, y=0.96)
     plt.show()
 
 
@@ -6658,13 +6596,14 @@ def plot_isotropic_spectrum_comparison_together(
     emulators_dict,
     var_to_eval='thetao',
     lev_idx=0,
-    time_window=100,
+    time_window=None,
     lon_slice=slice(180, 243),
     lat_slice=slice(-40, 35),
     target_wavenumbers=[0.01, 0.02],
     show_ratios=True,
     colorbar_fix=False,
     region_name=None,
+    ax=None,
 ):
     """
     Plots isotropic power spectrum comparison where each emulator uses its own corresponding truth.
@@ -6744,7 +6683,9 @@ def plot_isotropic_spectrum_comparison_together(
         }
 
     # Plotting
-    fig, ax = plt.subplots(figsize=(6, 4))
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(6, 4))
 
     plotted_truths = set()
     for label, data in all_spectra.items():
@@ -6755,14 +6696,14 @@ def plot_isotropic_spectrum_comparison_together(
         if truth_label not in plotted_truths:
             ax.loglog(
                 data['k_truth'], data['spec_truth'].mean(0), '--',
-                label=f'{truth_label} ({var_to_eval} Anomalies)',
+                label=f'{truth_label}',
                 linewidth=2, color=color, alpha=0.7
             )
             plotted_truths.add(truth_label)
         # Plot emulator (solid)
         ax.loglog(
             data['k_emu'], data['spec_emu'].mean(0), '-',
-            label=f'{label} ({var_to_eval} Anomalies)',
+            label=f'{label}',
             linewidth=2, color=color
         )
 
@@ -6805,25 +6746,144 @@ def plot_isotropic_spectrum_comparison_together(
     # Get depth value from first emulator's truth
     first_label = list(emulators_dict.keys())[0]
     depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
 
-    lon_start = lon_slice.start if lon_slice.start is not None else 0
-    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
-    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lat_start = lat_slice.start if lat_slice.start is not None else -90
-    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
-    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
-    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
-
-    region_str = f'{region_name}: ' if region_name else ''
-    ax.set_title(f'Isotropic Power Spectrum of {var_to_eval} ({depth_value}m)\n' +
-                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
-                 fontsize=11)
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-    ax.legend(fontsize=9)
 
-    plt.tight_layout()
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_isotropic_spectrum_with_ratio(
+    emulators_dict,
+    spectrum_regions,
+    var_to_eval='thetao',
+    lev_idx=0,
+    time_window=None,
+    ratio_ylim=(0, 1.5),
+):
+    """
+    Plot isotropic power spectrum + ratio for multiple regions.
+
+    Layout: N_regions rows × 2 columns.
+      Left column  – log-log power spectrum (truth dashed, emulator solid).
+      Right column – ratio (emulator PSD / truth PSD), semilog-x with linear y.
+
+    Parameters
+    ----------
+    emulators_dict : dict
+        {label: {'ds', 'color', 'truth', 'truth_label'}}
+    spectrum_regions : list of (name, lon_slice, lat_slice)
+    var_to_eval : str
+    lev_idx : int
+    time_window : int or None
+    ratio_ylim : tuple
+        y-axis limits for the ratio panels.
+    """
+    from matplotlib.ticker import LogLocator, LogFormatterMathtext
+
+    def get_spectrum(ds_target, var_name, lev_i, t_window, x_sl, y_sl):
+        dx_mean = float(ds_target.dx.sel({'x': x_sl, 'y': y_sl}).mean().values)
+        dy_mean = float(ds_target.dy.sel({'x': x_sl, 'y': y_sl}).mean().values)
+        data_slice_raw = ds_target[var_name].isel(lev=lev_i, time=slice(None, t_window))
+        data_slice_raw = data_slice_raw.transpose('time', ...).sel({'x': x_sl, 'y': y_sl})
+        time_mean = data_slice_raw.mean(dim='time')
+        data_slice_anom = data_slice_raw - time_mean
+        data_prepared = data_slice_anom.fillna(0).values
+        k_cent, spec = compute_isotropic_spectrum_torch(
+            torch.as_tensor(data_prepared),
+            dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann', cutoff_before_bins=False
+        )
+        return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec.cpu().numpy()
+
+    n_regions = len(spectrum_regions)
+    fig, axes = plt.subplots(n_regions, 2, figsize=(12, 3.5 * n_regions))
+    if n_regions == 1:
+        axes = axes[np.newaxis, :]
+
+    for row, (region_name, lon_slice, lat_slice) in enumerate(spectrum_regions):
+        ax_spec = axes[row, 0]
+        ax_ratio = axes[row, 1]
+
+        # Compute spectra
+        plotted_truths = set()
+        for label, emu_data in emulators_dict.items():
+            color = emu_data['color']
+            truth_label = emu_data.get('truth_label', 'Truth')
+            ds_truth = emu_data['truth']
+            ds_emu = emu_data['ds']
+
+            k_truth, spec_truth = get_spectrum(ds_truth, var_to_eval, lev_idx, time_window, lon_slice, lat_slice)
+            k_emu, spec_emu = get_spectrum(ds_emu, var_to_eval, lev_idx, time_window, lon_slice, lat_slice)
+
+            spec_truth_mean = spec_truth.mean(0)
+            spec_emu_mean = spec_emu.mean(0)
+
+            # Left panel: power spectrum (truth dashed, emulator solid)
+            if truth_label not in plotted_truths:
+                ax_spec.loglog(k_truth, spec_truth_mean, '--',
+                               label=f'{truth_label}', linewidth=2, color=color, alpha=0.7)
+                plotted_truths.add(truth_label)
+            ax_spec.loglog(k_emu, spec_emu_mean, '-',
+                           label=f'{label}', linewidth=2, color=color)
+
+            # Right panel: ratio
+            # Interpolate emulator spectrum onto truth wavenumber grid
+            ratio = np.interp(k_truth, k_emu, spec_emu_mean) / np.where(spec_truth_mean > 0, spec_truth_mean, np.nan)
+            ax_ratio.semilogx(k_truth, ratio, '-', linewidth=2, color=color, label=f'{label}')
+
+        # Format left panel
+        ax_spec.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+        ax_spec.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+        ax_spec.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+        ax_spec.xaxis.set_minor_formatter(plt.NullFormatter())
+        ax_spec.set_ylabel('Power Spectral Density', fontsize=13)
+        ax_spec.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax_spec.set_title(region_name, fontsize=14)
+        ax_spec.tick_params(axis='both', labelsize=12)
+
+        # Format right panel
+        ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1.5)
+        ax_ratio.axhspan(0.9, 1.1, color='gray', alpha=0.15)
+        ax_ratio.set_ylim(ratio_ylim)
+        ax_ratio.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+        ax_ratio.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+        ax_ratio.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+        ax_ratio.xaxis.set_minor_formatter(plt.NullFormatter())
+        ax_ratio.set_ylabel('Emulator / OM4', fontsize=13)
+        ax_ratio.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax_ratio.set_title(f'{region_name} — Ratio', fontsize=14)
+        ax_ratio.tick_params(axis='both', labelsize=12)
+
+        # Only add x-labels on the bottom row
+        if row == n_regions - 1:
+            ax_spec.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)', fontsize=13)
+            ax_ratio.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)', fontsize=13)
+
+    # Shared legend: row 1 = OM4 truth (from left panel), row 2 = emulators (from right panel)
+    spec_handles, spec_labels = axes[0, 0].get_legend_handles_labels()
+    ratio_handles, ratio_labels = axes[0, 1].get_legend_handles_labels()
+    truth_h = [h for h, l in zip(spec_handles, spec_labels) if l.startswith('OM4')]
+    truth_l = [l for l in spec_labels if l.startswith('OM4')]
+    # Interleave for matplotlib's column-by-column legend fill
+    ordered_handles, ordered_labels = [], []
+    for th, tl, eh, el in zip(truth_h, truth_l, ratio_handles, ratio_labels):
+        ordered_handles.extend([th, eh])
+        ordered_labels.extend([tl, el])
+    fig.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+               bbox_to_anchor=(0.5, -0.08), frameon=False)
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
+    fig.suptitle(f'Isotropic Power Spectrum of {var_to_eval} ({depth_str})', fontsize=15, y=1.01)
+    fig.tight_layout()
     plt.show()
 
 
@@ -6832,13 +6892,14 @@ def plot_ke_spectrum_comparison_together(
     var_u='uo',
     var_v='vo',
     lev_idx=0,
-    time_window=100,
+    time_window=None,
     lon_slice=slice(180, 243),
     lat_slice=slice(-40, 35),
     target_wavenumbers=[0.01, 0.02],
     show_ratios=True,
     colorbar_fix=False,
     region_name=None,
+    ax=None,
 ):
     """
     Plots kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
@@ -6897,11 +6958,11 @@ def plot_ke_spectrum_comparison_together(
 
         k_cent, spec_u = compute_isotropic_spectrum_torch(
             u_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
-            detrend='linear', window='hann'
+            detrend='linear', window='hann', cutoff_before_bins=False
         )
         _, spec_v = compute_isotropic_spectrum_torch(
             v_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
-            detrend='linear', window='hann'
+            detrend='linear', window='hann', cutoff_before_bins=False
         )
 
         spec_ke = 0.5 * (spec_u + spec_v)
@@ -6928,7 +6989,9 @@ def plot_ke_spectrum_comparison_together(
         }
 
     # Plotting
-    fig, ax = plt.subplots(figsize=(6, 4))
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(6, 4))
 
     plotted_truths = set()
     for label, data in all_spectra.items():
@@ -6939,14 +7002,14 @@ def plot_ke_spectrum_comparison_together(
         if truth_label not in plotted_truths:
             ax.loglog(
                 data['k_truth'], data['spec_truth'].mean(0), '--',
-                label=f'{truth_label} (KE Anomalies)',
+                label=f'{truth_label}',
                 linewidth=2, color=color, alpha=0.7
             )
             plotted_truths.add(truth_label)
         # Plot emulator (solid)
         ax.loglog(
             data['k_emu'], data['spec_emu'].mean(0), '-',
-            label=f'{label} (KE Anomalies)',
+            label=f'{label}',
             linewidth=2, color=color
         )
 
@@ -6987,26 +7050,17 @@ def plot_ke_spectrum_comparison_together(
 
     first_label = list(emulators_dict.keys())[0]
     depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
 
-    lon_start = lon_slice.start if lon_slice.start is not None else 0
-    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
-    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lat_start = lat_slice.start if lat_slice.start is not None else -90
-    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
-    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
-    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
-
-    region_str = f'{region_name}: ' if region_name else ''
-    ax.set_title(f'Kinetic Energy Spectrum (Anomalies) at {depth_value}m\n' +
-                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
-                 fontsize=11)
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
 
     ax.grid(True, which='both', alpha=0.3)
-    ax.legend(fontsize=9)
 
-    plt.tight_layout()
-    plt.show()
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
 
 
 def plot_temporal_spectrum_comparison_together(
@@ -7019,6 +7073,7 @@ def plot_temporal_spectrum_comparison_together(
     show_ratios=True,
     colorbar_fix=False,
     region_name=None,
+    ax=None,
 ):
     """
     Plots temporal power spectrum comparison where each emulator uses its own corresponding truth.
@@ -7062,11 +7117,10 @@ def plot_temporal_spectrum_comparison_together(
     #print(f"\nGenerating Temporal Power Spectrum Comparison for {var_to_eval} (Multi-Scale)...")
 
     def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
-        """Helper function to compute temporal spectrum at each spatial point, then average."""
-        from scipy import signal
+        """Helper function to compute temporal spectrum using xrft, then average over space."""
+        import xrft
 
         data = ds_target[var_name].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
-        n_time = data.sizes['time']
 
         try:
             time_vals = ds_target.time.values
@@ -7080,36 +7134,28 @@ def plot_temporal_spectrum_comparison_together(
                 dt_days = 1.0
         except:
             dt_days = 1.0
-
         dt_years = dt_days / 365.25
-        fs = 1.0 / dt_years
-
-        data_np = np.nan_to_num(data.values, nan=0.0)
-        data_detrended = signal.detrend(data_np, axis=0, type='linear')
 
         # Remove seasonal cycle
-        steps_per_year = int(round(365.25 / dt_days))
-        n_full = (n_time // steps_per_year) * steps_per_year
-        if n_full >= steps_per_year:
-            climatology = data_detrended[:n_full].reshape(-1, steps_per_year, *data_detrended.shape[1:]).mean(axis=0)
-            seasonal = np.tile(climatology, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            data_detrended = data_detrended - seasonal
+        climatology = data.groupby('time.dayofyear').mean('time')
+        data = data.groupby('time.dayofyear') - climatology
 
-        window = signal.windows.hann(n_time)
-        data_windowed = data_detrended * window[:, np.newaxis, np.newaxis]
-        window_correction = np.mean(window**2)
+        # Prepare for xrft
+        data = data.drop_vars('dayofyear').fillna(0.0)
+        # Drop any coordinate variables whose dims include 'time' (e.g. 'lev')
+        drop_coords = [c for c in data.coords if c not in data.dims and 'time' in (data[c].dims or [])]
+        if drop_coords:
+            data = data.drop_vars(drop_coords)
+        data['time'] = np.arange(len(data.time)) * dt_years
+        data = data.compute()
 
-        fft_result = np.fft.rfft(data_windowed, axis=0)
-        power_spectrum = np.abs(fft_result)**2
-        psd_spatial = 2.0 * power_spectrum / (fs * n_time * window_correction)
-        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
-        if n_time % 2 == 0:
-            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
+        power = xrft.power_spectrum(data, dim='time', detrend='linear', window='hann')
+        psd = power.mean(dim=[d for d in power.dims if d != 'freq_time'])
 
-        psd = np.nanmean(psd_spatial, axis=(1, 2))
-        freqs = np.fft.rfftfreq(n_time, d=dt_years)
-
-        return freqs, psd
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
 
     # Compute spectra for each truth-emulator pair
     all_spectra = {}
@@ -7131,7 +7177,9 @@ def plot_temporal_spectrum_comparison_together(
         }
 
     # Plotting
-    fig, ax = plt.subplots(figsize=(6, 4))
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(6, 4))
 
     plotted_truths = set()
     for label, data in all_spectra.items():
@@ -7142,14 +7190,14 @@ def plot_temporal_spectrum_comparison_together(
         if truth_label not in plotted_truths:
             ax.loglog(
                 data['freq_truth'][1:], data['psd_truth'][1:], '--',
-                label=f'{truth_label} ({var_to_eval} Anomalies)',
+                label=f'{truth_label}',
                 linewidth=2, color=color, alpha=0.7
             )
             plotted_truths.add(truth_label)
         # Plot emulator (solid), skip DC component
         ax.loglog(
             data['freq_emu'][1:], data['psd_emu'][1:], '-',
-            label=f'{label} ({var_to_eval} Anomalies)',
+            label=f'{label}',
             linewidth=2, color=color
         )
 
@@ -7186,26 +7234,17 @@ def plot_temporal_spectrum_comparison_together(
 
     first_label = list(emulators_dict.keys())[0]
     depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
 
-    lon_start = lon_slice.start if lon_slice.start is not None else 0
-    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
-    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lat_start = lat_slice.start if lat_slice.start is not None else -90
-    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
-    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
-    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
-
-    region_str = f'{region_name}: ' if region_name else ''
-    ax.set_title(f'Temporal Power Spectrum of {var_to_eval} at {depth_value}m\n' +
-                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
-                 fontsize=11)
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.legend(fontsize=9)
 
-    plt.tight_layout()
-    plt.show()
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
 
 
 def plot_ke_temporal_spectrum_comparison_together(
@@ -7219,6 +7258,7 @@ def plot_ke_temporal_spectrum_comparison_together(
     show_ratios=True,
     colorbar_fix=False,
     region_name=None,
+    ax=None,
 ):
     """
     Plots temporal kinetic energy spectrum comparison where each emulator uses its own corresponding truth.
@@ -7264,13 +7304,11 @@ def plot_ke_temporal_spectrum_comparison_together(
     #print(f"\nGenerating Temporal KE Power Spectrum Comparison (Multi-Scale)...")
 
     def get_ke_temporal_spectrum(ds_target, lev_i, x_sl, y_sl):
-        """Helper function to compute temporal KE spectrum at each spatial point, then average."""
-        from scipy import signal
+        """Helper function to compute temporal KE spectrum using xrft, then average over space."""
+        import xrft
 
         u_data = ds_target[var_u].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
         v_data = ds_target[var_v].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
-
-        n_time = u_data.sizes['time']
 
         try:
             time_vals = ds_target.time.values
@@ -7284,48 +7322,34 @@ def plot_ke_temporal_spectrum_comparison_together(
                 dt_days = 1.0
         except:
             dt_days = 1.0
-
         dt_years = dt_days / 365.25
-        fs = 1.0 / dt_years
-
-        u_np = np.nan_to_num(u_data.values, nan=0.0)
-        v_np = np.nan_to_num(v_data.values, nan=0.0)
-
-        u_detrended = signal.detrend(u_np, axis=0, type='linear')
-        v_detrended = signal.detrend(v_np, axis=0, type='linear')
 
         # Remove seasonal cycle
-        steps_per_year = int(round(365.25 / dt_days))
-        n_full = (n_time // steps_per_year) * steps_per_year
-        if n_full >= steps_per_year:
-            clim_u = u_detrended[:n_full].reshape(-1, steps_per_year, *u_detrended.shape[1:]).mean(axis=0)
-            clim_v = v_detrended[:n_full].reshape(-1, steps_per_year, *v_detrended.shape[1:]).mean(axis=0)
-            seasonal_u = np.tile(clim_u, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            seasonal_v = np.tile(clim_v, (n_time // steps_per_year + 1, 1, 1))[:n_time]
-            u_detrended = u_detrended - seasonal_u
-            v_detrended = v_detrended - seasonal_v
+        u_data = u_data.groupby('time.dayofyear') - u_data.groupby('time.dayofyear').mean('time')
+        v_data = v_data.groupby('time.dayofyear') - v_data.groupby('time.dayofyear').mean('time')
 
-        window = signal.windows.hann(n_time)
-        u_windowed = u_detrended * window[:, np.newaxis, np.newaxis]
-        v_windowed = v_detrended * window[:, np.newaxis, np.newaxis]
-        window_correction = np.mean(window**2)
+        # Prepare for xrft
+        u_data = u_data.drop_vars('dayofyear').fillna(0.0)
+        v_data = v_data.drop_vars('dayofyear').fillna(0.0)
+        # Drop any coordinate variables whose dims include 'time' (e.g. 'lev')
+        drop_coords = [c for c in u_data.coords if c not in u_data.dims and 'time' in (u_data[c].dims or [])]
+        if drop_coords:
+            u_data = u_data.drop_vars(drop_coords)
+            v_data = v_data.drop_vars(drop_coords)
+        u_data['time'] = np.arange(len(u_data.time)) * dt_years
+        v_data['time'] = np.arange(len(v_data.time)) * dt_years
+        u_data = u_data.compute()
+        v_data = v_data.compute()
 
-        fft_u = np.fft.rfft(u_windowed, axis=0)
-        fft_v = np.fft.rfft(v_windowed, axis=0)
-
-        power_u = np.abs(fft_u)**2
-        power_v = np.abs(fft_v)**2
+        power_u = xrft.power_spectrum(u_data, dim='time', detrend='linear', window='hann')
+        power_v = xrft.power_spectrum(v_data, dim='time', detrend='linear', window='hann')
         power_ke = 0.5 * (power_u + power_v)
 
-        psd_spatial = 2.0 * power_ke / (fs * n_time * window_correction)
-        psd_spatial[0, :, :] = psd_spatial[0, :, :] / 2.0
-        if n_time % 2 == 0:
-            psd_spatial[-1, :, :] = psd_spatial[-1, :, :] / 2.0
-
-        psd = np.nanmean(psd_spatial, axis=(1, 2))
-        freqs = np.fft.rfftfreq(n_time, d=dt_years)
-
-        return freqs, psd
+        psd = power_ke.mean(dim=[d for d in power_ke.dims if d != 'freq_time'])
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
 
     # Compute spectra for each truth-emulator pair
     all_spectra = {}
@@ -7347,7 +7371,9 @@ def plot_ke_temporal_spectrum_comparison_together(
         }
 
     # Plotting
-    fig, ax = plt.subplots(figsize=(6, 4))
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(6, 4))
 
     plotted_truths = set()
     for label, data in all_spectra.items():
@@ -7358,14 +7384,14 @@ def plot_ke_temporal_spectrum_comparison_together(
         if truth_label not in plotted_truths:
             ax.loglog(
                 data['freq_truth'][1:], data['psd_truth'][1:], '--',
-                label=f'{truth_label} (KE Anomalies)',
+                label=f'{truth_label}',
                 linewidth=2, color=color, alpha=0.7
             )
             plotted_truths.add(truth_label)
         # Plot emulator (solid), skip DC component
         ax.loglog(
             data['freq_emu'][1:], data['psd_emu'][1:], '-',
-            label=f'{label} (KE Anomalies)',
+            label=f'{label}',
             linewidth=2, color=color
         )
 
@@ -7402,24 +7428,685 @@ def plot_ke_temporal_spectrum_comparison_together(
 
     first_label = list(emulators_dict.keys())[0]
     depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
 
-    lon_start = lon_slice.start if lon_slice.start is not None else 0
-    lon_stop = lon_slice.stop if lon_slice.stop is not None else 360
-    lon_start_display = f"{360 - lon_start}°W" if lon_start > 180 else f"{lon_start}°E"
-    lon_stop_display = f"{360 - lon_stop}°W" if lon_stop > 180 else f"{lon_stop}°E"
-    lat_start = lat_slice.start if lat_slice.start is not None else -90
-    lat_stop = lat_slice.stop if lat_slice.stop is not None else 90
-    lat_start_display = f"{abs(lat_start)}°S" if lat_start < 0 else f"{lat_start}°N"
-    lat_stop_display = f"{abs(lat_stop)}°S" if lat_stop < 0 else f"{lat_stop}°N"
-
-    region_str = f'{region_name}: ' if region_name else ''
-    ax.set_title(f'Temporal KE Power Spectrum at {depth_value}m\n' +
-                 f'{region_str}{lon_start_display}-{lon_stop_display}, {lat_start_display}-{lat_stop_display}',
-                 fontsize=11)
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
 
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.legend(fontsize=9)
 
-    plt.tight_layout()
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_ke_spectrum_with_ratio(
+    emulators_dict,
+    spectrum_regions,
+    var_u='uo',
+    var_v='vo',
+    lev_idx=0,
+    time_window=None,
+    ratio_ylim=(0, 1.5),
+):
+    """
+    KE spectrum + ratio for multiple regions (N rows × 2 cols).
+    Left: OM4 truth only. Right: emulator/OM4 ratio.
+    """
+    from matplotlib.ticker import LogLocator, LogFormatterMathtext
+
+    def get_ke_spectrum(ds_target, lev_i, t_window, x_sl, y_sl):
+        dx_mean = float(ds_target.dx.sel({'x': x_sl, 'y': y_sl}).mean().values)
+        dy_mean = float(ds_target.dy.sel({'x': x_sl, 'y': y_sl}).mean().values)
+
+        def process_var(var_name):
+            data = ds_target[var_name].isel(lev=lev_i, time=slice(None, t_window))
+            data = data.transpose('time', ...).sel({'x': x_sl, 'y': y_sl})
+            data_anom = data - data.mean(dim='time')
+            return torch.as_tensor(data_anom.fillna(0).values)
+
+        u_tensor = process_var(var_u)
+        v_tensor = process_var(var_v)
+        k_cent, spec_u = compute_isotropic_spectrum_torch(
+            u_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann', cutoff_before_bins=False
+        )
+        _, spec_v = compute_isotropic_spectrum_torch(
+            v_tensor, dx=dx_mean, dy=dy_mean, n_factor=2,
+            detrend='linear', window='hann', cutoff_before_bins=False
+        )
+        spec_ke = 0.5 * (spec_u + spec_v)
+        return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec_ke.cpu().numpy()
+
+    n_regions = len(spectrum_regions)
+    fig, axes = plt.subplots(n_regions, 2, figsize=(12, 3.5 * n_regions))
+    if n_regions == 1:
+        axes = axes[np.newaxis, :]
+
+    for row, (region_name, lon_slice, lat_slice) in enumerate(spectrum_regions):
+        ax_spec = axes[row, 0]
+        ax_ratio = axes[row, 1]
+
+        plotted_truths = set()
+        for label, emu_data in emulators_dict.items():
+            color = emu_data['color']
+            truth_label = emu_data.get('truth_label', 'Truth')
+            ds_truth = emu_data['truth']
+            ds_emu = emu_data['ds']
+
+            k_truth, spec_truth = get_ke_spectrum(ds_truth, lev_idx, time_window, lon_slice, lat_slice)
+            k_emu, spec_emu = get_ke_spectrum(ds_emu, lev_idx, time_window, lon_slice, lat_slice)
+
+            spec_truth_mean = spec_truth.mean(0)
+            spec_emu_mean = spec_emu.mean(0)
+
+            if truth_label not in plotted_truths:
+                ax_spec.loglog(k_truth, spec_truth_mean, '--',
+                               label=f'{truth_label}', linewidth=2, color=color, alpha=0.7)
+                plotted_truths.add(truth_label)
+            ax_spec.loglog(k_emu, spec_emu_mean, '-',
+                           label=f'{label}', linewidth=2, color=color)
+
+            ratio = np.interp(k_truth, k_emu, spec_emu_mean) / np.where(spec_truth_mean > 0, spec_truth_mean, np.nan)
+            ax_ratio.semilogx(k_truth, ratio, '-', linewidth=2, color=color, label=f'{label}')
+
+        ax_spec.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+        ax_spec.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+        ax_spec.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+        ax_spec.xaxis.set_minor_formatter(plt.NullFormatter())
+        ax_spec.set_ylabel('Kinetic Energy Density', fontsize=13)
+        ax_spec.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax_spec.set_title(region_name, fontsize=14)
+        ax_spec.tick_params(axis='both', labelsize=12)
+
+        ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1.5)
+        ax_ratio.axhspan(0.9, 1.1, color='gray', alpha=0.15)
+        ax_ratio.set_ylim(ratio_ylim)
+        ax_ratio.xaxis.set_major_locator(LogLocator(base=10.0, subs=[1.0, 2.0, 5.0]))
+        ax_ratio.xaxis.set_major_formatter(LogFormatterMathtext(labelOnlyBase=False))
+        ax_ratio.xaxis.set_minor_locator(LogLocator(base=10.0, subs='all'))
+        ax_ratio.xaxis.set_minor_formatter(plt.NullFormatter())
+        ax_ratio.set_ylabel('Emulator / OM4', fontsize=13)
+        ax_ratio.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax_ratio.set_title(f'{region_name} — Ratio', fontsize=14)
+        ax_ratio.tick_params(axis='both', labelsize=12)
+
+        if row == n_regions - 1:
+            ax_spec.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)', fontsize=13)
+            ax_ratio.set_xlabel(r'Wavenumber $\kappa$ (km$^{-1}$)', fontsize=13)
+
+    spec_handles, spec_labels = axes[0, 0].get_legend_handles_labels()
+    ratio_handles, ratio_labels = axes[0, 1].get_legend_handles_labels()
+    truth_h = [h for h, l in zip(spec_handles, spec_labels) if l.startswith('OM4')]
+    truth_l = [l for l in spec_labels if l.startswith('OM4')]
+    # Interleave for matplotlib's column-by-column legend fill
+    ordered_handles, ordered_labels = [], []
+    for th, tl, eh, el in zip(truth_h, truth_l, ratio_handles, ratio_labels):
+        ordered_handles.extend([th, eh])
+        ordered_labels.extend([tl, el])
+    fig.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+               bbox_to_anchor=(0.5, -0.08), frameon=False)
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
+    fig.suptitle(f'Kinetic Energy Spectrum (Anomalies, {depth_str})', fontsize=15, y=1.01)
+    fig.tight_layout()
     plt.show()
 
+
+def plot_temporal_spectrum_with_ratio(
+    emulators_dict,
+    spectrum_regions,
+    var_to_eval='thetao',
+    lev_idx=0,
+    ratio_ylim=(0, 1.5),
+):
+    """
+    Temporal spectrum + ratio for multiple regions (N rows × 2 cols).
+    Left: OM4 truth only. Right: emulator/OM4 ratio.
+    """
+    from scipy import signal
+
+    def get_temporal_spectrum(ds_target, var_name, lev_i, x_sl, y_sl):
+        import xrft
+        data = ds_target[var_name].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = (time_vals[1] - time_vals[0])
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except:
+            dt_days = 1.0
+        dt_years = dt_days / 365.25
+        climatology = data.groupby('time.dayofyear').mean('time')
+        data = data.groupby('time.dayofyear') - climatology
+        data = data.drop_vars('dayofyear').fillna(0.0)
+        drop_coords = [c for c in data.coords if c not in data.dims and 'time' in (data[c].dims or [])]
+        if drop_coords:
+            data = data.drop_vars(drop_coords)
+        data['time'] = np.arange(len(data.time)) * dt_years
+        data = data.compute()
+        power = xrft.power_spectrum(data, dim='time', detrend='linear', window='hann')
+        psd = power.mean(dim=[d for d in power.dims if d != 'freq_time'])
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
+
+    n_regions = len(spectrum_regions)
+    fig, axes = plt.subplots(n_regions, 2, figsize=(12, 3.5 * n_regions))
+    if n_regions == 1:
+        axes = axes[np.newaxis, :]
+
+    for row, (region_name, lon_slice, lat_slice) in enumerate(spectrum_regions):
+        ax_spec = axes[row, 0]
+        ax_ratio = axes[row, 1]
+
+        plotted_truths = set()
+        for label, emu_data in emulators_dict.items():
+            color = emu_data['color']
+            truth_label = emu_data.get('truth_label', 'Truth')
+            ds_truth = emu_data['truth']
+            ds_emu = emu_data['ds']
+
+            freq_truth, psd_truth = get_temporal_spectrum(ds_truth, var_to_eval, lev_idx, lon_slice, lat_slice)
+            freq_emu, psd_emu = get_temporal_spectrum(ds_emu, var_to_eval, lev_idx, lon_slice, lat_slice)
+
+            if truth_label not in plotted_truths:
+                ax_spec.loglog(freq_truth[1:], psd_truth[1:], '--',
+                               label=f'{truth_label}', linewidth=2, color=color, alpha=0.7)
+                plotted_truths.add(truth_label)
+            ax_spec.loglog(freq_emu[1:], psd_emu[1:], '-',
+                           label=f'{label}', linewidth=2, color=color)
+
+            ratio = np.interp(freq_truth[1:], freq_emu[1:], psd_emu[1:]) / np.where(psd_truth[1:] > 0, psd_truth[1:], np.nan)
+            ax_ratio.semilogx(freq_truth[1:], ratio, '-', linewidth=2, color=color, label=f'{label}')
+
+        ax_spec.set_ylabel('Power Spectral Density', fontsize=13)
+        ax_spec.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax_spec.set_title(region_name, fontsize=14)
+        ax_spec.tick_params(axis='both', labelsize=12)
+
+        ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1.5)
+        ax_ratio.axhspan(0.9, 1.1, color='gray', alpha=0.15)
+        ax_ratio.set_ylim(ratio_ylim)
+        ax_ratio.set_ylabel('Emulator / OM4', fontsize=13)
+        ax_ratio.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax_ratio.set_title(f'{region_name} — Ratio', fontsize=14)
+        ax_ratio.tick_params(axis='both', labelsize=12)
+
+        if row == n_regions - 1:
+            ax_spec.set_xlabel('Frequency (cycles/year)', fontsize=13)
+            ax_ratio.set_xlabel('Frequency (cycles/year)', fontsize=13)
+
+    spec_handles, spec_labels = axes[0, 0].get_legend_handles_labels()
+    ratio_handles, ratio_labels = axes[0, 1].get_legend_handles_labels()
+    truth_h = [h for h, l in zip(spec_handles, spec_labels) if l.startswith('OM4')]
+    truth_l = [l for l in spec_labels if l.startswith('OM4')]
+    # Interleave for matplotlib's column-by-column legend fill
+    ordered_handles, ordered_labels = [], []
+    for th, tl, eh, el in zip(truth_h, truth_l, ratio_handles, ratio_labels):
+        ordered_handles.extend([th, eh])
+        ordered_labels.extend([tl, el])
+    fig.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+               bbox_to_anchor=(0.5, -0.08), frameon=False)
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
+    fig.suptitle(f'Temporal Power Spectrum of {var_to_eval} ({depth_str})', fontsize=15, y=1.01)
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_ke_temporal_spectrum_with_ratio(
+    emulators_dict,
+    spectrum_regions,
+    var_u='uo',
+    var_v='vo',
+    lev_idx=0,
+    ratio_ylim=(0, 1.5),
+):
+    """
+    KE temporal spectrum + ratio for multiple regions (N rows × 2 cols).
+    Left: OM4 truth only. Right: emulator/OM4 ratio.
+    """
+    def get_ke_temporal_spectrum(ds_target, lev_i, x_sl, y_sl):
+        import xrft
+        u_data = ds_target[var_u].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        v_data = ds_target[var_v].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = (time_vals[1] - time_vals[0])
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except:
+            dt_days = 1.0
+        dt_years = dt_days / 365.25
+        u_data = u_data.groupby('time.dayofyear') - u_data.groupby('time.dayofyear').mean('time')
+        v_data = v_data.groupby('time.dayofyear') - v_data.groupby('time.dayofyear').mean('time')
+        u_data = u_data.drop_vars('dayofyear').fillna(0.0)
+        v_data = v_data.drop_vars('dayofyear').fillna(0.0)
+        drop_coords = [c for c in u_data.coords if c not in u_data.dims and 'time' in (u_data[c].dims or [])]
+        if drop_coords:
+            u_data = u_data.drop_vars(drop_coords)
+            v_data = v_data.drop_vars(drop_coords)
+        u_data['time'] = np.arange(len(u_data.time)) * dt_years
+        v_data['time'] = np.arange(len(v_data.time)) * dt_years
+        u_data = u_data.compute()
+        v_data = v_data.compute()
+        power_u = xrft.power_spectrum(u_data, dim='time', detrend='linear', window='hann')
+        power_v = xrft.power_spectrum(v_data, dim='time', detrend='linear', window='hann')
+        power_ke = 0.5 * (power_u + power_v)
+        psd = power_ke.mean(dim=[d for d in power_ke.dims if d != 'freq_time'])
+        freqs = psd.freq_time.values
+        psd_vals = psd.values
+        pos_mask = freqs > 0
+        return freqs[pos_mask], psd_vals[pos_mask]
+
+    n_regions = len(spectrum_regions)
+    fig, axes = plt.subplots(n_regions, 2, figsize=(12, 3.5 * n_regions))
+    if n_regions == 1:
+        axes = axes[np.newaxis, :]
+
+    for row, (region_name, lon_slice, lat_slice) in enumerate(spectrum_regions):
+        ax_spec = axes[row, 0]
+        ax_ratio = axes[row, 1]
+
+        plotted_truths = set()
+        for label, emu_data in emulators_dict.items():
+            color = emu_data['color']
+            truth_label = emu_data.get('truth_label', 'Truth')
+            ds_truth = emu_data['truth']
+            ds_emu = emu_data['ds']
+
+            freq_truth, psd_truth = get_ke_temporal_spectrum(ds_truth, lev_idx, lon_slice, lat_slice)
+            freq_emu, psd_emu = get_ke_temporal_spectrum(ds_emu, lev_idx, lon_slice, lat_slice)
+
+            if truth_label not in plotted_truths:
+                ax_spec.loglog(freq_truth[1:], psd_truth[1:], '--',
+                               label=f'{truth_label}', linewidth=2, color=color, alpha=0.7)
+                plotted_truths.add(truth_label)
+            ax_spec.loglog(freq_emu[1:], psd_emu[1:], '-',
+                           label=f'{label}', linewidth=2, color=color)
+
+            ratio = np.interp(freq_truth[1:], freq_emu[1:], psd_emu[1:]) / np.where(psd_truth[1:] > 0, psd_truth[1:], np.nan)
+            ax_ratio.semilogx(freq_truth[1:], ratio, '-', linewidth=2, color=color, label=f'{label}')
+
+        ax_spec.set_ylabel('KE Power Spectral Density', fontsize=13)
+        ax_spec.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax_spec.set_title(region_name, fontsize=14)
+        ax_spec.tick_params(axis='both', labelsize=12)
+
+        ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1.5)
+        ax_ratio.axhspan(0.9, 1.1, color='gray', alpha=0.15)
+        ax_ratio.set_ylim(ratio_ylim)
+        ax_ratio.set_ylabel('Emulator / OM4', fontsize=13)
+        ax_ratio.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax_ratio.set_title(f'{region_name} — Ratio', fontsize=14)
+        ax_ratio.tick_params(axis='both', labelsize=12)
+
+        if row == n_regions - 1:
+            ax_spec.set_xlabel('Frequency (cycles/year)', fontsize=13)
+            ax_ratio.set_xlabel('Frequency (cycles/year)', fontsize=13)
+
+    spec_handles, spec_labels = axes[0, 0].get_legend_handles_labels()
+    ratio_handles, ratio_labels = axes[0, 1].get_legend_handles_labels()
+    truth_h = [h for h, l in zip(spec_handles, spec_labels) if l.startswith('OM4')]
+    truth_l = [l for l in spec_labels if l.startswith('OM4')]
+    # Interleave for matplotlib's column-by-column legend fill
+    ordered_handles, ordered_labels = [], []
+    for th, tl, eh, el in zip(truth_h, truth_l, ratio_handles, ratio_labels):
+        ordered_handles.extend([th, eh])
+        ordered_labels.extend([tl, el])
+    fig.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+               bbox_to_anchor=(0.5, -0.08), frameon=False)
+
+    first_label = list(emulators_dict.keys())[0]
+    depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
+    depth_str = 'Surface' if lev_idx == 0 else f'{depth_value}m'
+    fig.suptitle(f'Temporal KE Power Spectrum ({depth_str})', fontsize=15, y=1.01)
+    fig.tight_layout()
+    plt.show()
+
+
+# ============================================================
+# Autocorrelation Function (ACF) Evaluation
+# ============================================================
+
+def _compute_acf(data_np, max_lag):
+    """
+    Compute unnormalized autocorrelation for a 1-D time series using FFT
+    (scipy.signal.correlate).  Returns values for lags 0..max_lag.
+    Callers should normalize by acov[0] after spatial averaging.
+    """
+    from scipy.signal import correlate
+    x = data_np - np.mean(data_np)
+    if np.all(x == 0):
+        return np.full(max_lag + 1, np.nan)
+    full = correlate(x, x, mode='full')
+    mid = len(full) // 2
+    return full[mid:mid + max_lag + 1]
+
+
+def plot_acf_comparison_together(
+    emulators_dict,
+    var_to_eval='zos',
+    lev_idx=None,
+    lon_slice=slice(300, 320),
+    lat_slice=slice(25, 45),
+    max_lag_years=5,
+    remove_seasonal=True,
+    region_name=None,
+    ax=None,
+):
+    """
+    Plots autocorrelation function comparison for a scalar variable (e.g. SSH, uo, vo).
+
+    Parameters
+    ----------
+    emulators_dict : dict
+        Standard emulator dictionary with 'ds', 'color', 'truth', 'truth_label'.
+    var_to_eval : str
+        Variable name ('zos' for SSH, or 'uo'/'vo' with lev_idx).
+    lev_idx : int or None
+        Depth level index.  Required for 3-D variables, ignored for 'zos'.
+    lon_slice, lat_slice : slice
+        Coordinate slices defining the region.
+    max_lag_years : float
+        Maximum lag to compute, in years.
+    remove_seasonal : bool
+        Whether to remove the seasonal cycle before computing ACF.
+    region_name : str or None
+        Optional region name for the title.
+    """
+    from scipy import signal
+
+    def get_acf(ds_target, var_name, lev_i, x_sl, y_sl, max_lag):
+        if var_name == 'zos':
+            data = ds_target[var_name].sel({'x': x_sl, 'y': y_sl})
+        else:
+            data = ds_target[var_name].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+
+        n_time = data.sizes['time']
+
+        # Determine time step in days
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = time_vals[1] - time_vals[0]
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except Exception:
+            dt_days = 1.0
+
+        # Remove seasonal cycle using xarray groupby (handles calendar correctly)
+        if remove_seasonal:
+            climatology = data.groupby('time.dayofyear').mean('time')
+            data = data.groupby('time.dayofyear') - climatology
+
+        data_np = np.nan_to_num(data.values, nan=0.0)  # (time, y, x)
+
+        # Demean each spatial point
+        data_np = data_np - data_np.mean(axis=0, keepdims=True)
+
+        # Compute unnormalized autocorrelation via FFT for all spatial points at once,
+        # then sum across space (variance-weighted) and normalize by zero-lag value.
+        max_lag_steps = min(max_lag, n_time - 1)
+        ny, nx = data_np.shape[1], data_np.shape[2]
+        acf_sum = np.zeros(max_lag_steps + 1)
+        for j in range(ny):
+            for i in range(nx):
+                ts = data_np[:, j, i]
+                if np.all(ts == 0):
+                    continue
+                full = signal.correlate(ts, ts, mode='full')
+                mid = len(full) // 2
+                acf_sum += full[mid:mid + max_lag_steps + 1]
+
+        if acf_sum[0] > 0:
+            acf_norm = acf_sum / acf_sum[0]
+        else:
+            acf_norm = np.full(max_lag_steps + 1, np.nan)
+
+        lags_days = np.arange(max_lag_steps + 1) * dt_days
+        return lags_days, acf_norm
+
+    # Determine max lag in time steps
+    first_label = list(emulators_dict.keys())[0]
+    first_ds = emulators_dict[first_label]['truth']
+    try:
+        time_vals = first_ds.time.values
+        delta_t = time_vals[1] - time_vals[0]
+        if isinstance(delta_t, np.timedelta64):
+            dt_days = float(delta_t) / np.timedelta64(1, 'D')
+        else:
+            dt_days = delta_t.days + delta_t.seconds / 86400.0
+    except Exception:
+        dt_days = 1.0
+    max_lag_steps = int(max_lag_years * 365.25 / dt_days)
+
+    all_acf = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        lags_truth, acf_truth = get_acf(ds_truth, var_to_eval, lev_idx, lon_slice, lat_slice, max_lag_steps)
+        lags_emu, acf_emu = get_acf(ds_emu, var_to_eval, lev_idx, lon_slice, lat_slice, max_lag_steps)
+
+        all_acf[label] = {
+            'lags_truth': lags_truth, 'acf_truth': acf_truth,
+            'lags_emu': lags_emu, 'acf_emu': acf_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(7, 4))
+
+    plotted_truths = set()
+    for label, data in all_acf.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+        lags_years_truth = data['lags_truth'] / 365.25
+        lags_years_emu = data['lags_emu'] / 365.25
+
+        if truth_label not in plotted_truths:
+            ax.plot(lags_years_truth, data['acf_truth'], '--',
+                    label=truth_label, linewidth=2, color=color, alpha=0.7)
+            plotted_truths.add(truth_label)
+
+        ax.plot(lags_years_emu, data['acf_emu'], '-',
+                label=label, linewidth=2, color=color)
+
+    ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5)
+    ax.set_xlabel('Lag (years)')
+    ax.set_ylabel('Autocorrelation')
+
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
+
+    ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
+
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_velocity_acf_comparison_together(
+    emulators_dict,
+    var_u='uo',
+    var_v='vo',
+    lev_idx=0,
+    lon_slice=slice(300, 320),
+    lat_slice=slice(25, 45),
+    max_lag_years=5,
+    remove_seasonal=True,
+    region_name=None,
+    ax=None,
+):
+    """
+    Plots ACF of velocity anomalies: ACF_vel = 0.5*(ACF_u' + ACF_v').
+    This is the Fourier pair of the temporal KE spectrum via Wiener-Khinchin theorem.
+
+    Parameters
+    ----------
+    emulators_dict : dict
+        Standard emulator dictionary.
+    var_u, var_v : str
+        Variable names for zonal and meridional velocity.
+    lev_idx : int
+        Depth level index.
+    lon_slice, lat_slice : slice
+        Coordinate slices defining the region.
+    max_lag_years : float
+        Maximum lag to compute, in years.
+    remove_seasonal : bool
+        Whether to remove the seasonal cycle before computing ACF.
+    region_name : str or None
+        Optional region name for the title.
+    """
+    from scipy import signal
+
+    def _preprocess_component(data_np):
+        """Demean a single velocity component (seasonal cycle already removed)."""
+        return data_np - data_np.mean(axis=0, keepdims=True)
+
+    def _spatial_mean_acf(data_np, max_lag_steps):
+        """Compute unnormalized autocorrelation via FFT at each spatial point,
+        sum across space (variance-weighted), then normalize by zero-lag."""
+        # Demean each spatial point
+        data_np = data_np - data_np.mean(axis=0, keepdims=True)
+        ny, nx = data_np.shape[1], data_np.shape[2]
+        acf_sum = np.zeros(max_lag_steps + 1)
+        for j in range(ny):
+            for i in range(nx):
+                ts = data_np[:, j, i]
+                if np.all(ts == 0):
+                    continue
+                full = signal.correlate(ts, ts, mode='full')
+                mid = len(full) // 2
+                acf_sum += full[mid:mid + max_lag_steps + 1]
+        if acf_sum[0] > 0:
+            return acf_sum / acf_sum[0]
+        return np.full(max_lag_steps + 1, np.nan)
+
+    def get_velocity_acf(ds_target, lev_i, x_sl, y_sl, max_lag):
+        u_da = ds_target[var_u].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+        v_da = ds_target[var_v].isel(lev=lev_i).sel({'x': x_sl, 'y': y_sl})
+
+        n_time = u_da.sizes['time']
+
+        try:
+            time_vals = ds_target.time.values
+            if len(time_vals) > 1:
+                delta_t = time_vals[1] - time_vals[0]
+                if isinstance(delta_t, np.timedelta64):
+                    dt_days = float(delta_t) / np.timedelta64(1, 'D')
+                else:
+                    dt_days = delta_t.days + delta_t.seconds / 86400.0
+            else:
+                dt_days = 1.0
+        except Exception:
+            dt_days = 1.0
+
+        # Remove seasonal cycle using xarray groupby (handles calendar correctly)
+        if remove_seasonal:
+            u_da = u_da.groupby('time.dayofyear') - u_da.groupby('time.dayofyear').mean('time')
+            v_da = v_da.groupby('time.dayofyear') - v_da.groupby('time.dayofyear').mean('time')
+
+        u = np.nan_to_num(u_da.values, nan=0.0)
+        v = np.nan_to_num(v_da.values, nan=0.0)
+
+        u = _preprocess_component(u)
+        v = _preprocess_component(v)
+
+        max_lag_steps = min(max_lag, n_time - 1)
+        acf_u = _spatial_mean_acf(u, max_lag_steps)
+        acf_v = _spatial_mean_acf(v, max_lag_steps)
+        acf_vel = 0.5 * (acf_u + acf_v)
+
+        lags_days = np.arange(max_lag_steps + 1) * dt_days
+        return lags_days, acf_vel
+
+    # Determine max lag in time steps
+    first_label = list(emulators_dict.keys())[0]
+    first_ds = emulators_dict[first_label]['truth']
+    try:
+        time_vals = first_ds.time.values
+        delta_t = time_vals[1] - time_vals[0]
+        if isinstance(delta_t, np.timedelta64):
+            dt_days = float(delta_t) / np.timedelta64(1, 'D')
+        else:
+            dt_days = delta_t.days + delta_t.seconds / 86400.0
+    except Exception:
+        dt_days = 1.0
+    max_lag_steps = int(max_lag_years * 365.25 / dt_days)
+
+    all_acf = {}
+    for label, emu_data in emulators_dict.items():
+        ds_truth = emu_data['truth']
+        ds_emu = emu_data['ds']
+        truth_label = emu_data.get('truth_label', 'Truth')
+
+        lags_truth, acf_truth = get_velocity_acf(ds_truth, lev_idx, lon_slice, lat_slice, max_lag_steps)
+        lags_emu, acf_emu = get_velocity_acf(ds_emu, lev_idx, lon_slice, lat_slice, max_lag_steps)
+
+        all_acf[label] = {
+            'lags_truth': lags_truth, 'acf_truth': acf_truth,
+            'lags_emu': lags_emu, 'acf_emu': acf_emu,
+            'truth_label': truth_label,
+        }
+
+    # Plotting
+    own_figure = ax is None
+    if own_figure:
+        fig, ax = plt.subplots(figsize=(7, 4))
+
+    plotted_truths = set()
+    for label, data in all_acf.items():
+        color = emulators_dict[label]['color']
+        truth_label = data['truth_label']
+        lags_years_truth = data['lags_truth'] / 365.25
+        lags_years_emu = data['lags_emu'] / 365.25
+
+        if truth_label not in plotted_truths:
+            ax.plot(lags_years_truth, data['acf_truth'], '--',
+                    label=truth_label, linewidth=2, color=color, alpha=0.7)
+            plotted_truths.add(truth_label)
+
+        ax.plot(lags_years_emu, data['acf_emu'], '-',
+                label=label, linewidth=2, color=color)
+
+    ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5)
+    ax.set_xlabel('Lag (years)')
+    ax.set_ylabel('Autocorrelation')
+
+    region_str = f'{region_name}' if region_name else ''
+    ax.set_title(region_str, fontsize=14)
+
+    ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
+
+    if own_figure:
+        ax.legend(fontsize=9)
+        plt.tight_layout()
+        plt.show()
