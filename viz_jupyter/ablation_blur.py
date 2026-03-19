@@ -51,43 +51,9 @@ def save_current_fig(name, output_dir, dpi=200):
 # ============================================================
 # Configuration
 # ============================================================
-
-# 5. Variable Mappings
-OCEAN_FIELD_NAME_PREFIXES = {
-    'thetao': ['thetao_'], 'so': ['so_'], 'uo': ['uo_'], 'vo': ['vo_'],
-    'zos': ['zos'], 'sea_surface_temperature': ['sst'], 'lev': ['idepth_']
-}
-
-# 6. Plotting Constants
-BASINS_TO_PLOT = ['Atlantic', 'Pacific', 'Indian', 'Southern']
-
-DEPTH_SLICES = [
-    {'min': 0, 'max': 700, 'title': 'Surface (0-700m)'},
-    {'min': 700, 'max': 2000, 'title': 'Intermediate (700-2000m)'},
-    {'min': 2000, 'max': 7000, 'title': 'Deep (2000-7000m)'}
-]
-VAR_CONFIG = {
-    'thetao': {'cmap': cmocean.cm.thermal, 'units': '$^\\circ$C', 'label': 'Temperature', 'centered': False},
-    'so': {'cmap': cmocean.cm.haline, 'units': 'psu', 'label': 'Salinity', 'centered': False},
-    'ohc': {'cmap': cmocean.cm.thermal, 'units': 'J', 'label': 'Total Heat Content', 'centered': False},
-    'zos':    {'cmap': cmocean.cm.balance, 'units': 'm',         'label': 'SSH',         'centered': True},
-    'uo':     {'cmap': cmocean.cm.balance, 'units': 'm/s',       'label': 'U-Velocity',  'centered': True},
-    'vo':     {'cmap': cmocean.cm.balance, 'units': 'm/s',       'label': 'V-Velocity',  'centered': True},
-}
-
-# Constants
-RHO = 1035          # Reference density (kg/m^3)
-CP = 3850           # Specific heat capacity (J/kg/K)
-SCALE_FACTOR = 1e21 # Scale to ZJ (10^21 J)
-
-DEPTH_LAYERS = [
-    {'title':'2.5m','index':0},
-    {'title':'700m','index':10},
-    {'title':'2000m','index':14},
-]
-
-# Configuration
-BASINS_TO_PLOT = ['Atlantic', 'Pacific', 'Indian', 'Southern']
+# Shared constants (DEPTH_SLICES, DEPTH_LAYERS, BASINS_TO_PLOT,
+# VAR_CONFIG, RHO, CP, SCALE_FACTOR, OCEAN_FIELD_NAME_PREFIXES)
+# are imported from functions.py via `from functions import *`.
 
 TIME_INDICES = [0, 300, 580]
 
@@ -106,12 +72,12 @@ storage_options = {"key": my_key, "secret": my_secret, "client_kwargs": {"endpoi
 EMULATOR_CONFIGS = [
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2025-12-04-samudra_om4_v1_onedeg_blur_eval/predictions.zarr',
-        "v1-blur", 
+        "Samudra-blur", 
         "tab:gray"
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
-        "v1", 
+        "Samudra", 
         "tab:orange"
     ),
 ]
@@ -120,25 +86,6 @@ TRUTH_CONFIGS = [
     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/blur/om4_onedeg_blur_v8/OM4.zarr", "OM4-blur (1$^\\circ$)"),
     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg/OM4.zarr", "OM4 (1$^\\circ$)"),
 ]
-
-# EMULATOR_CONFIGS = [
-    
-#     (
-#         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2026-01-28-samudra_om4_halfdeg_mse_blur_eval/predictions.zarr',
-#         "new_wide_v1", 
-#         "tab:orange"
-#     ),
-#     (
-#         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/om4_samudra_halfdeg_wide_v2_eval/predictions.zarr',
-#         "old_wide_v1", 
-#         "tab:green"
-#     ),
-# ]
-
-# TRUTH_CONFIGS = [
-#     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/blur/om4_halfdeg/OM4.zarr", "OM4_blur (1/2$^\\circ$)"),
-#     ("/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/blur/om4_halfdeg/OM4.zarr", "OM4_blur (1/2$^\\circ$)"),
-# ]
 
 LEVS_PATH = '/pscratch/sd/a/asubel/Data/Chapter_2/CM4_CMIP_New.zarr/'
 OCEAN_SAMPLE_PATH = '/pscratch/sd/a/asubel/full-model/scratch/ocean_sample.nc'
@@ -298,14 +245,130 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
+# ============================================================
+# ENSO Evaluation
+# ============================================================
+print("\n" + "="*60)
+print("ENSO Evaluation (Niño 3.4)")
+print("="*60)
+
+emulators_to_analyze_enso = emulators_to_analyze
+
+from functions import plot_nino34_comparison_together, compute_nino34_metrics
+
+ENSO_DIR = os.path.join(PDF_DIR, "enso")
+os.makedirs(ENSO_DIR, exist_ok=True)
+
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index", ENSO_DIR)
+
+# Niño 3.4 numerical metrics
+nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+print("\nNiño 3.4 Metrics:")
+with pd.option_context('display.float_format', '{:.4f}'.format):
+    print(nino_metrics.to_string(index=False))
+csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+nino_metrics.to_csv(csv_path, index=False)
+print(f"  -> Saved: {csv_path}")
+
+emulators_to_analyze_enso = {
+    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
+}
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 
 
-SPECTRUM_REGIONS = [
-    ('Gulf',     slice(300, 320), slice(25, 45)),
-    ('Kuroshio', slice(150, 170), slice(25, 45)),
-    ('Agulhas',  slice(40, 60),   slice(-50, -30)),
-    ('Malvinas', slice(311, 331), slice(-51, -31)),
-]
+
+# SPECTRUM_REGIONS is imported from functions.py
+
+
+# ============================================================
+# Temporal Variance Numerical Metrics
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Numerical Metrics")
+print("="*60)
+
+import pandas as pd
+from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+
+
+for var_name in ['thetao', 'so']:
+    print(f"\n--- {var_name} ---")
+    raw = compute_temporal_variance_metrics(
+        emulators_dict=emulators_to_analyze,
+        variable_name=var_name,
+        spectrum_regions=SPECTRUM_REGIONS,
+    )
+    table = format_variance_metrics_table(raw)
+    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+        print(table.to_string())
+    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+    table.to_csv(csv_path)
+    print(f"  -> Saved: {csv_path}")
+
+print(f"\n--- KE ---")
+ke_raw = compute_ke_temporal_variance_metrics(
+    emulators_dict=emulators_to_analyze,
+    spectrum_regions=SPECTRUM_REGIONS,
+)
+ke_table = format_variance_metrics_table(ke_raw)
+with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+    print(ke_table.to_string())
+csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+ke_table.to_csv(csv_path)
+print(f"  -> Saved: {csv_path}")
+
+
+# ============================================================
+# Time Series
+# ============================================================
+print("\n" + "="*60)
+print("Time Series Plots")
+print("="*60)
+
+# Time Series (Thetao)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
+
+# Time Series (Salinity)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_so_only", TIMESERIES_DIR)
+
+# Detrended Time Series (Thetao)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+
+# Detrended Time Series (Salinity)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+
 
 var_to_eval = 'thetao'
 time_window = None
@@ -425,6 +488,7 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         emulators_dict=emulators_to_analyze,
         show_ratios=False,
         var_u='uo',
+        
         var_v='vo',
         lev_idx=0,
         lon_slice=lon_slice,
@@ -489,32 +553,7 @@ plot_ke_temporal_spectrum_with_ratio(
 )
 save_current_fig("ke_temporal_spectrum_with_ratio", SPECTRUM_DIR)
 
-# ============================================================
-# Time Series
-# ============================================================
-print("\n" + "="*60)
-print("Time Series Plots")
-print("="*60)
 
-# Time Series (Thetao)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    var_units='$^\\circ$C',
-    var_label='Temperature',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
-
-# Time Series (Salinity)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    var_units='psu',
-    var_label='Salinity',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_so_only", TIMESERIES_DIR)
 
 # ============================================================
 # Temporal Variance Maps
@@ -549,6 +588,9 @@ plot_ke_variance_comparison_together(
     colorbar_fix=True
 )
 save_current_fig("variance_ke", VARIANCE_DIR)
+
+
+
 
 
 # ============================================================
@@ -612,6 +654,10 @@ save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
 
 plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
 save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+
+from functions import plot_ke_snapshot_bias_comparison_together
+plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
+save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
 
 
 # ============================================================
@@ -698,8 +744,11 @@ plot_ohc_snapshot_comparison_multidepth_together(
 )
 save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
+from functions import plot_ke_snapshot_comparison_multidepth_together
+plot_ke_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
-
-print("\n" + "="*60)
-print(f"All PDF figures saved to: {PDF_DIR}")
-print("="*60)

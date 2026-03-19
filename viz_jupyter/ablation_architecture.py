@@ -5,6 +5,7 @@ All _together figures are saved as PDF vector graphics (dpi=200).
 """
 
 import argparse
+import pandas as pd
 
 parser = argparse.ArgumentParser(description='OM4 resolution analysis: movies and static plots')
 parser.add_argument('--freq', choices=['yearly', 'monthly','all'], default='yearly',
@@ -51,43 +52,9 @@ def save_current_fig(name, output_dir, dpi=200):
 # ============================================================
 # Configuration
 # ============================================================
-
-# 5. Variable Mappings
-OCEAN_FIELD_NAME_PREFIXES = {
-    'thetao': ['thetao_'], 'so': ['so_'], 'uo': ['uo_'], 'vo': ['vo_'],
-    'zos': ['zos'], 'sea_surface_temperature': ['sst'], 'lev': ['idepth_']
-}
-
-# 6. Plotting Constants
-BASINS_TO_PLOT = ['Atlantic', 'Pacific', 'Indian', 'Southern']
-
-DEPTH_SLICES = [
-    {'min': 0, 'max': 700, 'title': 'Surface (0-700m)'},
-    {'min': 700, 'max': 2000, 'title': 'Intermediate (700-2000m)'},
-    {'min': 2000, 'max': 7000, 'title': 'Deep (2000-7000m)'}
-]
-VAR_CONFIG = {
-    'thetao': {'cmap': cmocean.cm.thermal, 'units': '$^\\circ$C', 'label': 'Temperature', 'centered': False},
-    'so': {'cmap': cmocean.cm.haline, 'units': 'psu', 'label': 'Salinity', 'centered': False},
-    'ohc': {'cmap': cmocean.cm.thermal, 'units': 'J', 'label': 'Total Heat Content', 'centered': False},
-    'zos':    {'cmap': cmocean.cm.balance, 'units': 'm',         'label': 'SSH',         'centered': True},
-    'uo':     {'cmap': cmocean.cm.balance, 'units': 'm/s',       'label': 'U-Velocity',  'centered': True},
-    'vo':     {'cmap': cmocean.cm.balance, 'units': 'm/s',       'label': 'V-Velocity',  'centered': True},
-}
-
-# Constants
-RHO = 1035          # Reference density (kg/m^3)
-CP = 3850           # Specific heat capacity (J/kg/K)
-SCALE_FACTOR = 1e21 # Scale to ZJ (10^21 J)
-
-DEPTH_LAYERS = [
-    {'title':'2.5m','index':0},
-    {'title':'700m','index':10},
-    {'title':'2000m','index':14},
-]
-
-# Configuration
-BASINS_TO_PLOT = ['Atlantic', 'Pacific', 'Indian', 'Southern']
+# Shared constants (DEPTH_SLICES, DEPTH_LAYERS, BASINS_TO_PLOT,
+# VAR_CONFIG, RHO, CP, SCALE_FACTOR, OCEAN_FIELD_NAME_PREFIXES)
+# are imported from functions.py via `from functions import *`.
 
 TIME_INDICES = [0, 300, 580]
 
@@ -107,17 +74,17 @@ EMULATOR_CONFIGS = [
     
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr',
-        "v1", 
+        "Samudra", 
         "tab:gray"
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2026-03-10-samudra_om4_v1_1deg_v2wide_eval_ema_bf4ac6c_153157/predictions.zarr',
-        "v1-wide", 
+        "Samudra-Wide", 
         "tab:green"
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2026-03-10-samudra_om4_v1_1deg_dmse20_eval_ema_bf4ac6c_153309/predictions.zarr',
-        "v1-DMSE20", 
+        "Samudra-DLoss", 
         "tab:blue"
     ),
     (
@@ -125,7 +92,6 @@ EMULATOR_CONFIGS = [
         "Samudra-v2", 
         "tab:orange"
     )
-
 ]
 
 TRUTH_CONFIGS = [
@@ -312,14 +278,130 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
+# ============================================================
+# ENSO Evaluation
+# ============================================================
+print("\n" + "="*60)
+print("ENSO Evaluation (Niño 3.4)")
+print("="*60)
+
+emulators_to_analyze_enso = emulators_to_analyze
+
+from functions import plot_nino34_comparison_together, compute_nino34_metrics
+
+ENSO_DIR = os.path.join(PDF_DIR, "enso")
+os.makedirs(ENSO_DIR, exist_ok=True)
+
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index", ENSO_DIR)
+
+# Niño 3.4 numerical metrics
+nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+print("\nNiño 3.4 Metrics:")
+with pd.option_context('display.float_format', '{:.4f}'.format):
+    print(nino_metrics.to_string(index=False))
+csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+nino_metrics.to_csv(csv_path, index=False)
+print(f"  -> Saved: {csv_path}")
+
+emulators_to_analyze_enso = {
+    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
+}
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 
 
-SPECTRUM_REGIONS = [
-    ('Gulf',     slice(300, 320), slice(25, 45)),
-    ('Kuroshio', slice(150, 170), slice(25, 45)),
-    ('Agulhas',  slice(40, 60),   slice(-50, -30)),
-    ('Malvinas', slice(311, 331), slice(-51, -31)),
-]
+
+# SPECTRUM_REGIONS is imported from functions.py
+
+
+# ============================================================
+# Temporal Variance Numerical Metrics
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Numerical Metrics")
+print("="*60)
+
+import pandas as pd
+from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+
+
+for var_name in ['thetao', 'so']:
+    print(f"\n--- {var_name} ---")
+    raw = compute_temporal_variance_metrics(
+        emulators_dict=emulators_to_analyze,
+        variable_name=var_name,
+        spectrum_regions=SPECTRUM_REGIONS,
+    )
+    table = format_variance_metrics_table(raw)
+    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+        print(table.to_string())
+    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+    table.to_csv(csv_path)
+    print(f"  -> Saved: {csv_path}")
+
+print(f"\n--- KE ---")
+ke_raw = compute_ke_temporal_variance_metrics(
+    emulators_dict=emulators_to_analyze,
+    spectrum_regions=SPECTRUM_REGIONS,
+)
+ke_table = format_variance_metrics_table(ke_raw)
+with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+    print(ke_table.to_string())
+csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+ke_table.to_csv(csv_path)
+print(f"  -> Saved: {csv_path}")
+
+
+# ============================================================
+# Time Series
+# ============================================================
+print("\n" + "="*60)
+print("Time Series Plots")
+print("="*60)
+
+# Time Series (Thetao)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
+
+# Time Series (Salinity)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_so_only", TIMESERIES_DIR)
+
+# Detrended Time Series (Thetao)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+
+# Detrended Time Series (Salinity)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+
 
 var_to_eval = 'thetao'
 time_window = None
@@ -330,7 +412,7 @@ ncols = (n_regions + 1) // 2
 
 #--- Isotropic spectrum (all regions in one figure) ---
 print("\n=== Evaluating isotropic spectrum at surface (all regions) ===")
-fig_iso, axes_iso = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+fig_iso, axes_iso = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
 axes_iso_flat = axes_iso.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
     print(f"  -> {region_name}")
@@ -365,7 +447,7 @@ save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
 
 # --- KE spectrum (all regions in one figure) ---
 print("\n=== Evaluating kinetic energy spectrum at surface (all regions) ===")
-fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
 axes_ke_flat = axes_ke.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
     print(f"  -> {region_name}")
@@ -399,7 +481,7 @@ save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
 
 # --- Temporal spectrum (all regions in one figure) ---
 print("\n=== Evaluating temporal spectrum at surface (all regions) ===")
-fig_ts, axes_ts = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+fig_ts, axes_ts = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
 axes_ts_flat = axes_ts.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
     print(f"  -> {region_name}")
@@ -431,7 +513,7 @@ save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
 
 # --- KE temporal spectrum (all regions in one figure) ---
 print("\n=== Evaluating KE temporal spectrum at surface (all regions) ===")
-fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
+fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
 axes_kets_flat = axes_kets.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
     print(f"  -> {region_name}")
@@ -439,6 +521,7 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         emulators_dict=emulators_to_analyze,
         show_ratios=False,
         var_u='uo',
+        
         var_v='vo',
         lev_idx=0,
         lon_slice=lon_slice,
@@ -503,32 +586,7 @@ plot_ke_temporal_spectrum_with_ratio(
 )
 save_current_fig("ke_temporal_spectrum_with_ratio", SPECTRUM_DIR)
 
-# ============================================================
-# Time Series
-# ============================================================
-print("\n" + "="*60)
-print("Time Series Plots")
-print("="*60)
 
-# Time Series (Thetao)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    var_units='$^\\circ$C',
-    var_label='Temperature',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
-
-# Time Series (Salinity)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    var_units='psu',
-    var_label='Salinity',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_so_only", TIMESERIES_DIR)
 
 # ============================================================
 # Temporal Variance Maps
@@ -563,6 +621,9 @@ plot_ke_variance_comparison_together(
     colorbar_fix=True
 )
 save_current_fig("variance_ke", VARIANCE_DIR)
+
+
+
 
 
 # ============================================================
@@ -626,6 +687,10 @@ save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
 
 plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
 save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+
+from functions import plot_ke_snapshot_bias_comparison_together
+plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
+save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
 
 
 # ============================================================
@@ -712,8 +777,11 @@ plot_ohc_snapshot_comparison_multidepth_together(
 )
 save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
+from functions import plot_ke_snapshot_comparison_multidepth_together
+plot_ke_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
-
-print("\n" + "="*60)
-print(f"All PDF figures saved to: {PDF_DIR}")
-print("="*60)

@@ -18,8 +18,9 @@ SPECTRUM_REGIONS = [
 # Colors for each region
 COLORS = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628']
 
-fig = plt.figure(figsize=(12, 6))
-ax = fig.add_subplot(1, 1, 1, projection=ccrs.Robinson(central_longitude=180))
+plt.rcParams.update({'font.size': 14})
+fig = plt.figure(figsize=(8, 6.5))
+ax = fig.add_axes([0.05, 0.22, 0.9, 0.72], projection=ccrs.Robinson(central_longitude=180))
 
 ax.set_global()
 ax.add_feature(cfeature.LAND, facecolor='lightgray', edgecolor='black', linewidth=0.5)
@@ -65,16 +66,16 @@ for (name, lon_slice, lat_slice), color in zip(SPECTRUM_REGIONS, COLORS):
     center_lat = lat_start + height / 2
     label_offsets = {
         'Tropical Pacific': (0, 22),   # shift label to top edge
-        'Niño 3.4':         (0, 0),  # shift label below center
+        'Niño 3.4':         (0, 0),
     }
     dx, dy = label_offsets.get(name, (0, 0))
     ax.text(
         center_lon + dx, center_lat + dy, name,
         transform=ccrs.PlateCarree(),
         ha='center', va='center',
-        fontsize=9, fontweight='bold',
+        fontweight='bold',
         color=color,
-        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor=color, alpha=0.8),
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color, alpha=0.9, linewidth=1.5),
     )
 
     legend_patches.append(mpatches.Patch(
@@ -82,10 +83,10 @@ for (name, lon_slice, lat_slice), color in zip(SPECTRUM_REGIONS, COLORS):
         label=f'{name} ({lon_slice.start}–{lon_slice.stop}°E, {lat_slice.start}–{lat_slice.stop}°N)',
     ))
 
-ax.legend(handles=legend_patches, loc='lower left', fontsize=8, framealpha=0.9)
-ax.set_title('Selected Regions', fontsize=14, fontweight='bold')
+ax.legend(handles=legend_patches, loc='lower center', ncol=2,
+          bbox_to_anchor=(0.5, -0.28), frameon=False, columnspacing=1.5)
+ax.set_title('Selected Regions', fontweight='bold')
 
-plt.tight_layout()
 plt.savefig('region_map.pdf', dpi=200, bbox_inches='tight')
 plt.savefig('region_map.png', dpi=200, bbox_inches='tight')
 print("Saved region_map.pdf and region_map.png")
