@@ -34,6 +34,8 @@ import xesmf as xe
 from scipy.stats import pearsonr
 import os
 from functions import *
+from functions import _display_name, reorder_legend_paired
+import pandas as pd
 import warnings
 warnings.simplefilter("ignore", category=RuntimeWarning)
 
@@ -291,7 +293,6 @@ print("\n" + "="*60)
 print("Temporal Variance Numerical Metrics")
 print("="*60)
 
-import pandas as pd
 from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
@@ -395,25 +396,15 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         region_name=region_name,
         ax=axes_iso_flat[idx],
     )
-# Reorder legend: row 1 = OM4 (truth, dashed), row 2 = emulators (solid), ncol=3
-handles, labels = axes_iso_flat[0].get_legend_handles_labels()
-truth_h, truth_l, emu_h, emu_l = [], [], [], []
-for h, l in zip(handles, labels):
-    if l.startswith('OM4'):
-        truth_h.append(h); truth_l.append(l)
-    else:
-        emu_h.append(h); emu_l.append(l)
-# Truth first, then emulators
-ordered_handles = truth_h + emu_h
-ordered_labels = truth_l + emu_l
-fig_iso.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
+fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
                bbox_to_anchor=(0.5, -0.06), frameon=False)
 fig_iso.suptitle(f'Isotropic Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
 fig_iso.tight_layout()
 save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
 
-# --- KE spectrum (all regions in one figure) ---
-print("\n=== Evaluating kinetic energy spectrum at surface (all regions) ===")
+# --- EKE spectrum (all regions in one figure) ---
+print("\n=== Evaluating EKE spectrum at surface (all regions) ===")
 fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
 axes_ke_flat = axes_ke.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
@@ -431,18 +422,10 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         region_name=region_name,
         ax=axes_ke_flat[idx],
     )
-handles, labels = axes_ke_flat[0].get_legend_handles_labels()
-truth_h, truth_l, emu_h, emu_l = [], [], [], []
-for h, l in zip(handles, labels):
-    if l.startswith('OM4'):
-        truth_h.append(h); truth_l.append(l)
-    else:
-        emu_h.append(h); emu_l.append(l)
-ordered_handles = truth_h + emu_h
-ordered_labels = truth_l + emu_l
-fig_ke.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
+fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
               bbox_to_anchor=(0.5, -0.08), frameon=False)
-fig_ke.suptitle('Kinetic Energy Spectrum (Surface)', fontsize=18, y=1.01)
+fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.01)
 fig_ke.tight_layout()
 save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
 
@@ -463,23 +446,15 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         region_name=region_name,
         ax=axes_ts_flat[idx],
     )
-handles, labels = axes_ts_flat[0].get_legend_handles_labels()
-truth_h, truth_l, emu_h, emu_l = [], [], [], []
-for h, l in zip(handles, labels):
-    if l.startswith('OM4'):
-        truth_h.append(h); truth_l.append(l)
-    else:
-        emu_h.append(h); emu_l.append(l)
-ordered_handles = truth_h + emu_h
-ordered_labels = truth_l + emu_l
-fig_ts.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
+fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
               bbox_to_anchor=(0.5, -0.08), frameon=False)
 fig_ts.suptitle(f'Temporal Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
 fig_ts.tight_layout()
 save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
 
-# --- KE temporal spectrum (all regions in one figure) ---
-print("\n=== Evaluating KE temporal spectrum at surface (all regions) ===")
+# --- EKE temporal spectrum (all regions in one figure) ---
+print("\n=== Evaluating EKE temporal spectrum at surface (all regions) ===")
 fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
 axes_kets_flat = axes_kets.flatten()
 for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
@@ -497,18 +472,10 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         region_name=region_name,
         ax=axes_kets_flat[idx],
     )
-handles, labels = axes_kets_flat[0].get_legend_handles_labels()
-truth_h, truth_l, emu_h, emu_l = [], [], [], []
-for h, l in zip(handles, labels):
-    if l.startswith('OM4'):
-        truth_h.append(h); truth_l.append(l)
-    else:
-        emu_h.append(h); emu_l.append(l)
-ordered_handles = truth_h + emu_h
-ordered_labels = truth_l + emu_l
-fig_kets.legend(ordered_handles, ordered_labels, loc='lower center', ncol=3, fontsize=14,
+oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
+fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
                 bbox_to_anchor=(0.5, -0.08), frameon=False)
-fig_kets.suptitle('Temporal KE Power Spectrum (Surface)', fontsize=18, y=1.01)
+fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.01)
 fig_kets.tight_layout()
 save_current_fig("ke_temporal_spectrum_all_regions", SPECTRUM_DIR)
 
@@ -524,8 +491,8 @@ plot_isotropic_spectrum_with_ratio(
 )
 save_current_fig("isotropic_spectrum_with_ratio", SPECTRUM_DIR)
 
-# --- KE spectrum with ratio (4 rows × 2 cols) ---
-print("\n=== KE spectrum + ratio (all regions) ===")
+# --- EKE spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== EKE spectrum + ratio (all regions) ===")
 plot_ke_spectrum_with_ratio(
     emulators_dict=emulators_to_analyze,
     spectrum_regions=SPECTRUM_REGIONS,
@@ -544,8 +511,8 @@ plot_temporal_spectrum_with_ratio(
 )
 save_current_fig("temporal_spectrum_with_ratio", SPECTRUM_DIR)
 
-# --- KE temporal spectrum with ratio (4 rows × 2 cols) ---
-print("\n=== KE temporal spectrum + ratio (all regions) ===")
+# --- EKE temporal spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== EKE temporal spectrum + ratio (all regions) ===")
 plot_ke_temporal_spectrum_with_ratio(
     emulators_dict=emulators_to_analyze,
     spectrum_regions=SPECTRUM_REGIONS,

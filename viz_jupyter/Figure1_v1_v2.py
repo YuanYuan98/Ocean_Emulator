@@ -290,162 +290,162 @@ plot_ohc_zonal_mean_global_comparison_together(
 )
 save_current_fig("ohc_zonal_mean_global", ZONAL_MEAN_DIR)
 
-# ============================================================
-# ENSO Evaluation
-# ============================================================
-print("\n" + "="*60)
-print("ENSO Evaluation (Niño 3.4)")
-print("="*60)
+# # ============================================================
+# # ENSO Evaluation
+# # ============================================================
+# print("\n" + "="*60)
+# print("ENSO Evaluation (Niño 3.4)")
+# print("="*60)
+#
+# emulators_to_analyze_enso = emulators_to_analyze
+#
+# from functions import plot_nino34_comparison_together, compute_nino34_metrics
+#
+# ENSO_DIR = os.path.join(PDF_DIR, "enso")
+# os.makedirs(ENSO_DIR, exist_ok=True)
+#
+# # Niño 3.4 Index time series
+# plot_nino34_comparison_together(emulators_to_analyze_enso)
+# save_current_fig("nino34_index", ENSO_DIR)
+#
+# # Niño 3.4 numerical metrics
+# nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+# print("\nNiño 3.4 Metrics:")
+# with pd.option_context('display.float_format', '{:.4f}'.format):
+#     print(nino_metrics.to_string(index=False))
+# csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+# nino_metrics.to_csv(csv_path, index=False)
+# print(f"  -> Saved: {csv_path}")
+#
+#
+# # ============================================================
+# # Time Series
+# # ============================================================
+# print("\n" + "="*60)
+# print("Time Series Plots")
+# print("="*60)
+#
+# # Time Series (Thetao)
+# plot_mean_timeseries_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     var_units='$^\\circ$C',
+#     var_label='Temperature',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
+#
+# # Time Series (Salinity)
+# plot_mean_timeseries_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='so',
+#     var_units='psu',
+#     var_label='Salinity',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_so_only", TIMESERIES_DIR)
+#
+# # Detrended Time Series (Thetao)
+# plot_mean_timeseries_detrended_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     var_units='$^\\circ$C',
+#     var_label='Temperature',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+#
+# # Detrended Time Series (Salinity)
+# plot_mean_timeseries_detrended_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='so',
+#     var_units='psu',
+#     var_label='Salinity',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+#
+#
+#
+#
+# # ============================================================
+# # Temporal Variance Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Temporal Variance Maps")
+# print("="*60)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\\circ$C',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_thetao", VARIANCE_DIR)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='so',
+#     units='psu',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_so", VARIANCE_DIR)
+#
+# plot_ke_variance_comparison_together(
+#     emulators_to_analyze,
+#     var_u='uo',
+#     var_v='vo',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_ke", VARIANCE_DIR)
 
-emulators_to_analyze_enso = emulators_to_analyze
-
-from functions import plot_nino34_comparison_together, compute_nino34_metrics
-
-ENSO_DIR = os.path.join(PDF_DIR, "enso")
-os.makedirs(ENSO_DIR, exist_ok=True)
-
-# Niño 3.4 Index time series
-plot_nino34_comparison_together(emulators_to_analyze_enso)
-save_current_fig("nino34_index", ENSO_DIR)
-
-# Niño 3.4 numerical metrics
-nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
-print("\nNiño 3.4 Metrics:")
-with pd.option_context('display.float_format', '{:.4f}'.format):
-    print(nino_metrics.to_string(index=False))
-csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
-nino_metrics.to_csv(csv_path, index=False)
-print(f"  -> Saved: {csv_path}")
 
 
-# ============================================================
-# Time Series
-# ============================================================
-print("\n" + "="*60)
-print("Time Series Plots")
-print("="*60)
-
-# Time Series (Thetao)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    var_units='$^\\circ$C',
-    var_label='Temperature',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
-
-# Time Series (Salinity)
-plot_mean_timeseries_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    var_units='psu',
-    var_label='Salinity',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_so_only", TIMESERIES_DIR)
-
-# Detrended Time Series (Thetao)
-plot_mean_timeseries_detrended_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    var_units='$^\\circ$C',
-    var_label='Temperature',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
-
-# Detrended Time Series (Salinity)
-plot_mean_timeseries_detrended_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    var_units='psu',
-    var_label='Salinity',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
-
-
-
-
-# ============================================================
-# Temporal Variance Maps
-# ============================================================
-print("\n" + "="*60)
-print("Temporal Variance Maps")
-print("="*60)
-
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    units='$^\\circ$C',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_thetao", VARIANCE_DIR)
-
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    units='psu',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_so", VARIANCE_DIR)
-
-plot_ke_variance_comparison_together(
-    emulators_to_analyze,
-    var_u='uo',
-    var_v='vo',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_ke", VARIANCE_DIR)
-
-
-
-# ============================================================
-# Global Spatial Distribution Maps
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Distribution Maps")
-print("="*60)
-
-plot_ohc_mean_comparison_together(
-    emulators_to_analyze,
-    colorbar_fix=True
-)
-save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
-
-plot_temperature_mean_comparison_together(
-    emulators_to_analyze,
-    colorbar_fix=True
-)
-save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
-
-VARIABLE_TO_PLOT = 'thetao'
-
-plot_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    var_name=VARIABLE_TO_PLOT,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-    fix_colorbar=True
-)
-save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
-
-plot_ohc_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_SLICES,
-    colorbar_fix=True
-)
-save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
-
-from functions import plot_ke_snapshot_comparison_multidepth_together
-plot_ke_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-)
-save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+# # ============================================================
+# # Global Spatial Distribution Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Distribution Maps")
+# print("="*60)
+#
+# plot_ohc_mean_comparison_together(
+#     emulators_to_analyze,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# plot_temperature_mean_comparison_together(
+#     emulators_to_analyze,
+#     colorbar_fix=True
+# )
+# save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# VARIABLE_TO_PLOT = 'thetao'
+#
+# plot_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     var_name=VARIABLE_TO_PLOT,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+#     fix_colorbar=True
+# )
+# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+#
+# plot_ohc_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_SLICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+#
+# from functions import plot_ke_snapshot_comparison_multidepth_together
+# plot_ke_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+# )
+# save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
