@@ -12,4 +12,4 @@
 eval "$(conda shell.bash hook)"
 conda activate /pscratch/sd/y/yy6080/ocean_sim
 
-python OM4_reso_all.py
+python run_across_reso.py
