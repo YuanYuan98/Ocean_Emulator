@@ -747,6 +747,13 @@ plot_ohc_snapshot_comparison_multidepth_together(
 )
 save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
+from functions import plot_ke_mean_comparison_together
+plot_ke_mean_comparison_together(
+    emulators_v2,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
+
 from functions import plot_ke_snapshot_comparison_multidepth_together
 plot_ke_snapshot_comparison_multidepth_together(
     emulators_v2,

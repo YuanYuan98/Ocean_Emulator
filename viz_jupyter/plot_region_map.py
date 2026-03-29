@@ -7,7 +7,7 @@ import cartopy.feature as cfeature
 import numpy as np
 
 SPECTRUM_REGIONS = [
-    ('Gulf',     slice(300, 320), slice(25, 45)),
+    ('Gulf Stream',     slice(300, 320), slice(25, 45)),
     ('Kuroshio', slice(150, 170), slice(25, 45)),
     ('Agulhas',  slice(40, 60),   slice(-50, -30)),
     ('Malvinas', slice(311, 331), slice(-51, -31)),
