@@ -4643,10 +4643,10 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
             ).compute()
 
     from matplotlib.gridspec import GridSpec
-    fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
+    fig = plt.figure(figsize=(4*ncols, 2.0*nrows + 0.8))
     gs = GridSpec(nrows + 1, ncols, figure=fig,
                   height_ratios=[1]*nrows + [0.04],
-                  hspace=0.08, wspace=0.05,
+                  hspace=0.02, wspace=0.05,
                   top=0.93, bottom=0.03, left=0.12, right=0.97)
 
     proj = ccrs.Robinson(central_longitude=210)
@@ -4751,10 +4751,10 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
             ).compute()
 
     from matplotlib.gridspec import GridSpec
-    fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
+    fig = plt.figure(figsize=(4*ncols, 2.0*nrows + 0.8))
     gs = GridSpec(nrows + 1, ncols, figure=fig,
                   height_ratios=[1]*nrows + [0.04],
-                  hspace=0.08, wspace=0.05,
+                  hspace=0.02, wspace=0.05,
                   top=0.93, bottom=0.03, left=0.12, right=0.97)
 
     proj = ccrs.Robinson(central_longitude=210)

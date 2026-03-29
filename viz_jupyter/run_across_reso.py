@@ -291,62 +291,62 @@ masks_list_v2 = masks_list[1:]
 # print(f"  -> Saved: {csv_path}")
 
 
-# ============================================================
-# ACF evaluation
-# ============================================================
-# SPECTRUM_REGIONS is imported from functions.py
-
-ACF_MAX_LAG_YEARS = 9 / 12  # 9 months
-
-n_regions = len(SPECTRUM_REGIONS)
-nrows = 2
-ncols = (n_regions + 1) // 2
-
-# --- SSH ACF (all regions in one figure) ---
-print("\n=== SSH ACF (all regions) ===")
-fig_acf_zos, axes_acf_zos = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-axes_acf_zos_flat = axes_acf_zos.flatten()
-for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-    print(f"  -> {region_name}")
-    plot_acf_comparison_together(
-        emulators_dict=emulators_v2,
-        var_to_eval='zos',
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        max_lag_years=ACF_MAX_LAG_YEARS,
-        region_name=region_name,
-        ax=axes_acf_zos_flat[idx],
-    )
-oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
-fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-                   bbox_to_anchor=(0.5, -0.06), frameon=False)
-fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.01)
-fig_acf_zos.tight_layout()
-save_current_fig("acf_zos_all_regions", SPECTRUM_DIR)
-
-# --- Velocity ACF (all regions in one figure) ---
-print("\n=== Velocity ACF (all regions) ===")
-fig_acf_vel, axes_acf_vel = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-axes_acf_vel_flat = axes_acf_vel.flatten()
-for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-    print(f"  -> {region_name}")
-    plot_velocity_acf_comparison_together(
-        emulators_dict=emulators_v2,
-        var_u='uo',
-        var_v='vo',
-        lev_idx=0,
-        lon_slice=lon_slice,
-        lat_slice=lat_slice,
-        max_lag_years=ACF_MAX_LAG_YEARS,
-        region_name=region_name,
-        ax=axes_acf_vel_flat[idx],
-    )
-oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
-fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-                   bbox_to_anchor=(0.5, -0.06), frameon=False)
-fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.01)
-fig_acf_vel.tight_layout()
-save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
+# # ============================================================
+# # ACF evaluation
+# # ============================================================
+# # SPECTRUM_REGIONS is imported from functions.py
+#
+# ACF_MAX_LAG_YEARS = 9 / 12  # 9 months
+#
+# n_regions = len(SPECTRUM_REGIONS)
+# nrows = 2
+# ncols = (n_regions + 1) // 2
+#
+# # --- SSH ACF (all regions in one figure) ---
+# print("\n=== SSH ACF (all regions) ===")
+# fig_acf_zos, axes_acf_zos = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+# axes_acf_zos_flat = axes_acf_zos.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_acf_comparison_together(
+#         emulators_dict=emulators_v2,
+#         var_to_eval='zos',
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         max_lag_years=ACF_MAX_LAG_YEARS,
+#         region_name=region_name,
+#         ax=axes_acf_zos_flat[idx],
+#     )
+# oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
+# fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
+#                    bbox_to_anchor=(0.5, -0.06), frameon=False)
+# fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.01)
+# fig_acf_zos.tight_layout()
+# save_current_fig("acf_zos_all_regions", SPECTRUM_DIR)
+#
+# # --- Velocity ACF (all regions in one figure) ---
+# print("\n=== Velocity ACF (all regions) ===")
+# fig_acf_vel, axes_acf_vel = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+# axes_acf_vel_flat = axes_acf_vel.flatten()
+# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+#     print(f"  -> {region_name}")
+#     plot_velocity_acf_comparison_together(
+#         emulators_dict=emulators_v2,
+#         var_u='uo',
+#         var_v='vo',
+#         lev_idx=0,
+#         lon_slice=lon_slice,
+#         lat_slice=lat_slice,
+#         max_lag_years=ACF_MAX_LAG_YEARS,
+#         region_name=region_name,
+#         ax=axes_acf_vel_flat[idx],
+#     )
+# oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
+# fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
+#                    bbox_to_anchor=(0.5, -0.06), frameon=False)
+# fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.01)
+# fig_acf_vel.tight_layout()
+# save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
 
 
 # var_to_eval = 'thetao'
@@ -497,32 +497,32 @@ save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
 # )
 # save_current_fig("ke_temporal_spectrum_with_ratio", SPECTRUM_DIR)
 
-# ============================================================
-# Time Series
-# ============================================================
-print("\n" + "="*60)
-print("Time Series Plots")
-print("="*60)
-
-# Detrended Time Series (Thetao)
-plot_mean_timeseries_detrended_comparison_together(
-    emulators_v2,
-    variable_name='thetao',
-    var_units='$^\\circ$C',
-    var_label='Temperature',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
-
-# Detrended Time Series (Salinity)
-plot_mean_timeseries_detrended_comparison_together(
-    emulators_v2,
-    variable_name='so',
-    var_units='psu',
-    var_label='Salinity',
-    output_dir=OUTPUT_DIR
-)
-save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+# # ============================================================
+# # Time Series
+# # ============================================================
+# print("\n" + "="*60)
+# print("Time Series Plots")
+# print("="*60)
+#
+# # Detrended Time Series (Thetao)
+# plot_mean_timeseries_detrended_comparison_together(
+#     emulators_v2,
+#     variable_name='thetao',
+#     var_units='$^\\circ$C',
+#     var_label='Temperature',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+#
+# # Detrended Time Series (Salinity)
+# plot_mean_timeseries_detrended_comparison_together(
+#     emulators_v2,
+#     variable_name='so',
+#     var_units='psu',
+#     var_label='Salinity',
+#     output_dir=OUTPUT_DIR
+# )
+# save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
 
 # # ============================================================
 # # Temporal Variance Numerical Metrics
@@ -596,171 +596,171 @@ plot_ke_variance_comparison_together(
 save_current_fig("variance_ke", VARIANCE_DIR)
 
 
-# ============================================================
-# Zonal Mean Bias
-# ============================================================
-print("\n" + "="*60)
-print("Zonal Mean Bias")
-print("="*60)
-
-plot_ohc_zonal_bias_ocean_comparison_together(
-    emulators_v2,
-    masks_list=masks_list_v2,
-    colorbar_fix=True
-)
-save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
-
-plot_zonal_bias_ocean_comparison_together(
-    emulators_v2,
-    'thetao',
-    '$^\\circ$C',
-    masks_list_v2,
-    OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-
-plot_snapshot_zonal_bias_ocean_comparison_together(
-    emulators_dict=emulators_v2,
-    variable_name='thetao',
-    units='°C',
-    masks_list=masks_list_v2,
-    TIME_INDICES=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-
-plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
-    emulators_dict=emulators_v2,
-    masks_list=masks_list_v2,
-    TIME_INDICES=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
-
-
-# ============================================================
-# Global Spatial Bias Maps
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Bias Maps")
-print("="*60)
-
-plot_ohc_bias_comparison_together(emulators_v2, colorbar_fix=True)
-save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
-
-plot_temperature_bias_comparison_together(emulators_v2, colorbar_fix=True)
-save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
-
-plot_ohc_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
-save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
-
-plot_temperature_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
-save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
-
-from functions import plot_ke_snapshot_bias_comparison_together
-plot_ke_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, DEPTH_LAYERS)
-save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
-
-
-# ============================================================
-# Zonal Mean Distribution
-# ============================================================
-print("\n" + "="*60)
-print("Zonal Mean Distribution")
-print("="*60)
-
-plot_zonal_mean_comparison_together(
-    emulators_v2,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list_v2,
-    colorbar_fix=True
-)
-save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
-
-plot_ohc_zonal_mean_comparison_together(
-    emulators_v2,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list_v2,
-    colorbar_fix=True
-)
-save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
-
-plot_zonal_snapshot_comparison_together(
-    emulators_v2,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list_v2,
-    time_indices=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
-
-plot_ohc_zonal_snapshot_comparison_together(
-    emulators_v2,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list_v2,
-    TIME_INDICES=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
-
-
-# ============================================================
-# Global Spatial Distribution Maps
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Distribution Maps")
-print("="*60)
-
-plot_ohc_mean_comparison_together(
-    emulators_v2,
-    colorbar_fix=True
-)
-save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
-
-plot_temperature_mean_comparison_together(
-    emulators_v2,
-    colorbar_fix=True
-)
-save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
-
-VARIABLE_TO_PLOT = 'thetao'
-
-plot_snapshot_comparison_multidepth_together(
-    emulators_v2,
-    var_name=VARIABLE_TO_PLOT,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-    fix_colorbar=True
-)
-save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
-
-plot_ohc_snapshot_comparison_multidepth_together(
-    emulators_v2,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_SLICES,
-    colorbar_fix=True
-)
-save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
-
-from functions import plot_ke_mean_comparison_together
-plot_ke_mean_comparison_together(
-    emulators_v2,
-    depth_configs=DEPTH_LAYERS,
-)
-save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
-
-from functions import plot_ke_snapshot_comparison_multidepth_together
-plot_ke_snapshot_comparison_multidepth_together(
-    emulators_v2,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-)
-save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+# # ============================================================
+# # Zonal Mean Bias
+# # ============================================================
+# print("\n" + "="*60)
+# print("Zonal Mean Bias")
+# print("="*60)
+#
+# plot_ohc_zonal_bias_ocean_comparison_together(
+#     emulators_v2,
+#     masks_list=masks_list_v2,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
+#
+# plot_zonal_bias_ocean_comparison_together(
+#     emulators_v2,
+#     'thetao',
+#     '$^\\circ$C',
+#     masks_list_v2,
+#     OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+#
+# plot_snapshot_zonal_bias_ocean_comparison_together(
+#     emulators_dict=emulators_v2,
+#     variable_name='thetao',
+#     units='°C',
+#     masks_list=masks_list_v2,
+#     TIME_INDICES=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+#
+# plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
+#     emulators_dict=emulators_v2,
+#     masks_list=masks_list_v2,
+#     TIME_INDICES=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
+#
+#
+# # ============================================================
+# # Global Spatial Bias Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Bias Maps")
+# print("="*60)
+#
+# plot_ohc_bias_comparison_together(emulators_v2, colorbar_fix=True)
+# save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
+#
+# plot_temperature_bias_comparison_together(emulators_v2, colorbar_fix=True)
+# save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
+#
+# plot_ohc_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
+# save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
+#
+# plot_temperature_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
+# save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+#
+# from functions import plot_ke_snapshot_bias_comparison_together
+# plot_ke_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, DEPTH_LAYERS)
+# save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
+#
+#
+# # ============================================================
+# # Zonal Mean Distribution
+# # ============================================================
+# print("\n" + "="*60)
+# print("Zonal Mean Distribution")
+# print("="*60)
+#
+# plot_zonal_mean_comparison_together(
+#     emulators_v2,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list_v2,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+#
+# plot_ohc_zonal_mean_comparison_together(
+#     emulators_v2,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list_v2,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
+#
+# plot_zonal_snapshot_comparison_together(
+#     emulators_v2,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list_v2,
+#     time_indices=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
+#
+# plot_ohc_zonal_snapshot_comparison_together(
+#     emulators_v2,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list_v2,
+#     TIME_INDICES=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
+#
+#
+# # ============================================================
+# # Global Spatial Distribution Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Distribution Maps")
+# print("="*60)
+#
+# plot_ohc_mean_comparison_together(
+#     emulators_v2,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# plot_temperature_mean_comparison_together(
+#     emulators_v2,
+#     colorbar_fix=True
+# )
+# save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# VARIABLE_TO_PLOT = 'thetao'
+#
+# plot_snapshot_comparison_multidepth_together(
+#     emulators_v2,
+#     var_name=VARIABLE_TO_PLOT,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+#     fix_colorbar=True
+# )
+# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+#
+# plot_ohc_snapshot_comparison_multidepth_together(
+#     emulators_v2,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_SLICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+#
+# from functions import plot_ke_mean_comparison_together
+# plot_ke_mean_comparison_together(
+#     emulators_v2,
+#     depth_configs=DEPTH_LAYERS,
+# )
+# save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# from functions import plot_ke_snapshot_comparison_multidepth_together
+# plot_ke_snapshot_comparison_multidepth_together(
+#     emulators_v2,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+# )
+# save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
 
 print("\n" + "="*60)
