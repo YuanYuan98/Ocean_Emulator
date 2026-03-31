@@ -286,41 +286,41 @@ save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 # SPECTRUM_REGIONS is imported from functions.py
 
 
-# ============================================================
-# Temporal Variance Numerical Metrics
-# ============================================================
-print("\n" + "="*60)
-print("Temporal Variance Numerical Metrics")
-print("="*60)
+# # ============================================================
+# # Temporal Variance Numerical Metrics
+# # ============================================================
+# print("\n" + "="*60)
+# print("Temporal Variance Numerical Metrics")
+# print("="*60)
 
-from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+# from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
-for var_name in ['thetao', 'so']:
-    print(f"\n--- {var_name} ---")
-    raw = compute_temporal_variance_metrics(
-        emulators_dict=emulators_to_analyze,
-        variable_name=var_name,
-        spectrum_regions=SPECTRUM_REGIONS,
-    )
-    table = format_variance_metrics_table(raw)
-    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-        print(table.to_string())
-    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
-    table.to_csv(csv_path)
-    print(f"  -> Saved: {csv_path}")
+# for var_name in ['thetao', 'so']:
+#     print(f"\n--- {var_name} ---")
+#     raw = compute_temporal_variance_metrics(
+#         emulators_dict=emulators_to_analyze,
+#         variable_name=var_name,
+#         spectrum_regions=SPECTRUM_REGIONS,
+#     )
+#     table = format_variance_metrics_table(raw)
+#     with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+#         print(table.to_string())
+#     csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+#     table.to_csv(csv_path)
+#     print(f"  -> Saved: {csv_path}")
 
-print(f"\n--- KE ---")
-ke_raw = compute_ke_temporal_variance_metrics(
-    emulators_dict=emulators_to_analyze,
-    spectrum_regions=SPECTRUM_REGIONS,
-)
-ke_table = format_variance_metrics_table(ke_raw)
-with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-    print(ke_table.to_string())
-csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
-ke_table.to_csv(csv_path)
-print(f"  -> Saved: {csv_path}")
+# print(f"\n--- KE ---")
+# ke_raw = compute_ke_temporal_variance_metrics(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+# )
+# ke_table = format_variance_metrics_table(ke_raw)
+# with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+#     print(ke_table.to_string())
+# csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+# ke_table.to_csv(csv_path)
+# print(f"  -> Saved: {csv_path}")
 
 
 # ============================================================
@@ -397,9 +397,9 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         ax=axes_iso_flat[idx],
     )
 oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
-fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
-               bbox_to_anchor=(0.5, -0.06), frameon=False)
-fig_iso.suptitle(f'Isotropic Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
+fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+               bbox_to_anchor=(0.5, -0.08), frameon=False)
+fig_iso.suptitle(f'Isotropic Power Spectrum of {var_to_eval} (Surface)', fontsize=20, y=1.01)
 fig_iso.tight_layout()
 save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
 
@@ -423,9 +423,9 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         ax=axes_ke_flat[idx],
     )
 oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
-fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
-              bbox_to_anchor=(0.5, -0.08), frameon=False)
-fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.01)
+fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+              bbox_to_anchor=(0.5, -0.10), frameon=False)
+fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=20, y=1.01)
 fig_ke.tight_layout()
 save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
 
@@ -447,9 +447,9 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         ax=axes_ts_flat[idx],
     )
 oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
-fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
-              bbox_to_anchor=(0.5, -0.08), frameon=False)
-fig_ts.suptitle(f'Temporal Power Spectrum of {var_to_eval} (Surface)', fontsize=18, y=1.01)
+fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+              bbox_to_anchor=(0.5, -0.10), frameon=False)
+fig_ts.suptitle(f'Temporal Power Spectrum of {var_to_eval} (Surface)', fontsize=20, y=1.01)
 fig_ts.tight_layout()
 save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
 
@@ -473,9 +473,9 @@ for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         ax=axes_kets_flat[idx],
     )
 oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
-fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=14,
-                bbox_to_anchor=(0.5, -0.08), frameon=False)
-fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.01)
+fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+                bbox_to_anchor=(0.5, -0.10), frameon=False)
+fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=20, y=1.01)
 fig_kets.tight_layout()
 save_current_fig("ke_temporal_spectrum_all_regions", SPECTRUM_DIR)
 

@@ -270,17 +270,17 @@ masks_list_v2 = masks_list[1:]
 # print("\n" + "="*60)
 # print("ENSO Evaluation (Niño 3.4)")
 # print("="*60)
-
+#
 # import pandas as pd
 # from functions import plot_nino34_comparison_together, compute_nino34_metrics
-
+#
 # ENSO_DIR = os.path.join(PDF_DIR, "enso")
 # os.makedirs(ENSO_DIR, exist_ok=True)
-
+#
 # # Niño 3.4 Index time series
 # plot_nino34_comparison_together(emulators_v2)
 # save_current_fig("nino34_index", ENSO_DIR)
-
+#
 # # Niño 3.4 numerical metrics
 # nino_metrics = compute_nino34_metrics(emulators_v2)
 # print("\nNiño 3.4 Metrics:")
@@ -317,11 +317,11 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_acf_zos_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
-# fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#                    bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.01)
 # fig_acf_zos.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
+# fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.03)
 # save_current_fig("acf_zos_all_regions", SPECTRUM_DIR)
 #
 # # --- Velocity ACF (all regions in one figure) ---
@@ -341,14 +341,14 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_acf_vel_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
-# fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#                    bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.01)
 # fig_acf_vel.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
+# fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.03)
 # save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
-
-
+#
+#
 # var_to_eval = 'thetao'
 # time_window = None
 #
@@ -374,11 +374,11 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_iso_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
-# fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#                bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_iso.suptitle(f'Isotropic Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.01)
 # fig_iso.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
+# fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#                bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_iso.suptitle(f'Isotropic Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
 # save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
 #
 # # --- EKE spectrum (all regions in one figure) ---
@@ -400,11 +400,11 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_ke_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
-# fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#               bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.01)
 # fig_ke.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
+# fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#               bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.03)
 # save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
 #
 # # --- Temporal spectrum (all regions in one figure) ---
@@ -424,11 +424,11 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_ts_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
-# fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#               bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_ts.suptitle(f'Temporal Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.01)
 # fig_ts.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
+# fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#               bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_ts.suptitle(f'Temporal Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
 # save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
 #
 # # --- EKE temporal spectrum (all regions in one figure) ---
@@ -449,14 +449,14 @@ masks_list_v2 = masks_list[1:]
 #         region_name=region_name,
 #         ax=axes_kets_flat[idx],
 #     )
-# oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
-# fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=12,
-#                 bbox_to_anchor=(0.5, -0.06), frameon=False)
-# fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.01)
 # fig_kets.tight_layout()
+# oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
+# fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+#                 bbox_to_anchor=(0.5, -0.12), frameon=False)
+# fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.03)
 # save_current_fig("ke_temporal_spectrum_all_regions", SPECTRUM_DIR)
-#
-#
+
+
 # # --- Isotropic spectrum with ratio (4 rows × 2 cols) ---
 # print("\n=== Isotropic spectrum + ratio (all regions) ===")
 # plot_isotropic_spectrum_with_ratio(
@@ -467,7 +467,7 @@ masks_list_v2 = masks_list[1:]
 #     time_window=time_window,
 # )
 # save_current_fig("isotropic_spectrum_with_ratio", SPECTRUM_DIR)
-#
+
 # # --- EKE spectrum with ratio (4 rows × 2 cols) ---
 # print("\n=== EKE spectrum + ratio (all regions) ===")
 # plot_ke_spectrum_with_ratio(
@@ -477,7 +477,7 @@ masks_list_v2 = masks_list[1:]
 #     time_window=time_window,
 # )
 # save_current_fig("ke_spectrum_with_ratio", SPECTRUM_DIR)
-#
+
 # # --- Temporal spectrum with ratio (4 rows × 2 cols) ---
 # print("\n=== Temporal spectrum + ratio (all regions) ===")
 # plot_temporal_spectrum_with_ratio(
@@ -487,7 +487,7 @@ masks_list_v2 = masks_list[1:]
 #     lev_idx=0,
 # )
 # save_current_fig("temporal_spectrum_with_ratio", SPECTRUM_DIR)
-#
+
 # # --- EKE temporal spectrum with ratio (4 rows × 2 cols) ---
 # print("\n=== EKE temporal spectrum + ratio (all regions) ===")
 # plot_ke_temporal_spectrum_with_ratio(
@@ -561,40 +561,64 @@ masks_list_v2 = masks_list[1:]
 # ke_table.to_csv(csv_path)
 # print(f"  -> Saved: {csv_path}")
 
+# # ============================================================
+# # Temporal Variance Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Temporal Variance Maps")
+# print("="*60)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\\circ$C',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_thetao", VARIANCE_DIR)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='so',
+#     units='psu',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_so", VARIANCE_DIR)
+#
+# plot_ke_variance_comparison_together(
+#     emulators_to_analyze,
+#     var_u='uo',
+#     var_v='vo',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_ke", VARIANCE_DIR)
+
+
 # ============================================================
-# Temporal Variance Maps
+# Surface Speed Snapshot — Gulf Stream (across resolutions)
 # ============================================================
 print("\n" + "="*60)
-print("Temporal Variance Maps")
+print("Surface Speed Snapshot — Gulf Stream")
 print("="*60)
 
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    units='$^\\circ$C',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_thetao", VARIANCE_DIR)
+SNAPSHOT_DIR = os.path.join(PDF_DIR, "snapshot")
+os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    units='psu',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_so", VARIANCE_DIR)
+from functions import plot_surface_speed_gulf_stream, plot_surface_ke_gulf_stream
+for ti in TIME_INDICES:
+    plot_surface_speed_gulf_stream(
+        emulators_v2,
+        time_indices=[ti],
+    )
+    save_current_fig(f"surface_speed_gulf_stream_t{ti}", SNAPSHOT_DIR)
 
-plot_ke_variance_comparison_together(
-    emulators_to_analyze,
-    var_u='uo',
-    var_v='vo',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_ke", VARIANCE_DIR)
-
+    plot_surface_ke_gulf_stream(
+        emulators_v2,
+        time_indices=[ti],
+    )
+    save_current_fig(f"surface_ke_gulf_stream_t{ti}", SNAPSHOT_DIR)
 
 # # ============================================================
 # # Zonal Mean Bias

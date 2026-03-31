@@ -279,81 +279,81 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
-# ============================================================
-# ENSO Evaluation
-# ============================================================
-print("\n" + "="*60)
-print("ENSO Evaluation (Niño 3.4)")
-print("="*60)
+# # ============================================================
+# # ENSO Evaluation
+# # ============================================================
+# print("\n" + "="*60)
+# print("ENSO Evaluation (Niño 3.4)")
+# print("="*60)
 
-emulators_to_analyze_enso = emulators_to_analyze
+# emulators_to_analyze_enso = emulators_to_analyze
 
-from functions import plot_nino34_comparison_together, compute_nino34_metrics
+# from functions import plot_nino34_comparison_together, compute_nino34_metrics
 
-ENSO_DIR = os.path.join(PDF_DIR, "enso")
-os.makedirs(ENSO_DIR, exist_ok=True)
+# ENSO_DIR = os.path.join(PDF_DIR, "enso")
+# os.makedirs(ENSO_DIR, exist_ok=True)
 
-# Niño 3.4 Index time series
-plot_nino34_comparison_together(emulators_to_analyze_enso)
-save_current_fig("nino34_index", ENSO_DIR)
+# # Niño 3.4 Index time series
+# plot_nino34_comparison_together(emulators_to_analyze_enso)
+# save_current_fig("nino34_index", ENSO_DIR)
 
-# Niño 3.4 numerical metrics
-nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
-print("\nNiño 3.4 Metrics:")
-with pd.option_context('display.float_format', '{:.4f}'.format):
-    print(nino_metrics.to_string(index=False))
-csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
-nino_metrics.to_csv(csv_path, index=False)
-print(f"  -> Saved: {csv_path}")
+# # Niño 3.4 numerical metrics
+# nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+# print("\nNiño 3.4 Metrics:")
+# with pd.option_context('display.float_format', '{:.4f}'.format):
+#     print(nino_metrics.to_string(index=False))
+# csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+# nino_metrics.to_csv(csv_path, index=False)
+# print(f"  -> Saved: {csv_path}")
 
-emulators_to_analyze_enso = {
-    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
-}
-# Niño 3.4 Index time series
-plot_nino34_comparison_together(emulators_to_analyze_enso)
-save_current_fig("nino34_index_v1_v2", ENSO_DIR)
+# emulators_to_analyze_enso = {
+#     label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
+# }
+# # Niño 3.4 Index time series
+# plot_nino34_comparison_together(emulators_to_analyze_enso)
+# save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 
 
 
 # SPECTRUM_REGIONS is imported from functions.py
 
 
-# ============================================================
-# Temporal Variance Numerical Metrics
-# ============================================================
-print("\n" + "="*60)
-print("Temporal Variance Numerical Metrics")
-print("="*60)
+# # ============================================================
+# # Temporal Variance Numerical Metrics
+# # ============================================================
+# print("\n" + "="*60)
+# print("Temporal Variance Numerical Metrics")
+# print("="*60)
 
-import pandas as pd
-from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+# import pandas as pd
+# from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
-for var_name in ['thetao', 'so']:
-    print(f"\n--- {var_name} ---")
-    raw = compute_temporal_variance_metrics(
-        emulators_dict=emulators_to_analyze,
-        variable_name=var_name,
-        spectrum_regions=SPECTRUM_REGIONS,
-    )
-    table = format_variance_metrics_table(raw)
-    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-        print(table.to_string())
-    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
-    table.to_csv(csv_path)
-    print(f"  -> Saved: {csv_path}")
+# for var_name in ['thetao', 'so']:
+#     print(f"\n--- {var_name} ---")
+#     raw = compute_temporal_variance_metrics(
+#         emulators_dict=emulators_to_analyze,
+#         variable_name=var_name,
+#         spectrum_regions=SPECTRUM_REGIONS,
+#     )
+#     table = format_variance_metrics_table(raw)
+#     with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+#         print(table.to_string())
+#     csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+#     table.to_csv(csv_path)
+#     print(f"  -> Saved: {csv_path}")
 
-print(f"\n--- KE ---")
-ke_raw = compute_ke_temporal_variance_metrics(
-    emulators_dict=emulators_to_analyze,
-    spectrum_regions=SPECTRUM_REGIONS,
-)
-ke_table = format_variance_metrics_table(ke_raw)
-with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-    print(ke_table.to_string())
-csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
-ke_table.to_csv(csv_path)
-print(f"  -> Saved: {csv_path}")
+# print(f"\n--- KE ---")
+# ke_raw = compute_ke_temporal_variance_metrics(
+#     emulators_dict=emulators_to_analyze,
+#     spectrum_regions=SPECTRUM_REGIONS,
+# )
+# ke_table = format_variance_metrics_table(ke_raw)
+# with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+#     print(ke_table.to_string())
+# csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+# ke_table.to_csv(csv_path)
+# print(f"  -> Saved: {csv_path}")
 
 
 # ============================================================
