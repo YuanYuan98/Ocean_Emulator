@@ -10124,15 +10124,16 @@ def plot_surface_speed_gulf_stream(emulators_dict, time_indices,
                                    var_u='uo', var_v='vo', lev_idx=0,
                                    lon_range=(280, 330), lat_range=(25, 50)):
     """
-    Surface speed snapshot (OM4 truth only) in the Gulf Stream region across resolutions.
+    Surface speed snapshot (OM4 truth + Samudra-v2) in the Gulf Stream region across resolutions.
 
-    One row of three columns (one per resolution), shared colorbar.
-    Surface speed = sqrt(u^2 + v^2) at the given depth level.
+    Two rows of N columns: row 0 = OM4 truth, row 1 = Samudra-v2 emulator.
+    Shared colorbar. Surface speed = sqrt(u^2 + v^2) at the given depth level.
     """
     from matplotlib.gridspec import GridSpec
 
     emu_labels = list(emulators_dict.keys())
     ncols = len(emu_labels)
+    nrows = 2  # row 0: truth, row 1: emulator
 
     def compute_speed(ds, time_idx):
         u = ds[var_u].isel(time=time_idx, lev=lev_idx)
@@ -10152,39 +10153,56 @@ def plot_surface_speed_gulf_stream(emulators_dict, time_indices,
         else:
             time_str = str(time_val)[:10]
 
-        fig = plt.figure(figsize=(5 * ncols, 4.2))
-        gs = GridSpec(1, ncols, figure=fig,
-                      wspace=0.08,
-                      top=0.88, bottom=0.15, left=0.05, right=0.97)
+        fig = plt.figure(figsize=(5 * ncols, 4.2 * nrows))
+        gs = GridSpec(nrows, ncols, figure=fig,
+                      wspace=0.08, hspace=0.15,
+                      top=0.92, bottom=0.10, left=0.05, right=0.97)
 
         proj = ccrs.PlateCarree()
-        axes = [fig.add_subplot(gs[0, j], projection=proj) for j in range(ncols)]
+        axes = [[fig.add_subplot(gs[r, j], projection=proj) for j in range(ncols)]
+                for r in range(nrows)]
 
-        # Compute truth speed for each resolution
+        # Compute truth and emulator speed for each resolution
         truth_speeds = []
+        emu_speeds = []
         for label in emu_labels:
             truth_speeds.append(subset_region(compute_speed(emulators_dict[label]['truth'], time_idx)))
+            emu_speeds.append(subset_region(compute_speed(emulators_dict[label]['ds'], time_idx)))
 
-        # Shared normalization
-        all_valid = np.concatenate([s.values[~np.isnan(s.values)] for s in truth_speeds])
+        # Shared normalization across both truth and emulator
+        all_valid = np.concatenate(
+            [s.values[~np.isnan(s.values)] for s in truth_speeds + emu_speeds])
         vmax = np.percentile(all_valid, 99)
         norm = colors.Normalize(vmin=0, vmax=vmax)
 
         for j, label in enumerate(emu_labels):
             truth_label = emulators_dict[label].get('truth_label', 'Truth')
-            ax = axes[j]
+            # Row 0: Truth
+            ax_t = axes[0][j]
             p = truth_speeds[j].plot.pcolormesh(
-                ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+                ax=ax_t, transform=ccrs.PlateCarree(), x='x', y='y',
                 cmap=cmocean.cm.speed, norm=norm, add_colorbar=False, rasterized=True)
-            ax.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
-                          crs=ccrs.PlateCarree())
-            ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
-            ax.coastlines(zorder=11)
-            ax.set_title(truth_label, fontweight='bold')
+            ax_t.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
+                            crs=ccrs.PlateCarree())
+            ax_t.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax_t.coastlines(zorder=11)
+            ax_t.set_title(truth_label, fontweight='bold')
 
-        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.5, pad=0.08, aspect=40,
+            # Row 1: Emulator
+            ax_e = axes[1][j]
+            emu_speeds[j].plot.pcolormesh(
+                ax=ax_e, transform=ccrs.PlateCarree(), x='x', y='y',
+                cmap=cmocean.cm.speed, norm=norm, add_colorbar=False, rasterized=True)
+            ax_e.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
+                            crs=ccrs.PlateCarree())
+            ax_e.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax_e.coastlines(zorder=11)
+            ax_e.set_title(label, fontweight='bold')
+
+        all_axes = axes[0] + axes[1]
+        fig.colorbar(p, ax=all_axes, orientation='horizontal', shrink=0.5, pad=0.06, aspect=40,
                      label='Surface Speed (m/s)')
-        fig.suptitle(f"Surface Speed (Gulf Stream) — {time_str}", fontsize=_SUPTITLE_SIZE, y=1.0)
+        fig.suptitle(f"Surface Speed (Gulf Stream) — {time_str}", fontsize=_SUPTITLE_SIZE, y=0.98)
         plt.show()
 
 
@@ -10192,15 +10210,16 @@ def plot_surface_ke_gulf_stream(emulators_dict, time_indices,
                                 var_u='uo', var_v='vo', lev_idx=0,
                                 lon_range=(280, 330), lat_range=(25, 50)):
     """
-    Surface KE snapshot (OM4 truth only) in the Gulf Stream region across resolutions.
+    Surface KE snapshot (OM4 truth + Samudra-v2) in the Gulf Stream region across resolutions.
 
-    One row of three columns (one per resolution), shared colorbar.
-    KE = 0.5 * (u^2 + v^2) at the given depth level.
+    Two rows of N columns: row 0 = OM4 truth, row 1 = Samudra-v2 emulator.
+    Shared colorbar. KE = 0.5 * (u^2 + v^2) at the given depth level.
     """
     from matplotlib.gridspec import GridSpec
 
     emu_labels = list(emulators_dict.keys())
     ncols = len(emu_labels)
+    nrows = 2  # row 0: truth, row 1: emulator
 
     def compute_ke(ds, time_idx):
         u = ds[var_u].isel(time=time_idx, lev=lev_idx)
@@ -10220,21 +10239,25 @@ def plot_surface_ke_gulf_stream(emulators_dict, time_indices,
         else:
             time_str = str(time_val)[:10]
 
-        fig = plt.figure(figsize=(5 * ncols, 4.2))
-        gs = GridSpec(1, ncols, figure=fig,
-                      wspace=0.08,
-                      top=0.88, bottom=0.15, left=0.05, right=0.97)
+        fig = plt.figure(figsize=(5 * ncols, 4.2 * nrows))
+        gs = GridSpec(nrows, ncols, figure=fig,
+                      wspace=0.08, hspace=0.15,
+                      top=0.92, bottom=0.10, left=0.05, right=0.97)
 
         proj = ccrs.PlateCarree()
-        axes = [fig.add_subplot(gs[0, j], projection=proj) for j in range(ncols)]
+        axes = [[fig.add_subplot(gs[r, j], projection=proj) for j in range(ncols)]
+                for r in range(nrows)]
 
-        # Compute truth KE for each resolution
+        # Compute truth and emulator KE for each resolution
         truth_ke = []
+        emu_ke = []
         for label in emu_labels:
             truth_ke.append(subset_region(compute_ke(emulators_dict[label]['truth'], time_idx)))
+            emu_ke.append(subset_region(compute_ke(emulators_dict[label]['ds'], time_idx)))
 
-        # Shared LogNorm normalization
-        all_valid = np.concatenate([s.values[~np.isnan(s.values)] for s in truth_ke])
+        # Shared LogNorm normalization across both truth and emulator
+        all_valid = np.concatenate(
+            [s.values[~np.isnan(s.values)] for s in truth_ke + emu_ke])
         flat_pos = all_valid[all_valid > 0]
         vmin = np.percentile(flat_pos, 5) if len(flat_pos) > 0 else 1e-10
         vmax = np.percentile(flat_pos, 99) if len(flat_pos) > 0 else 1.0
@@ -10242,17 +10265,30 @@ def plot_surface_ke_gulf_stream(emulators_dict, time_indices,
 
         for j, label in enumerate(emu_labels):
             truth_label = emulators_dict[label].get('truth_label', 'Truth')
-            ax = axes[j]
+            # Row 0: Truth
+            ax_t = axes[0][j]
             p = truth_ke[j].plot.pcolormesh(
-                ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+                ax=ax_t, transform=ccrs.PlateCarree(), x='x', y='y',
                 cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
-            ax.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
-                          crs=ccrs.PlateCarree())
-            ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
-            ax.coastlines(zorder=11)
-            ax.set_title(truth_label, fontweight='bold')
+            ax_t.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
+                            crs=ccrs.PlateCarree())
+            ax_t.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax_t.coastlines(zorder=11)
+            ax_t.set_title(truth_label, fontweight='bold')
 
-        fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.5, pad=0.08, aspect=40,
+            # Row 1: Emulator
+            ax_e = axes[1][j]
+            emu_ke[j].plot.pcolormesh(
+                ax=ax_e, transform=ccrs.PlateCarree(), x='x', y='y',
+                cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+            ax_e.set_extent([lon_range[0], lon_range[1], lat_range[0], lat_range[1]],
+                            crs=ccrs.PlateCarree())
+            ax_e.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax_e.coastlines(zorder=11)
+            ax_e.set_title(label, fontweight='bold')
+
+        all_axes = axes[0] + axes[1]
+        fig.colorbar(p, ax=all_axes, orientation='horizontal', shrink=0.5, pad=0.06, aspect=40,
                      label='KE (m$^2$/s$^2$)')
-        fig.suptitle(f"Surface Kinetic Energy (Gulf Stream) — {time_str}", fontsize=_SUPTITLE_SIZE, y=1.0)
+        fig.suptitle(f"Surface Kinetic Energy (Gulf Stream) — {time_str}", fontsize=_SUPTITLE_SIZE, y=0.98)
         plt.show()

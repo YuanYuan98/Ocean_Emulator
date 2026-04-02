@@ -264,336 +264,336 @@ for label, emu_data in emulators_to_analyze.items():
 emulators_v2 = {k: v for i, (k, v) in enumerate(emulators_to_analyze.items()) if i > 0}
 masks_list_v2 = masks_list[1:]
 
-# # ============================================================
-# # ENSO Evaluation
-# # ============================================================
-# print("\n" + "="*60)
-# print("ENSO Evaluation (Niño 3.4)")
-# print("="*60)
-#
-# import pandas as pd
-# from functions import plot_nino34_comparison_together, compute_nino34_metrics
-#
-# ENSO_DIR = os.path.join(PDF_DIR, "enso")
-# os.makedirs(ENSO_DIR, exist_ok=True)
-#
-# # Niño 3.4 Index time series
-# plot_nino34_comparison_together(emulators_v2)
-# save_current_fig("nino34_index", ENSO_DIR)
-#
-# # Niño 3.4 numerical metrics
-# nino_metrics = compute_nino34_metrics(emulators_v2)
-# print("\nNiño 3.4 Metrics:")
-# with pd.option_context('display.float_format', '{:.4f}'.format):
-#     print(nino_metrics.to_string(index=False))
-# csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
-# nino_metrics.to_csv(csv_path, index=False)
-# print(f"  -> Saved: {csv_path}")
+# ============================================================
+# ENSO Evaluation
+# ============================================================
+print("\n" + "="*60)
+print("ENSO Evaluation (Niño 3.4)")
+print("="*60)
+
+import pandas as pd
+from functions import plot_nino34_comparison_together, compute_nino34_metrics
+
+ENSO_DIR = os.path.join(PDF_DIR, "enso")
+os.makedirs(ENSO_DIR, exist_ok=True)
+
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_v2)
+save_current_fig("nino34_index", ENSO_DIR)
+
+# Niño 3.4 numerical metrics
+nino_metrics = compute_nino34_metrics(emulators_v2)
+print("\nNiño 3.4 Metrics:")
+with pd.option_context('display.float_format', '{:.4f}'.format):
+    print(nino_metrics.to_string(index=False))
+csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+nino_metrics.to_csv(csv_path, index=False)
+print(f"  -> Saved: {csv_path}")
 
 
-# # ============================================================
-# # ACF evaluation
-# # ============================================================
-# # SPECTRUM_REGIONS is imported from functions.py
-#
-# ACF_MAX_LAG_YEARS = 9 / 12  # 9 months
-#
-# n_regions = len(SPECTRUM_REGIONS)
-# nrows = 2
-# ncols = (n_regions + 1) // 2
-#
-# # --- SSH ACF (all regions in one figure) ---
-# print("\n=== SSH ACF (all regions) ===")
-# fig_acf_zos, axes_acf_zos = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_acf_zos_flat = axes_acf_zos.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_acf_comparison_together(
-#         emulators_dict=emulators_v2,
-#         var_to_eval='zos',
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         max_lag_years=ACF_MAX_LAG_YEARS,
-#         region_name=region_name,
-#         ax=axes_acf_zos_flat[idx],
-#     )
-# fig_acf_zos.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
-# fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.03)
-# save_current_fig("acf_zos_all_regions", SPECTRUM_DIR)
-#
-# # --- Velocity ACF (all regions in one figure) ---
-# print("\n=== Velocity ACF (all regions) ===")
-# fig_acf_vel, axes_acf_vel = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_acf_vel_flat = axes_acf_vel.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_velocity_acf_comparison_together(
-#         emulators_dict=emulators_v2,
-#         var_u='uo',
-#         var_v='vo',
-#         lev_idx=0,
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         max_lag_years=ACF_MAX_LAG_YEARS,
-#         region_name=region_name,
-#         ax=axes_acf_vel_flat[idx],
-#     )
-# fig_acf_vel.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
-# fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#                    bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.03)
-# save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
-#
-#
-# var_to_eval = 'thetao'
-# time_window = None
-#
-# n_regions = len(SPECTRUM_REGIONS)
-# nrows = 2
-# ncols = (n_regions + 1) // 2
-#
-# #--- Isotropic spectrum (all regions in one figure) ---
-# print("\n=== Evaluating isotropic spectrum at surface (all regions) ===")
-# fig_iso, axes_iso = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_iso_flat = axes_iso.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_isotropic_spectrum_comparison_together(
-#         emulators_dict=emulators_v2,
-#         show_ratios=False,
-#         var_to_eval=var_to_eval,
-#         lev_idx=0,
-#         time_window=time_window,
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         target_wavenumbers=[0.01, 0.02],
-#         region_name=region_name,
-#         ax=axes_iso_flat[idx],
-#     )
-# fig_iso.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
-# fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#                bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_iso.suptitle(f'Isotropic Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
-# save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
-#
-# # --- EKE spectrum (all regions in one figure) ---
-# print("\n=== Evaluating EKE spectrum at surface (all regions) ===")
-# fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_ke_flat = axes_ke.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_ke_spectrum_comparison_together(
-#         emulators_dict=emulators_v2,
-#         show_ratios=False,
-#         var_u='uo',
-#         var_v='vo',
-#         lev_idx=0,
-#         time_window=time_window,
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         target_wavenumbers=[0.01, 0.02],
-#         region_name=region_name,
-#         ax=axes_ke_flat[idx],
-#     )
-# fig_ke.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
-# fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#               bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.03)
-# save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
-#
-# # --- Temporal spectrum (all regions in one figure) ---
-# print("\n=== Evaluating temporal spectrum at surface (all regions) ===")
-# fig_ts, axes_ts = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_ts_flat = axes_ts.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_temporal_spectrum_comparison_together(
-#         emulators_dict=emulators_v2,
-#         var_to_eval='thetao',
-#         show_ratios=False,
-#         lev_idx=0,
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         target_frequencies=[1.0, 4.0],
-#         region_name=region_name,
-#         ax=axes_ts_flat[idx],
-#     )
-# fig_ts.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
-# fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#               bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_ts.suptitle(f'Temporal Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
-# save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
-#
-# # --- EKE temporal spectrum (all regions in one figure) ---
-# print("\n=== Evaluating EKE temporal spectrum at surface (all regions) ===")
-# fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
-# axes_kets_flat = axes_kets.flatten()
-# for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
-#     print(f"  -> {region_name}")
-#     plot_ke_temporal_spectrum_comparison_together(
-#         emulators_dict=emulators_v2,
-#         show_ratios=False,
-#         var_u='uo',
-#         var_v='vo',
-#         lev_idx=0,
-#         lon_slice=lon_slice,
-#         lat_slice=lat_slice,
-#         target_frequencies=[1.0, 4.0],
-#         region_name=region_name,
-#         ax=axes_kets_flat[idx],
-#     )
-# fig_kets.tight_layout()
-# oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
-# fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
-#                 bbox_to_anchor=(0.5, -0.12), frameon=False)
-# fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.03)
-# save_current_fig("ke_temporal_spectrum_all_regions", SPECTRUM_DIR)
+# ============================================================
+# ACF evaluation
+# ============================================================
+# SPECTRUM_REGIONS is imported from functions.py
+
+ACF_MAX_LAG_YEARS = 9 / 12  # 9 months
+
+n_regions = len(SPECTRUM_REGIONS)
+nrows = 2
+ncols = (n_regions + 1) // 2
+
+# --- SSH ACF (all regions in one figure) ---
+print("\n=== SSH ACF (all regions) ===")
+fig_acf_zos, axes_acf_zos = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_acf_zos_flat = axes_acf_zos.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_acf_comparison_together(
+        emulators_dict=emulators_v2,
+        var_to_eval='zos',
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        max_lag_years=ACF_MAX_LAG_YEARS,
+        region_name=region_name,
+        ax=axes_acf_zos_flat[idx],
+    )
+fig_acf_zos.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_acf_zos_flat[0].get_legend_handles_labels())
+fig_acf_zos.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+                   bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_acf_zos.suptitle('ACF of SSH Anomalies (Surface)', fontsize=18, y=1.03)
+save_current_fig("acf_zos_all_regions", SPECTRUM_DIR)
+
+# --- Velocity ACF (all regions in one figure) ---
+print("\n=== Velocity ACF (all regions) ===")
+fig_acf_vel, axes_acf_vel = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_acf_vel_flat = axes_acf_vel.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_velocity_acf_comparison_together(
+        emulators_dict=emulators_v2,
+        var_u='uo',
+        var_v='vo',
+        lev_idx=0,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        max_lag_years=ACF_MAX_LAG_YEARS,
+        region_name=region_name,
+        ax=axes_acf_vel_flat[idx],
+    )
+fig_acf_vel.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_acf_vel_flat[0].get_legend_handles_labels())
+fig_acf_vel.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+                   bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_acf_vel.suptitle('ACF of Velocity Anomalies (Surface)', fontsize=18, y=1.03)
+save_current_fig("acf_velocity_all_regions", SPECTRUM_DIR)
 
 
-# # --- Isotropic spectrum with ratio (4 rows × 2 cols) ---
-# print("\n=== Isotropic spectrum + ratio (all regions) ===")
-# plot_isotropic_spectrum_with_ratio(
-#     emulators_dict=emulators_v2,
-#     spectrum_regions=SPECTRUM_REGIONS,
-#     var_to_eval=var_to_eval,
-#     lev_idx=0,
-#     time_window=time_window,
-# )
-# save_current_fig("isotropic_spectrum_with_ratio", SPECTRUM_DIR)
+var_to_eval = 'thetao'
+time_window = None
 
-# # --- EKE spectrum with ratio (4 rows × 2 cols) ---
-# print("\n=== EKE spectrum + ratio (all regions) ===")
-# plot_ke_spectrum_with_ratio(
-#     emulators_dict=emulators_v2,
-#     spectrum_regions=SPECTRUM_REGIONS,
-#     lev_idx=0,
-#     time_window=time_window,
-# )
-# save_current_fig("ke_spectrum_with_ratio", SPECTRUM_DIR)
+n_regions = len(SPECTRUM_REGIONS)
+nrows = 2
+ncols = (n_regions + 1) // 2
 
-# # --- Temporal spectrum with ratio (4 rows × 2 cols) ---
-# print("\n=== Temporal spectrum + ratio (all regions) ===")
-# plot_temporal_spectrum_with_ratio(
-#     emulators_dict=emulators_v2,
-#     spectrum_regions=SPECTRUM_REGIONS,
-#     var_to_eval='thetao',
-#     lev_idx=0,
-# )
-# save_current_fig("temporal_spectrum_with_ratio", SPECTRUM_DIR)
+#--- Isotropic spectrum (all regions in one figure) ---
+print("\n=== Evaluating isotropic spectrum at surface (all regions) ===")
+fig_iso, axes_iso = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_iso_flat = axes_iso.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_isotropic_spectrum_comparison_together(
+        emulators_dict=emulators_v2,
+        show_ratios=False,
+        var_to_eval=var_to_eval,
+        lev_idx=0,
+        time_window=time_window,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_wavenumbers=[0.01, 0.02],
+        region_name=region_name,
+        ax=axes_iso_flat[idx],
+    )
+fig_iso.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_iso_flat[0].get_legend_handles_labels())
+fig_iso.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+               bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_iso.suptitle(f'Isotropic Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
+save_current_fig("isotropic_spectrum_all_regions", SPECTRUM_DIR)
 
-# # --- EKE temporal spectrum with ratio (4 rows × 2 cols) ---
-# print("\n=== EKE temporal spectrum + ratio (all regions) ===")
-# plot_ke_temporal_spectrum_with_ratio(
-#     emulators_dict=emulators_v2,
-#     spectrum_regions=SPECTRUM_REGIONS,
-#     lev_idx=0,
-# )
-# save_current_fig("ke_temporal_spectrum_with_ratio", SPECTRUM_DIR)
+# --- EKE spectrum (all regions in one figure) ---
+print("\n=== Evaluating EKE spectrum at surface (all regions) ===")
+fig_ke, axes_ke = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_ke_flat = axes_ke.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_ke_spectrum_comparison_together(
+        emulators_dict=emulators_v2,
+        show_ratios=False,
+        var_u='uo',
+        var_v='vo',
+        lev_idx=0,
+        time_window=time_window,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_wavenumbers=[0.01, 0.02],
+        region_name=region_name,
+        ax=axes_ke_flat[idx],
+    )
+fig_ke.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_ke_flat[0].get_legend_handles_labels())
+fig_ke.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+              bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_ke.suptitle('EKE Spectrum (Surface)', fontsize=18, y=1.03)
+save_current_fig("ke_spectrum_all_regions", SPECTRUM_DIR)
 
-# # ============================================================
-# # Time Series
-# # ============================================================
-# print("\n" + "="*60)
-# print("Time Series Plots")
-# print("="*60)
-#
-# # Detrended Time Series (Thetao)
-# plot_mean_timeseries_detrended_comparison_together(
-#     emulators_v2,
-#     variable_name='thetao',
-#     var_units='$^\\circ$C',
-#     var_label='Temperature',
-#     output_dir=OUTPUT_DIR
-# )
-# save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
-#
-# # Detrended Time Series (Salinity)
-# plot_mean_timeseries_detrended_comparison_together(
-#     emulators_v2,
-#     variable_name='so',
-#     var_units='psu',
-#     var_label='Salinity',
-#     output_dir=OUTPUT_DIR
-# )
-# save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+# --- Temporal spectrum (all regions in one figure) ---
+print("\n=== Evaluating temporal spectrum at surface (all regions) ===")
+fig_ts, axes_ts = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_ts_flat = axes_ts.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_temporal_spectrum_comparison_together(
+        emulators_dict=emulators_v2,
+        var_to_eval='thetao',
+        show_ratios=False,
+        lev_idx=0,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_frequencies=[1.0, 4.0],
+        region_name=region_name,
+        ax=axes_ts_flat[idx],
+    )
+fig_ts.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_ts_flat[0].get_legend_handles_labels())
+fig_ts.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+              bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_ts.suptitle(f'Temporal Power Spectrum of {_display_name(var_to_eval)} (Surface)', fontsize=18, y=1.03)
+save_current_fig("temporal_spectrum_all_regions", SPECTRUM_DIR)
 
-# # ============================================================
-# # Temporal Variance Numerical Metrics
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Numerical Metrics")
-# print("="*60)
+# --- EKE temporal spectrum (all regions in one figure) ---
+print("\n=== Evaluating EKE temporal spectrum at surface (all regions) ===")
+fig_kets, axes_kets = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows))
+axes_kets_flat = axes_kets.flatten()
+for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    print(f"  -> {region_name}")
+    plot_ke_temporal_spectrum_comparison_together(
+        emulators_dict=emulators_v2,
+        show_ratios=False,
+        var_u='uo',
+        var_v='vo',
+        lev_idx=0,
+        lon_slice=lon_slice,
+        lat_slice=lat_slice,
+        target_frequencies=[1.0, 4.0],
+        region_name=region_name,
+        ax=axes_kets_flat[idx],
+    )
+fig_kets.tight_layout()
+oh, ol, nc = reorder_legend_paired(*axes_kets_flat[0].get_legend_handles_labels())
+fig_kets.legend(oh, ol, loc='lower center', ncol=nc, fontsize=16,
+                bbox_to_anchor=(0.5, -0.12), frameon=False)
+fig_kets.suptitle('Temporal EKE Power Spectrum (Surface)', fontsize=18, y=1.03)
+save_current_fig("ke_temporal_spectrum_all_regions", SPECTRUM_DIR)
 
-# import pandas as pd
-# from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+
+# --- Isotropic spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== Isotropic spectrum + ratio (all regions) ===")
+plot_isotropic_spectrum_with_ratio(
+    emulators_dict=emulators_v2,
+    spectrum_regions=SPECTRUM_REGIONS,
+    var_to_eval=var_to_eval,
+    lev_idx=0,
+    time_window=time_window,
+)
+save_current_fig("isotropic_spectrum_with_ratio", SPECTRUM_DIR)
+
+# --- EKE spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== EKE spectrum + ratio (all regions) ===")
+plot_ke_spectrum_with_ratio(
+    emulators_dict=emulators_v2,
+    spectrum_regions=SPECTRUM_REGIONS,
+    lev_idx=0,
+    time_window=time_window,
+)
+save_current_fig("ke_spectrum_with_ratio", SPECTRUM_DIR)
+
+# --- Temporal spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== Temporal spectrum + ratio (all regions) ===")
+plot_temporal_spectrum_with_ratio(
+    emulators_dict=emulators_v2,
+    spectrum_regions=SPECTRUM_REGIONS,
+    var_to_eval='thetao',
+    lev_idx=0,
+)
+save_current_fig("temporal_spectrum_with_ratio", SPECTRUM_DIR)
+
+# --- EKE temporal spectrum with ratio (4 rows × 2 cols) ---
+print("\n=== EKE temporal spectrum + ratio (all regions) ===")
+plot_ke_temporal_spectrum_with_ratio(
+    emulators_dict=emulators_v2,
+    spectrum_regions=SPECTRUM_REGIONS,
+    lev_idx=0,
+)
+save_current_fig("ke_temporal_spectrum_with_ratio", SPECTRUM_DIR)
+
+# ============================================================
+# Time Series
+# ============================================================
+print("\n" + "="*60)
+print("Time Series Plots")
+print("="*60)
+
+# Detrended Time Series (Thetao)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_v2,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+
+# Detrended Time Series (Salinity)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_v2,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR
+)
+save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+
+# ============================================================
+# Temporal Variance Numerical Metrics
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Numerical Metrics")
+print("="*60)
+
+import pandas as pd
+from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
-# for var_name in ['thetao', 'so']:
-#     print(f"\n--- {var_name} ---")
-#     raw = compute_temporal_variance_metrics(
-#         emulators_dict=emulators_to_analyze,
-#         variable_name=var_name,
-#         spectrum_regions=SPECTRUM_REGIONS,
-#     )
-#     table = format_variance_metrics_table(raw)
-#     with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#         print(table.to_string())
-#     csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
-#     table.to_csv(csv_path)
-#     print(f"  -> Saved: {csv_path}")
+for var_name in ['thetao', 'so']:
+    print(f"\n--- {var_name} ---")
+    raw = compute_temporal_variance_metrics(
+        emulators_dict=emulators_to_analyze,
+        variable_name=var_name,
+        spectrum_regions=SPECTRUM_REGIONS,
+    )
+    table = format_variance_metrics_table(raw)
+    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+        print(table.to_string())
+    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+    table.to_csv(csv_path)
+    print(f"  -> Saved: {csv_path}")
 
-# print(f"\n--- KE ---")
-# ke_raw = compute_ke_temporal_variance_metrics(
-#     emulators_dict=emulators_to_analyze,
-#     spectrum_regions=SPECTRUM_REGIONS,
-# )
-# ke_table = format_variance_metrics_table(ke_raw)
-# with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#     print(ke_table.to_string())
-# csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
-# ke_table.to_csv(csv_path)
-# print(f"  -> Saved: {csv_path}")
+print(f"\n--- KE ---")
+ke_raw = compute_ke_temporal_variance_metrics(
+    emulators_dict=emulators_to_analyze,
+    spectrum_regions=SPECTRUM_REGIONS,
+)
+ke_table = format_variance_metrics_table(ke_raw)
+with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+    print(ke_table.to_string())
+csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+ke_table.to_csv(csv_path)
+print(f"  -> Saved: {csv_path}")
 
-# # ============================================================
-# # Temporal Variance Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Maps")
-# print("="*60)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_thetao", VARIANCE_DIR)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='so',
-#     units='psu',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_so", VARIANCE_DIR)
-#
-# plot_ke_variance_comparison_together(
-#     emulators_to_analyze,
-#     var_u='uo',
-#     var_v='vo',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_ke", VARIANCE_DIR)
+# ============================================================
+# Temporal Variance Maps
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Maps")
+print("="*60)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\\circ$C',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_thetao", VARIANCE_DIR)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    units='psu',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_so", VARIANCE_DIR)
+
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_ke", VARIANCE_DIR)
 
 
 # ============================================================
@@ -620,171 +620,171 @@ for ti in TIME_INDICES:
     )
     save_current_fig(f"surface_ke_gulf_stream_t{ti}", SNAPSHOT_DIR)
 
-# # ============================================================
-# # Zonal Mean Bias
-# # ============================================================
-# print("\n" + "="*60)
-# print("Zonal Mean Bias")
-# print("="*60)
-#
-# plot_ohc_zonal_bias_ocean_comparison_together(
-#     emulators_v2,
-#     masks_list=masks_list_v2,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
-#
-# plot_zonal_bias_ocean_comparison_together(
-#     emulators_v2,
-#     'thetao',
-#     '$^\\circ$C',
-#     masks_list_v2,
-#     OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-#
-# plot_snapshot_zonal_bias_ocean_comparison_together(
-#     emulators_dict=emulators_v2,
-#     variable_name='thetao',
-#     units='°C',
-#     masks_list=masks_list_v2,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-#
-# plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
-#     emulators_dict=emulators_v2,
-#     masks_list=masks_list_v2,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
-#
-#
-# # ============================================================
-# # Global Spatial Bias Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Spatial Bias Maps")
-# print("="*60)
-#
-# plot_ohc_bias_comparison_together(emulators_v2, colorbar_fix=True)
-# save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
-#
-# plot_temperature_bias_comparison_together(emulators_v2, colorbar_fix=True)
-# save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
-#
-# plot_ohc_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
-# save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
-#
-# plot_temperature_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
-# save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
-#
-# from functions import plot_ke_snapshot_bias_comparison_together
-# plot_ke_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, DEPTH_LAYERS)
-# save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
-#
-#
-# # ============================================================
-# # Zonal Mean Distribution
-# # ============================================================
-# print("\n" + "="*60)
-# print("Zonal Mean Distribution")
-# print("="*60)
-#
-# plot_zonal_mean_comparison_together(
-#     emulators_v2,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list_v2,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
-#
-# plot_ohc_zonal_mean_comparison_together(
-#     emulators_v2,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list_v2,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
-#
-# plot_zonal_snapshot_comparison_together(
-#     emulators_v2,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list_v2,
-#     time_indices=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
-#
-# plot_ohc_zonal_snapshot_comparison_together(
-#     emulators_v2,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list_v2,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
-#
-#
-# # ============================================================
-# # Global Spatial Distribution Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Spatial Distribution Maps")
-# print("="*60)
-#
-# plot_ohc_mean_comparison_together(
-#     emulators_v2,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
-#
-# plot_temperature_mean_comparison_together(
-#     emulators_v2,
-#     colorbar_fix=True
-# )
-# save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
-#
-# VARIABLE_TO_PLOT = 'thetao'
-#
-# plot_snapshot_comparison_multidepth_together(
-#     emulators_v2,
-#     var_name=VARIABLE_TO_PLOT,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_LAYERS,
-#     fix_colorbar=True
-# )
-# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
-#
-# plot_ohc_snapshot_comparison_multidepth_together(
-#     emulators_v2,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_SLICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
-#
-# from functions import plot_ke_mean_comparison_together
-# plot_ke_mean_comparison_together(
-#     emulators_v2,
-#     depth_configs=DEPTH_LAYERS,
-# )
-# save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
-#
-# from functions import plot_ke_snapshot_comparison_multidepth_together
-# plot_ke_snapshot_comparison_multidepth_together(
-#     emulators_v2,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_LAYERS,
-# )
-# save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+# ============================================================
+# Zonal Mean Bias
+# ============================================================
+print("\n" + "="*60)
+print("Zonal Mean Bias")
+print("="*60)
+
+plot_ohc_zonal_bias_ocean_comparison_together(
+    emulators_v2,
+    masks_list=masks_list_v2,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
+
+plot_zonal_bias_ocean_comparison_together(
+    emulators_v2,
+    'thetao',
+    '$^\\circ$C',
+    masks_list_v2,
+    OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+
+plot_snapshot_zonal_bias_ocean_comparison_together(
+    emulators_dict=emulators_v2,
+    variable_name='thetao',
+    units='°C',
+    masks_list=masks_list_v2,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+
+plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
+    emulators_dict=emulators_v2,
+    masks_list=masks_list_v2,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
+
+
+# ============================================================
+# Global Spatial Bias Maps
+# ============================================================
+print("\n" + "="*60)
+print("Global Spatial Bias Maps")
+print("="*60)
+
+plot_ohc_bias_comparison_together(emulators_v2, colorbar_fix=True)
+save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
+
+plot_temperature_bias_comparison_together(emulators_v2, colorbar_fix=True)
+save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
+
+plot_ohc_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
+save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
+
+plot_temperature_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, colorbar_fix=True)
+save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+
+from functions import plot_ke_snapshot_bias_comparison_together
+plot_ke_snapshot_bias_comparison_together(emulators_v2, TIME_INDICES, DEPTH_LAYERS)
+save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
+
+
+# ============================================================
+# Zonal Mean Distribution
+# ============================================================
+print("\n" + "="*60)
+print("Zonal Mean Distribution")
+print("="*60)
+
+plot_zonal_mean_comparison_together(
+    emulators_v2,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list_v2,
+    colorbar_fix=True
+)
+save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+
+plot_ohc_zonal_mean_comparison_together(
+    emulators_v2,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list_v2,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
+
+plot_zonal_snapshot_comparison_together(
+    emulators_v2,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list_v2,
+    time_indices=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
+
+plot_ohc_zonal_snapshot_comparison_together(
+    emulators_v2,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list_v2,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
+
+
+# ============================================================
+# Global Spatial Distribution Maps
+# ============================================================
+print("\n" + "="*60)
+print("Global Spatial Distribution Maps")
+print("="*60)
+
+plot_ohc_mean_comparison_together(
+    emulators_v2,
+    colorbar_fix=True
+)
+save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
+
+plot_temperature_mean_comparison_together(
+    emulators_v2,
+    colorbar_fix=True
+)
+save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+
+VARIABLE_TO_PLOT = 'thetao'
+
+plot_snapshot_comparison_multidepth_together(
+    emulators_v2,
+    var_name=VARIABLE_TO_PLOT,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+    fix_colorbar=True
+)
+save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+
+plot_ohc_snapshot_comparison_multidepth_together(
+    emulators_v2,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_SLICES,
+    colorbar_fix=True
+)
+save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+
+from functions import plot_ke_mean_comparison_together
+plot_ke_mean_comparison_together(
+    emulators_v2,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
+
+from functions import plot_ke_snapshot_comparison_multidepth_together
+plot_ke_snapshot_comparison_multidepth_together(
+    emulators_v2,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
 
 print("\n" + "="*60)
