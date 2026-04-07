@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import sys
 import re
 import matplotlib.colors as colors
+import matplotlib.ticker as mticker
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import cmocean
@@ -28,13 +29,24 @@ plt.rcParams.update({
 })
 
 
+def _fix_lognorm_ticks(cb, vmin, vmax, min_ticks=3):
+    """Ensure a LogNorm colorbar has at least `min_ticks` ticks.
+
+    When the data range spans less than ~2 orders of magnitude, matplotlib's
+    default LogLocator may only place 2 ticks.  This helper adds geometrically
+    spaced intermediate ticks so the reader can always orient themselves.
+    """
+    existing = [t for t in cb.get_ticks() if vmin <= t <= vmax]
+    if len(existing) >= min_ticks:
+        return
+    ticks = np.geomspace(vmin, vmax, min_ticks)
+    cb.set_ticks(ticks)
+    cb.ax.xaxis.set_major_formatter(mticker.LogFormatterSciNotation())
+
+
 def _scale_suffix(emulators_dict):
-    """Return ' (Multi-Scale)' if emulators have different grid resolutions, else ''."""
-    shapes = set()
-    for emu_data in emulators_dict.values():
-        ds = emu_data['ds']
-        shapes.add((ds.dims.get('y', ds.y.size), ds.dims.get('x', ds.x.size)))
-    return ' (Multi-Scale)' if len(shapes) > 1 else ''
+    """Previously returned ' (multi-resolution)' for multi-scale runs; now disabled."""
+    return ''
 
 
 # 5. Variable Mappings
@@ -4701,9 +4713,10 @@ def plot_mean_timeseries_detrended_comparison_together(emulators_dict, variable_
     plt.show()
 
 
-def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo', units='m$^2$/s$^2$', output_dir=None, colorbar_fix=False):
+def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo', units='m$^2$/s$^2$', output_dir=None, colorbar_fix=False, n_levels=None):
     """EKE comparison where each emulator uses its corresponding truth.
     Shows one row per unique ground truth, then one row per emulator.
+    When n_levels is set, uses a discrete colorbar with that many levels.
     """
     print(f"\nGenerating EKE Comparison...")
 
@@ -4772,6 +4785,11 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, Slices in enumerate(DEPTH_SLICES):
         key = Slices['title']
@@ -4782,13 +4800,20 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
         flat_pos = flat_data[flat_data > 0]
         vmin = np.percentile(flat_pos, 5) if len(flat_pos) > 0 else 1e-10
         vmax = np.percentile(flat_pos, 99) if len(flat_pos) > 0 else 1.0
-        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+
+        if n_levels is not None:
+            levels = np.geomspace(vmin, vmax, n_levels + 1)
+            cmap_use = cmocean.cm.thermal.resampled(n_levels)
+            norm = colors.BoundaryNorm(levels, ncolors=cmap_use.N, clip=False)
+        else:
+            cmap_use = cmocean.cm.thermal
+            norm = colors.LogNorm(vmin=vmin, vmax=vmax)
 
         # Truth row
         ax = axes[0, j]
         p_mesh = plot_data_truth[ref_tl][key].plot.pcolormesh(
             ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-            cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+            cmap=cmap_use, norm=norm, add_colorbar=False, rasterized=True)
         ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
         ax.coastlines(zorder=11)
         row_label = ref_tl.replace(' (', '\n(')
@@ -4801,7 +4826,7 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
             ax = axes[n_truths + i, j]
             p_mesh = plot_data[ds_name][key].plot.pcolormesh(
                 ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-                cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+                cmap=cmap_use, norm=norm, add_colorbar=False, rasterized=True)
             ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
             ax.coastlines(zorder=11)
             row_label = ds_name.replace(' (', '\n(')
@@ -4809,15 +4834,21 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
                                transform=ax.transAxes, fontweight='bold', multialignment='center')
             ax.set_title("")
 
-        fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"EKE ({units})")
+        _ext = 'both' if n_levels is not None else 'neither'
+        cb = fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"EKE ({units})", extend=_ext)
+        if n_levels is not None:
+            cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=3))
+        else:
+            _fix_lognorm_ticks(cb, vmin, vmax)
 
     fig.suptitle(f"Eddy Kinetic Energy{_scale_suffix(emulators_dict)}", y=1.0)
     plt.show()
 
 
-def plot_variance_comparison_together(emulators_dict, variable_name, units, output_dir=None, colorbar_fix=False):
+def plot_variance_comparison_together(emulators_dict, variable_name, units, output_dir=None, colorbar_fix=False, n_levels=None):
     """Variance comparison where each emulator uses its corresponding truth.
     Shows one row per unique ground truth, then one row per emulator.
+    When n_levels is set, uses a discrete colorbar with that many levels.
     """
     print(f"\nGenerating Variance Comparison for {variable_name}...")
 
@@ -4880,6 +4911,11 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, Slices in enumerate(DEPTH_SLICES):
         key = Slices['title']
@@ -4889,13 +4925,20 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
         flat_data = np.concatenate(all_data)
         flat_data = flat_data[~np.isnan(flat_data)]
         vmax = np.percentile(flat_data, 95) if len(flat_data) > 0 else 1.0
-        norm = colors.Normalize(vmin=0, vmax=vmax)
+
+        if n_levels is not None:
+            levels = np.linspace(0, vmax, n_levels + 1)
+            cmap_use = cmocean.cm.thermal.resampled(n_levels)
+            norm = colors.BoundaryNorm(levels, ncolors=cmap_use.N, clip=False)
+        else:
+            cmap_use = cmocean.cm.thermal
+            norm = colors.Normalize(vmin=0, vmax=vmax)
 
         # Truth row
         ax = axes[0, j]
         p_mesh = plot_data_truth[ref_tl][key].plot.pcolormesh(
             ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-            cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+            cmap=cmap_use, norm=norm, add_colorbar=False, rasterized=True)
         ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
         ax.coastlines(zorder=11)
         row_label = ref_tl.replace(' (', '\n(')
@@ -4908,7 +4951,7 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
             ax = axes[n_truths + i, j]
             p_mesh = plot_data[ds_name][key].plot.pcolormesh(
                 ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-                cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+                cmap=cmap_use, norm=norm, add_colorbar=False, rasterized=True)
             ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
             ax.coastlines(zorder=11)
             row_label = ds_name.replace(' (', '\n(')
@@ -4916,7 +4959,10 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
                                transform=ax.transAxes, fontweight='bold', multialignment='center')
             ax.set_title("")
 
-        fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"Variance ({units})")
+        _ext = 'both' if n_levels is not None else 'neither'
+        cb = fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"Variance ({units})", extend=_ext)
+        if n_levels is not None:
+            cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=3))
 
     fig.suptitle(f"Temporal Variance: {_display_name(variable_name)}{_scale_suffix(emulators_dict)}", y=1.0)
     plt.show()
@@ -5097,7 +5143,7 @@ def plot_zonal_bias_ocean_comparison_together(emulators_dict, variable_name, uni
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3f}")
     for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index')
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=40, label=f"Bias ({units})")
-    fig.suptitle(f"Time-Averaged Zonal Mean Bias: All Emulators ({_display_name(variable_name)}{_scale_suffix(emulators_dict)})", y=1.03)
+    fig.suptitle(f"Time-Averaged Zonal Mean Bias: {_display_name(variable_name)}{_scale_suffix(emulators_dict)}", y=1.03)
     plt.show()
 
 
@@ -5159,7 +5205,7 @@ def plot_snapshot_zonal_bias_ocean_comparison_together(emulators_dict, variable_
                 ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label][basin]:.3f} {units})" if i == 0 else f"RMSE: {all_rmse_vals[label][basin]:.3f}")
         for j in range(num_emulators): axes[3, j].set_xlabel('Latitude index')
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.02, aspect=40, label=f"Bias ({units})")
-        fig.suptitle(f"Snapshot Zonal Bias at {time_str} ({_display_name(variable_name)}{_scale_suffix(emulators_dict)})", y=1.03)
+        fig.suptitle(f"Snapshot Zonal Bias: {_display_name(variable_name)} at {time_str}{_scale_suffix(emulators_dict)}", y=1.03)
         plt.show()
 
 
@@ -5313,7 +5359,7 @@ def plot_zonal_bias_global_comparison_together(emulators_dict, variable_name, un
         ax.set_ylabel('Depth (m)' if j == 0 else '')
         ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label]:.3f} {units})")
     fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.05, aspect=40, label=f"Bias ({units})")
-    fig.suptitle(f"Time-Averaged Global Zonal Mean Bias ({_display_name(variable_name)}{_scale_suffix(emulators_dict)})", y=1.05)
+    fig.suptitle(f"Time-Averaged Global Zonal Mean Bias: {_display_name(variable_name)}{_scale_suffix(emulators_dict)}", y=1.05)
     plt.show()
 
 
@@ -5367,7 +5413,7 @@ def plot_snapshot_zonal_bias_global_comparison_together(emulators_dict, variable
             ax.set_ylabel('Depth (m)' if j == 0 else '')
             ax.set_title(f"{label}\n(RMSE: {all_rmse_vals[label]:.3f} {units})")
         fig.colorbar(p, ax=axes, orientation='horizontal', shrink=1, pad=0.05, aspect=40, label=f"Bias ({units})")
-        fig.suptitle(f"Snapshot Global Zonal Bias at {time_str} ({_display_name(variable_name)}{_scale_suffix(emulators_dict)})", y=1.05)
+        fig.suptitle(f"Snapshot Global Zonal Bias: {_display_name(variable_name)} at {time_str}{_scale_suffix(emulators_dict)}", y=1.05)
         plt.show()
 
 
@@ -5783,7 +5829,7 @@ def plot_ohc_mean_comparison_together(emulators_dict, variable_name=None, units=
     nrows = len(datasets)
     ncols = len(DEPTH_SLICES)
 
-    _hspace = 0.08 if multiscale else 0.04
+    _hspace = 0.02
     fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
     gs = GridSpec(nrows + 1, ncols, figure=fig,
                   height_ratios=[1]*nrows + [0.04],
@@ -5796,6 +5842,11 @@ def plot_ohc_mean_comparison_together(emulators_dict, variable_name=None, units=
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, Slices in enumerate(DEPTH_SLICES):
         key = Slices['title']
@@ -5898,7 +5949,7 @@ def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False
     nrows = len(datasets)
     ncols = len(DEPTH_LAYERS)
 
-    _hspace = 0.08 if multiscale else 0.04
+    _hspace = 0.02
     fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
     gs = GridSpec(nrows + 1, ncols, figure=fig,
                   height_ratios=[1]*nrows + [0.04],
@@ -5911,6 +5962,11 @@ def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, Slices in enumerate(DEPTH_LAYERS):
         key = Slices['title']
@@ -5925,7 +5981,7 @@ def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False
 
         levels = np.linspace(vmin, vmax, n_levels + 1)
         cmap_disc = cmocean.cm.thermal.resampled(n_levels)
-        norm = colors.BoundaryNorm(levels, ncolors=cmap_disc.N, clip=True)
+        norm = colors.BoundaryNorm(levels, ncolors=cmap_disc.N, clip=False)
 
         for i, ds_name in enumerate(datasets):
             ax = axes[i, j]
@@ -6149,7 +6205,7 @@ def plot_ohc_zonal_mean_comparison_together(emulators_dict, masks_list, variable
     for j in range(num_cols): axes[3, j].set_xlabel('Latitude index')
     cb = fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08, aspect=40, label=f"OHC ({units})")
     cb.ax.ticklabel_format(style='scientific', scilimits=(0, 0), useMathText=True)
-    fig.suptitle(f"Time-Averaged Zonal Mean OHC ({units}{_scale_suffix(emulators_dict)})", y=0.96)
+    fig.suptitle(f"Time-Averaged Zonal Mean OHC ({units}){_scale_suffix(emulators_dict)}", y=0.96)
     plt.show()
 
 
@@ -6224,7 +6280,7 @@ def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, un
                 verticalalignment='top', linespacing=1.3, zorder=20)
 
     fig.colorbar(p, cax=cbar_ax, orientation='vertical', label=f'{_display_name(variable_name)} ({units})')
-    fig.suptitle(f"8-yr-Mean Global Zonal Mean {_display_name(variable_name)} ({units}{_scale_suffix(emulators_dict)})", y=1.02)
+    fig.suptitle(f"8-yr-Mean Global Zonal Mean {_display_name(variable_name)} ({units}){_scale_suffix(emulators_dict)}", y=1.02)
     plt.show()
 
 
@@ -6302,7 +6358,7 @@ def plot_ohc_zonal_mean_global_comparison_together(emulators_dict, colorbar_fix=
     cb = fig.colorbar(p, cax=cbar_ax, orientation='vertical', label=f'OHC ({units})')
     cb.ax.ticklabel_format(style='scientific', scilimits=(0, 0), useMathText=True)
     cb.ax.tick_params(labelsize=12)
-    fig.suptitle(f"8-yr-Mean Global Zonal Mean OHC ({units}{_scale_suffix(emulators_dict)})", y=1.02)
+    fig.suptitle(f"8-yr-Mean Global Zonal Mean OHC ({units}){_scale_suffix(emulators_dict)}", y=1.02)
     plt.show()
 
 
@@ -6504,7 +6560,7 @@ def plot_ohc_zonal_snapshot_comparison_together(emulators_dict, masks_list, TIME
         for j in range(num_cols): axes[3, j].set_xlabel('Latitude index')
         cb = fig.colorbar(p, ax=axes, orientation='horizontal', shrink=0.6, pad=0.08, aspect=40, label=f"OHC ({units})")
         cb.ax.ticklabel_format(style='scientific', scilimits=(0, 0), useMathText=True)
-        fig.suptitle(f"Snapshot Zonal Mean OHC at {time_str} ({units}{_scale_suffix(emulators_dict)})", y=0.96)
+        fig.suptitle(f"Snapshot Zonal Mean OHC at {time_str} ({units}){_scale_suffix(emulators_dict)}", y=0.96)
         plt.show()
 
 
@@ -6720,10 +6776,11 @@ def plot_ohc_snapshot_comparison_together(emulators_dict, time_indices, depth_co
         plt.show()
 
 
-def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_indices, depth_configs, fix_colorbar=False, n_levels=20):
+def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_indices, depth_configs, fix_colorbar=False, n_levels=20, remove_seasonal=False):
     """
     Snapshot Comparison at Multiple Depths (Columns) for specified Time Indices (Separate Figures).
     Rows are paired: each truth is followed by its corresponding emulators.
+    When remove_seasonal=True, removes dayofyear climatology before extracting snapshots.
     """
     config = VAR_CONFIG.get(var_name, {'cmap': 'viridis', 'units': '', 'label': var_name, 'centered': False})
     print(f"\nGenerating Snapshot Comparison for {config['label']}...")
@@ -6757,6 +6814,27 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
     # Use first truth for time reference
     ds_truth_ref = unique_truths[truth_labels[0]]
 
+    # If remove_seasonal, pre-compute deseasoned datasets
+    if remove_seasonal:
+        def _deseason(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        unique_truths_ds = {}
+        for tl, ds_t in unique_truths.items():
+            ds_copy = ds_t.copy()
+            ds_copy[var_name] = _deseason(ds_t[var_name])
+            unique_truths_ds[tl] = ds_copy
+
+        emulators_ds = {}
+        for label, emu_data in emulators_dict.items():
+            ds_emu_copy = emu_data['ds'].copy()
+            ds_emu_copy[var_name] = _deseason(emu_data['ds'][var_name])
+            emulators_ds[label] = ds_emu_copy
+    else:
+        unique_truths_ds = unique_truths
+        emulators_ds = {label: emu_data['ds'] for label, emu_data in emulators_dict.items()}
+
     for time_idx in time_indices:
         time_val = ds_truth_ref.time.isel(time=time_idx).values
         if hasattr(time_val, 'year'):
@@ -6767,7 +6845,7 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
         from matplotlib.gridspec import GridSpec
 
         _multiscale = len(unique_truths) > 1
-        _hspace = 0.08 if _multiscale else 0.04
+        _hspace = 0.02
         fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
         gs = GridSpec(nrows + 1, ncols, figure=fig,
                       height_ratios=[1]*nrows + [0.04],
@@ -6780,6 +6858,11 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
             for j in range(ncols):
                 axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
         cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+        for cax in cbar_axes:
+            pos = cax.get_position()
+            new_width = pos.width * 0.7
+            offset = (pos.width - new_width) / 2
+            cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
         for j, d_conf in enumerate(depth_configs):
             key = d_conf['title']
@@ -6787,25 +6870,29 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
 
             # Truth Maps
             truth_maps = {}
-            for tl, ds_truth in unique_truths.items():
-                dz_truth = ds_truth['dz']
-                wet_mask = (ds_truth[var_name].isel(time=0) * 0 + 1).compute()
-                truth_maps[tl] = calculate_snapshot_map_SpecificLayer(ds_truth, var_name, dz_truth, wet_mask, d_idx, time_idx).compute()
+            for tl in unique_truths.keys():
+                ds_use = unique_truths_ds[tl]
+                dz_truth = unique_truths[tl]['dz']
+                wet_mask = (unique_truths[tl][var_name].isel(time=0) * 0 + 1).compute()
+                truth_maps[tl] = calculate_snapshot_map_SpecificLayer(ds_use, var_name, dz_truth, wet_mask, d_idx, time_idx).compute()
 
             # Emulator Maps
             emu_maps = {}
             for label, emu_data in emulators_dict.items():
-                ds_emu = emu_data['ds']
+                ds_emu_use = emulators_ds[label]
                 ds_emu_truth = emu_data['truth']
                 dz_emu = ds_emu_truth['dz']
                 wet_emu = (ds_emu_truth[var_name].isel(time=0) * 0 + 1).compute()
-                emu_maps[label] = calculate_snapshot_map_SpecificLayer(ds_emu, var_name, dz_emu, wet_emu, d_idx, time_idx).compute()
+                emu_maps[label] = calculate_snapshot_map_SpecificLayer(ds_emu_use, var_name, dz_emu, wet_emu, d_idx, time_idx).compute()
 
             # Normalization from first truth
             first_truth_map = truth_maps[truth_labels[0]]
             valid_data = first_truth_map.values[~np.isnan(first_truth_map.values)]
             if len(valid_data) > 0:
-                if config['centered']:
+                if remove_seasonal:
+                    abs_max = np.percentile(np.abs(valid_data), 95)
+                    vmin, vmax = -abs_max, abs_max
+                elif config['centered']:
                     abs_max = np.percentile(np.abs(valid_data), 99.75)
                     vmin, vmax = -abs_max, abs_max
                 else:
@@ -6819,9 +6906,12 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                 vmin, vmax = fixed.get(d_idx, (vmin, vmax))
 
             levels = np.linspace(vmin, vmax, n_levels + 1)
-            cmap_obj = plt.get_cmap(config['cmap']) if isinstance(config['cmap'], str) else config['cmap']
+            if remove_seasonal:
+                cmap_obj = plt.cm.RdBu_r
+            else:
+                cmap_obj = plt.get_cmap(config['cmap']) if isinstance(config['cmap'], str) else config['cmap']
             cmap_disc = cmap_obj.resampled(n_levels)
-            norm = colors.BoundaryNorm(levels, ncolors=cmap_disc.N, clip=True)
+            norm = colors.BoundaryNorm(levels, ncolors=cmap_disc.N, clip=False)
 
             # Plot rows in paired order (each truth followed by its emulators)
             for row_i, (row_label, is_truth) in enumerate(row_order):
@@ -6833,8 +6923,10 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                 ax.coastlines(zorder=11)
                 if row_i == 0: ax.set_title(key, fontweight='bold')
                 else: ax.set_title("")
-                if j == 0: ax.text(-0.07, 0.55, row_label, va='center', ha='right', rotation=90,
-                                  transform=ax.transAxes, fontweight='bold')
+                if j == 0:
+                    _rl = row_label.replace(' (', '\n(')
+                    ax.text(-0.07, 0.55, _rl, va='center', ha='right', rotation=90,
+                            transform=ax.transAxes, fontweight='bold', multialignment='center')
                 # RMSE & Pattern Correlation for emulator panels
                 if not is_truth:
                     tl_for_emu = emulators_dict[row_label].get('truth_label', 'Truth')
@@ -6848,19 +6940,25 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                             bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
                             verticalalignment='top', linespacing=1.3, zorder=20)
 
-            cb = fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label=f"{config['label']} ({config['units']})")
-            cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=6, integer=True))
+            _cb_label = f"{config['label']} Anomaly ({config['units']})" if remove_seasonal else f"{config['label']} ({config['units']})"
+            cb = fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label=_cb_label, extend='both')
+            if remove_seasonal:
+                cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=3))
+            else:
+                cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=6, integer=True))
 
-        fig.suptitle(f"{config['label']} Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
+        _anom = " Anomaly" if remove_seasonal else ""
+        fig.suptitle(f"{config['label']}{_anom} Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
         plt.show()
 
 
-def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indices, depth_configs, variable_name=None, units=None, colorbar_fix=False):
+def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indices, depth_configs, variable_name=None, units=None, colorbar_fix=False, remove_seasonal=False):
     """
     OHC Snapshot Comparison at Multiple Depths (Columns) for specified Time Indices (Separate Figures).
     Rows are paired: each truth is followed by its corresponding emulators.
+    When remove_seasonal=True, removes dayofyear climatology from thetao before OHC computation.
     """
-    print(f"\nGenerating OHC Snapshot Comparison...")
+    print(f"\nGenerating OHC Snapshot Comparison{'(deseasoned)' if remove_seasonal else ''}...")
 
     # Collect unique truths
     unique_truths = {}
@@ -6891,6 +6989,27 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
     # Use first truth for time reference
     ds_truth_ref = unique_truths[truth_labels[0]]
 
+    # If remove_seasonal, pre-compute deseasoned thetao datasets
+    if remove_seasonal:
+        def _deseason(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        unique_truths_ds = {}
+        for tl, ds_t in unique_truths.items():
+            ds_copy = ds_t.copy()
+            ds_copy['thetao'] = _deseason(ds_t['thetao'])
+            unique_truths_ds[tl] = ds_copy
+
+        emulators_ds = {}
+        for label, emu_data in emulators_dict.items():
+            ds_emu_copy = emu_data['ds'].copy()
+            ds_emu_copy['thetao'] = _deseason(emu_data['ds']['thetao'])
+            emulators_ds[label] = ds_emu_copy
+    else:
+        unique_truths_ds = unique_truths
+        emulators_ds = {label: emu_data['ds'] for label, emu_data in emulators_dict.items()}
+
     for time_idx in time_indices:
         time_val = ds_truth_ref.time.isel(time=time_idx).values
         if hasattr(time_val, 'year'):
@@ -6901,7 +7020,7 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
         from matplotlib.gridspec import GridSpec
 
         _multiscale = len(unique_truths) > 1
-        _hspace = 0.08 if _multiscale else 0.04
+        _hspace = 0.02
         fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
         gs = GridSpec(nrows + 1, ncols, figure=fig,
                       height_ratios=[1]*nrows + [0.04],
@@ -6914,6 +7033,11 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
             for j in range(ncols):
                 axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
         cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+        for cax in cbar_axes:
+            pos = cax.get_position()
+            new_width = pos.width * 0.7
+            offset = (pos.width - new_width) / 2
+            cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
         for j, d_conf in enumerate(depth_configs):
             key = d_conf['title']
@@ -6922,19 +7046,20 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
 
             # Truth Maps
             truth_maps = {}
-            for tl, ds_truth in unique_truths.items():
-                dz_truth = ds_truth['dz']
-                wet_mask = (ds_truth['thetao'].isel(time=0) * 0 + 1).compute()
-                truth_maps[tl] = calculate_ohc_snapshot_map(ds_truth, dz_truth, wet_mask, d_min, d_max, time_idx).compute()
+            for tl in unique_truths.keys():
+                ds_use = unique_truths_ds[tl]
+                dz_truth = unique_truths[tl]['dz']
+                wet_mask = (unique_truths[tl]['thetao'].isel(time=0) * 0 + 1).compute()
+                truth_maps[tl] = calculate_ohc_snapshot_map(ds_use, dz_truth, wet_mask, d_min, d_max, time_idx).compute()
 
             # Emulator Maps
             emu_maps = {}
             for label, emu_data in emulators_dict.items():
-                ds_emu = emu_data['ds']
+                ds_emu_use = emulators_ds[label]
                 ds_emu_truth = emu_data['truth']
                 dz_emu = ds_emu_truth['dz']
                 wet_emu = (ds_emu_truth['thetao'].isel(time=0) * 0 + 1).compute()
-                emu_maps[label] = calculate_ohc_snapshot_map(ds_emu, dz_emu, wet_emu, d_min, d_max, time_idx).compute()
+                emu_maps[label] = calculate_ohc_snapshot_map(ds_emu_use, dz_emu, wet_emu, d_min, d_max, time_idx).compute()
 
             # Normalization from first truth
             first_truth_map = truth_maps[truth_labels[0]]
@@ -6962,8 +7087,10 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
                 ax.coastlines(zorder=11)
                 if row_i == 0: ax.set_title(key, fontweight='bold')
                 else: ax.set_title("")
-                if j == 0: ax.text(-0.07, 0.55, row_label, va='center', ha='right', rotation=90,
-                                  transform=ax.transAxes, fontweight='bold')
+                if j == 0:
+                    _rl = row_label.replace(' (', '\n(')
+                    ax.text(-0.07, 0.55, _rl, va='center', ha='right', rotation=90,
+                            transform=ax.transAxes, fontweight='bold', multialignment='center')
                 # RMSE & Pattern Correlation for emulator panels
                 if not is_truth:
                     tl_for_emu = emulators_dict[row_label].get('truth_label', 'Truth')
@@ -6983,7 +7110,8 @@ def plot_ohc_snapshot_comparison_multidepth_together(emulators_dict, time_indice
             cb.ax.set_xticklabels([f'{t/1e-11:.0f}' for t in current_ticks])
             cb.ax.xaxis.get_offset_text().set_visible(False)
 
-        fig.suptitle(f"OHC Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
+        _anom = " Anomaly" if remove_seasonal else ""
+        fig.suptitle(f"OHC{_anom} Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
         plt.show()
 
 
@@ -7028,6 +7156,11 @@ def plot_mean_comparison_multidepth_together(emulators_dict, var_name, depth_con
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, d_conf in enumerate(depth_configs):
         key = d_conf['title']
@@ -7124,6 +7257,11 @@ def plot_ohc_mean_comparison_multidepth_together(emulators_dict, depth_configs, 
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, d_conf in enumerate(depth_configs):
         key = d_conf['title']
@@ -7232,7 +7370,7 @@ def plot_ke_mean_comparison_together(emulators_dict, depth_configs=None, var_u='
     nrows = len(datasets)
     ncols = len(depth_configs)
 
-    _hspace = 0.08 if multiscale else 0.04
+    _hspace = 0.02
     fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
     gs = GridSpec(nrows + 1, ncols, figure=fig,
                   height_ratios=[1]*nrows + [0.04],
@@ -7245,6 +7383,11 @@ def plot_ke_mean_comparison_together(emulators_dict, depth_configs=None, var_u='
         for j in range(ncols):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
     cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+    for cax in cbar_axes:
+        pos = cax.get_position()
+        new_width = pos.width * 0.7
+        offset = (pos.width - new_width) / 2
+        cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
     for j, d_conf in enumerate(depth_configs):
         key = d_conf['title']
@@ -7283,17 +7426,20 @@ def plot_ke_mean_comparison_together(emulators_dict, depth_configs=None, var_u='
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
                         verticalalignment='top', linespacing=1.3, zorder=20)
 
-        fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label='KE (m$^2$/s$^2$)')
+        cb = fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label='KE (m$^2$/s$^2$)')
+        _fix_lognorm_ticks(cb, vmin, vmax)
 
     fig.suptitle(f"Time-Averaged KE Comparison{_scale_suffix(emulators_dict)}", y=0.99)
     plt.show()
 
 
 def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices, depth_configs,
-                                                    var_u='uo', var_v='vo', colorbar_fix=False):
+                                                    var_u='uo', var_v='vo', colorbar_fix=False, remove_seasonal=False, n_levels=None):
     """
     KE Snapshot Comparison at Multiple Depths (Columns) for specified Time Indices.
-    KE = 0.5 * (u^2 + v^2) at each time snapshot (instantaneous, not anomaly-based).
+    KE = 0.5 * (u^2 + v^2) at each time snapshot.
+    When remove_seasonal=True, removes dayofyear climatology from u,v before computing KE (gives EKE snapshot).
+    When n_levels is set, uses a discrete colorbar with log-spaced levels.
     Rows are paired: each truth is followed by its corresponding emulators.
     """
     print(f"\nGenerating KE Snapshot Comparison...")
@@ -7326,6 +7472,29 @@ def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices
 
     ds_truth_ref = unique_truths[truth_labels[0]]
 
+    # If remove_seasonal, pre-compute deseasoned velocity datasets
+    if remove_seasonal:
+        def _deseason(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        unique_truths_ke = {}
+        for tl, ds_t in unique_truths.items():
+            ds_copy = ds_t.copy()
+            ds_copy[var_u] = _deseason(ds_t[var_u])
+            ds_copy[var_v] = _deseason(ds_t[var_v])
+            unique_truths_ke[tl] = ds_copy
+
+        emulators_ke = {}
+        for label, emu_data in emulators_dict.items():
+            ds_copy = emu_data['ds'].copy()
+            ds_copy[var_u] = _deseason(emu_data['ds'][var_u])
+            ds_copy[var_v] = _deseason(emu_data['ds'][var_v])
+            emulators_ke[label] = ds_copy
+    else:
+        unique_truths_ke = unique_truths
+        emulators_ke = {label: emu_data['ds'] for label, emu_data in emulators_dict.items()}
+
     def compute_ke_snapshot(ds, depth_index, time_idx):
         u = ds[var_u].isel(time=time_idx, lev=depth_index)
         v = ds[var_v].isel(time=time_idx, lev=depth_index)
@@ -7341,7 +7510,7 @@ def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices
         from matplotlib.gridspec import GridSpec
 
         _multiscale = len(unique_truths) > 1
-        _hspace = 0.08 if _multiscale else 0.04
+        _hspace = 0.02
         fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
         gs = GridSpec(nrows + 1, ncols, figure=fig,
                       height_ratios=[1]*nrows + [0.04],
@@ -7354,6 +7523,11 @@ def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices
             for j in range(ncols):
                 axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
         cbar_axes = [fig.add_subplot(gs[nrows, j]) for j in range(ncols)]
+        for cax in cbar_axes:
+            pos = cax.get_position()
+            new_width = pos.width * 0.7
+            offset = (pos.width - new_width) / 2
+            cax.set_position([pos.x0 + offset, pos.y0, new_width, pos.height])
 
         for j, d_conf in enumerate(depth_configs):
             key = d_conf['title']
@@ -7361,34 +7535,43 @@ def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices
 
             # Truth Maps
             truth_maps = {}
-            for tl, ds_truth in unique_truths.items():
-                truth_maps[tl] = compute_ke_snapshot(ds_truth, d_idx, time_idx)
+            for tl in unique_truths.keys():
+                truth_maps[tl] = compute_ke_snapshot(unique_truths_ke[tl], d_idx, time_idx)
 
             # Emulator Maps
             emu_maps = {}
-            for label, emu_data in emulators_dict.items():
-                emu_maps[label] = compute_ke_snapshot(emu_data['ds'], d_idx, time_idx)
+            for label in emulators_dict.keys():
+                emu_maps[label] = compute_ke_snapshot(emulators_ke[label], d_idx, time_idx)
 
-            # Normalization (LogNorm for KE)
+            # Normalization (LogNorm for KE, optionally discrete)
             first_truth_map = truth_maps[truth_labels[0]]
             valid_data = first_truth_map.values[~np.isnan(first_truth_map.values)]
             flat_pos = valid_data[valid_data > 0]
             vmin = np.percentile(flat_pos, 5) if len(flat_pos) > 0 else 1e-10
             vmax = np.percentile(flat_pos, 99) if len(flat_pos) > 0 else 1.0
-            norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+
+            if n_levels is not None:
+                levels = np.geomspace(vmin, vmax, n_levels + 1)
+                cmap_use = cmocean.cm.thermal.resampled(n_levels)
+                norm = colors.BoundaryNorm(levels, ncolors=cmap_use.N, clip=False)
+            else:
+                cmap_use = cmocean.cm.thermal
+                norm = colors.LogNorm(vmin=vmin, vmax=vmax)
 
             # Plot rows in paired order
             for row_i, (row_label, is_truth) in enumerate(row_order):
                 ax = axes[row_i, j]
                 data_map = truth_maps[row_label] if is_truth else emu_maps[row_label]
                 p = data_map.plot.pcolormesh(ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-                    cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True)
+                    cmap=cmap_use, norm=norm, add_colorbar=False, rasterized=True)
                 ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
                 ax.coastlines(zorder=11)
                 if row_i == 0: ax.set_title(key, fontweight='bold')
                 else: ax.set_title("")
-                if j == 0: ax.text(-0.07, 0.55, row_label, va='center', ha='right', rotation=90,
-                                  transform=ax.transAxes, fontweight='bold')
+                if j == 0:
+                    _rl = row_label.replace(' (', '\n(')
+                    ax.text(-0.07, 0.55, _rl, va='center', ha='right', rotation=90,
+                            transform=ax.transAxes, fontweight='bold', multialignment='center')
                 # RMSE & Pattern Correlation for emulator panels
                 if not is_truth:
                     tl_for_emu = emulators_dict[row_label].get('truth_label', 'Truth')
@@ -7402,9 +7585,17 @@ def plot_ke_snapshot_comparison_multidepth_together(emulators_dict, time_indices
                             bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
                             verticalalignment='top', linespacing=1.3, zorder=20)
 
-            fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label='KE (m$^2$/s$^2$)')
+            _cb_label = 'EKE (m$^2$/s$^2$)' if remove_seasonal else 'KE (m$^2$/s$^2$)'
+            _ext = 'both' if n_levels is not None else 'neither'
+            cb = fig.colorbar(p, cax=cbar_axes[j], orientation='horizontal', label=_cb_label, extend=_ext)
+            if n_levels is not None:
+                tick_vals = [vmin, np.sqrt(vmin * vmax), vmax]
+                cb.set_ticks(tick_vals)
+                cb.set_ticklabels([f'{v:.1e}' for v in tick_vals])
+            else:
+                _fix_lognorm_ticks(cb, vmin, vmax)
 
-        fig.suptitle(f"Kinetic Energy Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
+        fig.suptitle(f"{'EKE' if remove_seasonal else 'Kinetic Energy'} Snapshot at {time_str}{_scale_suffix(emulators_dict)}", y=0.99)
         plt.show()
 
 
@@ -9775,18 +9966,22 @@ def compute_temporal_variance_metrics(
             truth_2d = _depth_avg(truth_field)   # (time, y, x)
             emu_2d = _depth_avg(emu_field)
 
-            # Temporal variance maps: (y, x)
-            var_truth = truth_2d.var('time').compute()
-            var_emu = emu_2d.var('time').compute()
+            # Remove seasonal cycle (dayofyear climatology)
+            truth_anom = (truth_2d.groupby('time.dayofyear') - truth_2d.groupby('time.dayofyear').mean('time')).drop_vars('dayofyear').fillna(0.0)
+            emu_anom = (emu_2d.groupby('time.dayofyear') - emu_2d.groupby('time.dayofyear').mean('time')).drop_vars('dayofyear').fillna(0.0)
 
-            # Per-gridpoint temporal RMSE map: (y, x)
+            # Temporal variance maps: (y, x) — on anomalies
+            var_truth = truth_anom.var('time').compute()
+            var_emu = emu_anom.var('time').compute()
+
+            # Per-gridpoint temporal RMSE map: (y, x) — on anomalies
             direct_rmse_map = np.sqrt(
-                ((truth_2d - emu_2d) ** 2).mean('time')
+                ((truth_anom - emu_anom) ** 2).mean('time')
             ).compute()
 
-            # Detrended per-gridpoint temporal RMSE map: (y, x)
-            truth_dt = _detrend_linear_xr(truth_2d, dim='time')
-            emu_dt = _detrend_linear_xr(emu_2d, dim='time')
+            # Detrended per-gridpoint temporal RMSE map: (y, x) — detrend anomalies
+            truth_dt = _detrend_linear_xr(truth_anom, dim='time')
+            emu_dt = _detrend_linear_xr(emu_anom, dim='time')
             detrended_rmse_map = np.sqrt(
                 ((truth_dt - emu_dt) ** 2).mean('time')
             ).compute()
@@ -9878,15 +10073,22 @@ def compute_ke_temporal_variance_metrics(
             truth_2d = _depth_avg(truth_ke)
             emu_2d = _depth_avg(emu_ke)
 
-            var_truth = truth_2d.var('time').compute()
-            var_emu = emu_2d.var('time').compute()
+            # Remove seasonal cycle (dayofyear climatology)
+            truth_anom = (truth_2d.groupby('time.dayofyear') - truth_2d.groupby('time.dayofyear').mean('time')).drop_vars('dayofyear').fillna(0.0)
+            emu_anom = (emu_2d.groupby('time.dayofyear') - emu_2d.groupby('time.dayofyear').mean('time')).drop_vars('dayofyear').fillna(0.0)
 
+            # Temporal variance maps: (y, x) — on anomalies
+            var_truth = truth_anom.var('time').compute()
+            var_emu = emu_anom.var('time').compute()
+
+            # Per-gridpoint temporal RMSE map: (y, x) — on anomalies
             direct_rmse_map = np.sqrt(
-                ((truth_2d - emu_2d) ** 2).mean('time')
+                ((truth_anom - emu_anom) ** 2).mean('time')
             ).compute()
 
-            truth_dt = _detrend_linear_xr(truth_2d, dim='time')
-            emu_dt = _detrend_linear_xr(emu_2d, dim='time')
+            # Detrended per-gridpoint temporal RMSE map: (y, x) — detrend anomalies
+            truth_dt = _detrend_linear_xr(truth_anom, dim='time')
+            emu_dt = _detrend_linear_xr(emu_anom, dim='time')
             detrended_rmse_map = np.sqrt(
                 ((truth_dt - emu_dt) ** 2).mean('time')
             ).compute()

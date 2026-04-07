@@ -275,7 +275,7 @@ nino_metrics.to_csv(csv_path, index=False)
 print(f"  -> Saved: {csv_path}")
 
 emulators_to_analyze_enso = {
-    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
+    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra 2"]
 }
 # Niño 3.4 Index time series
 plot_nino34_comparison_together(emulators_to_analyze_enso)

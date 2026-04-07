@@ -90,7 +90,7 @@ EMULATOR_CONFIGS = [
     ),
     (
         '/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr',
-        "Samudra-v2", 
+        "Samudra 2", 
         "tab:orange"
     )
 ]
@@ -307,7 +307,7 @@ for label, emu_data in emulators_to_analyze.items():
 # print(f"  -> Saved: {csv_path}")
 
 # emulators_to_analyze_enso = {
-#     label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra-v2"]
+#     label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra 2"]
 # }
 # # Niño 3.4 Index time series
 # plot_nino34_comparison_together(emulators_to_analyze_enso)
@@ -535,39 +535,39 @@ ncols = (n_regions + 1) // 2
 
 
 
-# ============================================================
-# Temporal Variance Maps
-# ============================================================
-print("\n" + "="*60)
-print("Temporal Variance Maps")
-print("="*60)
-
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    units='$^\\circ$C',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_thetao", VARIANCE_DIR)
-
-plot_variance_comparison_together(
-    emulators_to_analyze,
-    variable_name='so',
-    units='psu',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_so", VARIANCE_DIR)
-
-plot_ke_variance_comparison_together(
-    emulators_to_analyze,
-    var_u='uo',
-    var_v='vo',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("variance_ke", VARIANCE_DIR)
+# # ============================================================
+# # Temporal Variance Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Temporal Variance Maps")
+# print("="*60)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\\circ$C',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_thetao", VARIANCE_DIR)
+#
+# plot_variance_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='so',
+#     units='psu',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_so", VARIANCE_DIR)
+#
+# plot_ke_variance_comparison_together(
+#     emulators_to_analyze,
+#     var_u='uo',
+#     var_v='vo',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("variance_ke", VARIANCE_DIR)
 
 
 
