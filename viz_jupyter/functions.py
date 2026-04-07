@@ -4837,7 +4837,11 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
         _ext = 'both' if n_levels is not None else 'neither'
         cb = fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"EKE ({units})", extend=_ext)
         if n_levels is not None:
-            cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=3))
+            # Log-spaced levels: pick ~4 evenly spaced ticks from the geomspace boundaries
+            n_ticks = min(3, len(levels))
+            tick_idx = np.linspace(0, len(levels) - 1, n_ticks, dtype=int)
+            cb.set_ticks(levels[tick_idx])
+            cb.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1e}'))
         else:
             _fix_lognorm_ticks(cb, vmin, vmax)
 
@@ -6017,9 +6021,11 @@ def plot_temperature_mean_comparison_together(emulators_dict, colorbar_fix=False
     plt.show()
 
 
-def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, masks_list, colorbar_fix=False):
+def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, masks_list, colorbar_fix=False, deseason_metrics=False):
     """Zonal Mean Comparison: Ground truth (first emulator) + all emulators on one figure.
     Layout: 4 basins x (1 truth + N emulators) columns
+    When deseason_metrics=True, RMSE/Corr are computed on deseasoned per-timestep
+    zonal mean profiles instead of on the time-averaged profiles.
     """
     print(f"\nGenerating Zonal Mean Comparison for {variable_name}...")
 
@@ -6042,13 +6048,13 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
     dx_truth = ds_truth['dx']
     wet_mask = (ds_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
 
-    # Compute truth profiles
+    # Compute truth profiles (for plotting)
     truth_field_mean = ds_truth[variable_name].mean(dim='time')
     truth_profiles = {}
     for basin in BASINS_TO_PLOT:
         truth_profiles[basin] = calculate_zonal_mean(truth_field_mean, masks_truth[basin], dx_truth, wet_mask).compute()
-    
-    # Compute emulator profiles and per-emulator truth profiles (for RMSE)
+
+    # Compute emulator profiles (for plotting) and per-emulator truth profiles
     emu_profiles = {}
     emu_truth_profiles = {}
     for idx, (label, emu_data) in enumerate(emulators_dict.items()):
@@ -6065,12 +6071,44 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
             emu_profiles[label][basin] = calculate_zonal_mean(emu_field_mean, masks_emu[basin], dx_emu, wet_emu).compute()
             emu_truth_profiles[label][basin] = calculate_zonal_mean(truth_field_mean_emu, masks_emu[basin], dx_emu, wet_emu).compute()
 
+    # Compute deseasoned per-timestep zonal mean profiles for metrics
+    if deseason_metrics:
+        print("  Computing deseasoned zonal mean profiles for metrics...")
+        def _deseason(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        emu_profiles_metrics = {}
+        emu_truth_profiles_metrics = {}
+        for idx, (label, emu_data) in enumerate(emulators_dict.items()):
+            ds_emu = emu_data['ds']
+            ds_emu_truth = emu_data['truth']
+            masks_emu = masks_list[idx]
+            dx_emu = ds_emu_truth['dx']
+            wet_emu = (ds_emu_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
+            emu_anom = _deseason(ds_emu[variable_name])
+            truth_anom = _deseason(ds_emu_truth[variable_name])
+            emu_profiles_metrics[label] = {}
+            emu_truth_profiles_metrics[label] = {}
+            for basin in BASINS_TO_PLOT:
+                # Per-timestep zonal mean, then time-average the deseasoned profiles
+                emu_zm = []
+                tru_zm = []
+                for t in range(len(ds_emu.time)):
+                    emu_zm.append(calculate_zonal_mean(emu_anom.isel(time=t), masks_emu[basin], dx_emu, wet_emu))
+                    tru_zm.append(calculate_zonal_mean(truth_anom.isel(time=t), masks_emu[basin], dx_emu, wet_emu))
+                emu_profiles_metrics[label][basin] = xr.concat(emu_zm, dim='time').compute()
+                emu_truth_profiles_metrics[label][basin] = xr.concat(tru_zm, dim='time').compute()
+    else:
+        emu_profiles_metrics = {label: {basin: profiles[basin].expand_dims('time') for basin in BASINS_TO_PLOT} for label, profiles in emu_profiles.items()}
+        emu_truth_profiles_metrics = {label: {basin: emu_truth_profiles[label][basin].expand_dims('time') for basin in BASINS_TO_PLOT} for label in emu_profiles}
+
     # Plotting
     num_cols = 1 + len(emulators_dict)
     fig, axes = plt.subplots(4, num_cols, figsize=(4.5*num_cols, 11), sharex=True, sharey=True,
                              gridspec_kw={'hspace': 0.12, 'wspace': 0.08})
     if num_cols == 1: axes = axes.reshape(-1, 1)
-    
+
     # Determine colorbar range
     all_data = np.concatenate([truth_profiles[basin].values.flatten() for basin in BASINS_TO_PLOT])
     valid_data = all_data[~np.isnan(all_data)]
@@ -6079,7 +6117,7 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
     if colorbar_fix: vmin, vmax = 0.54, 27.25
     norm = colors.Normalize(vmin=vmin, vmax=vmax)
     cmap = cmocean.cm.thermal
-    
+
     for i, basin in enumerate(BASINS_TO_PLOT):
         # Column 0: Truth
         ax = axes[i, 0]
@@ -6089,7 +6127,7 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
         ax.set_ylabel(f'{basin}\nDepth (m)')
         ax.set_xlabel('')
         if i == 0: ax.set_title(truth_label, fontweight='bold')
-        
+
         # Columns 1+: Emulators
         for j, (label, profiles) in enumerate(emu_profiles.items(), start=1):
             ax = axes[i, j]
@@ -6098,9 +6136,9 @@ def plot_zonal_mean_comparison_together(emulators_dict, variable_name, units, ma
             ax.set_facecolor('grey')
             ax.set_ylabel(''); ax.set_xlabel('')
             if i == 0: ax.set_title(label, fontweight='bold')
-            # RMSE & Pattern Correlation vs own truth
-            emu_vals = profiles[basin].values.flatten()
-            tru_vals = emu_truth_profiles[label][basin].values.flatten()
+            # RMSE & Pattern Correlation (on deseasoned data when deseason_metrics=True)
+            emu_vals = emu_profiles_metrics[label][basin].values.flatten()
+            tru_vals = emu_truth_profiles_metrics[label][basin].values.flatten()
             valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
             rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
             corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
@@ -6209,8 +6247,11 @@ def plot_ohc_zonal_mean_comparison_together(emulators_dict, masks_list, variable
     plt.show()
 
 
-def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, units, colorbar_fix=False):
-    """Global Zonal Mean Comparison (all ocean, no basin split): Truth + all emulators, 8-yr average."""
+def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, units, colorbar_fix=False, deseason_metrics=False):
+    """Global Zonal Mean Comparison (all ocean, no basin split): Truth + all emulators, 8-yr average.
+    When deseason_metrics=True, RMSE/Corr are computed on deseasoned per-timestep
+    zonal mean profiles instead of on the time-averaged profiles.
+    """
     print(f"\nGenerating Global Zonal Mean Comparison for {variable_name}...")
 
     first_label = list(emulators_dict.keys())[0]
@@ -6220,10 +6261,12 @@ def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, un
     wet_mask = (ds_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
     global_mask = (wet_mask * 0 + 1).where(wet_mask.notnull())
 
+    # Profiles for plotting (time-averaged)
     truth_field_mean = ds_truth[variable_name].mean(dim='time')
     truth_profile = calculate_zonal_mean(truth_field_mean, global_mask, dx_truth, wet_mask).compute()
 
     emu_profiles = {}
+    emu_truth_profiles = {}
     for idx, (label, emu_data) in enumerate(emulators_dict.items()):
         ds_emu = emu_data['ds']
         ds_emu_truth = emu_data['truth']
@@ -6231,7 +6274,37 @@ def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, un
         wet_emu = (ds_emu_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
         global_mask_emu = (wet_emu * 0 + 1).where(wet_emu.notnull())
         emu_field_mean = ds_emu[variable_name].mean('time')
+        truth_field_mean_emu = ds_emu_truth[variable_name].mean('time')
         emu_profiles[label] = calculate_zonal_mean(emu_field_mean, global_mask_emu, dx_emu, wet_emu).compute()
+        emu_truth_profiles[label] = calculate_zonal_mean(truth_field_mean_emu, global_mask_emu, dx_emu, wet_emu).compute()
+
+    # Deseasoned per-timestep zonal mean profiles for metrics
+    if deseason_metrics:
+        print("  Computing deseasoned zonal mean profiles for metrics...")
+        def _deseason(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        emu_profiles_metrics = {}
+        emu_truth_profiles_metrics = {}
+        for idx, (label, emu_data) in enumerate(emulators_dict.items()):
+            ds_emu = emu_data['ds']
+            ds_emu_truth = emu_data['truth']
+            dx_emu = ds_emu_truth['dx']
+            wet_emu = (ds_emu_truth[variable_name].isel(time=0, drop=True) * 0 + 1).compute()
+            global_mask_emu = (wet_emu * 0 + 1).where(wet_emu.notnull())
+            emu_anom = _deseason(ds_emu[variable_name])
+            truth_anom = _deseason(ds_emu_truth[variable_name])
+            emu_zm = []
+            tru_zm = []
+            for t in range(len(ds_emu.time)):
+                emu_zm.append(calculate_zonal_mean(emu_anom.isel(time=t), global_mask_emu, dx_emu, wet_emu))
+                tru_zm.append(calculate_zonal_mean(truth_anom.isel(time=t), global_mask_emu, dx_emu, wet_emu))
+            emu_profiles_metrics[label] = xr.concat(emu_zm, dim='time').compute()
+            emu_truth_profiles_metrics[label] = xr.concat(tru_zm, dim='time').compute()
+    else:
+        emu_profiles_metrics = {label: prof.expand_dims('time') for label, prof in emu_profiles.items()}
+        emu_truth_profiles_metrics = {label: prof.expand_dims('time') for label, prof in emu_truth_profiles.items()}
 
     num_cols = 1 + len(emulators_dict)
     from matplotlib.gridspec import GridSpec
@@ -6268,9 +6341,9 @@ def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, un
         ax.set_ylabel(''); ax.set_xlabel('Latitude index')
         ax.set_title(label, fontweight='bold')
         plt.setp(ax.get_yticklabels(), visible=False)
-        # RMSE & Pattern Correlation vs truth
-        emu_vals = profile.values.flatten()
-        tru_vals = truth_profile.values.flatten()
+        # RMSE & Pattern Correlation (on deseasoned data when deseason_metrics=True)
+        emu_vals = emu_profiles_metrics[label].values.flatten()
+        tru_vals = emu_truth_profiles_metrics[label].values.flatten()
         valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
         rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
         corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
@@ -6776,7 +6849,7 @@ def plot_ohc_snapshot_comparison_together(emulators_dict, time_indices, depth_co
         plt.show()
 
 
-def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_indices, depth_configs, fix_colorbar=False, n_levels=20, remove_seasonal=False):
+def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_indices, depth_configs, fix_colorbar=False, n_levels=20, remove_seasonal=False, deseason_metrics=False):
     """
     Snapshot Comparison at Multiple Depths (Columns) for specified Time Indices (Separate Figures).
     Rows are paired: each truth is followed by its corresponding emulators.
@@ -6835,6 +6908,27 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
         unique_truths_ds = unique_truths
         emulators_ds = {label: emu_data['ds'] for label, emu_data in emulators_dict.items()}
 
+    # Pre-compute deseasoned datasets for metrics when deseason_metrics=True
+    if deseason_metrics and not remove_seasonal:
+        def _deseason_m(da):
+            clim = da.groupby('time.dayofyear').mean('time')
+            return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+        unique_truths_ds_metrics = {}
+        for tl, ds_t in unique_truths.items():
+            ds_copy = ds_t.copy()
+            ds_copy[var_name] = _deseason_m(ds_t[var_name])
+            unique_truths_ds_metrics[tl] = ds_copy
+
+        emulators_ds_metrics = {}
+        for label, emu_data in emulators_dict.items():
+            ds_emu_copy = emu_data['ds'].copy()
+            ds_emu_copy[var_name] = _deseason_m(emu_data['ds'][var_name])
+            emulators_ds_metrics[label] = ds_emu_copy
+    else:
+        unique_truths_ds_metrics = unique_truths_ds
+        emulators_ds_metrics = emulators_ds
+
     for time_idx in time_indices:
         time_val = ds_truth_ref.time.isel(time=time_idx).values
         if hasattr(time_val, 'year'):
@@ -6846,7 +6940,7 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
 
         _multiscale = len(unique_truths) > 1
         _hspace = 0.02
-        fig = plt.figure(figsize=(4*ncols, 2.5*nrows + 0.8))
+        fig = plt.figure(figsize=(4*ncols, 2.0*nrows + 0.8))
         gs = GridSpec(nrows + 1, ncols, figure=fig,
                       height_ratios=[1]*nrows + [0.04],
                       hspace=_hspace, wspace=0.05,
@@ -6884,6 +6978,26 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                 dz_emu = ds_emu_truth['dz']
                 wet_emu = (ds_emu_truth[var_name].isel(time=0) * 0 + 1).compute()
                 emu_maps[label] = calculate_snapshot_map_SpecificLayer(ds_emu_use, var_name, dz_emu, wet_emu, d_idx, time_idx).compute()
+
+            # Deseasoned maps for metrics (only when deseason_metrics and not remove_seasonal)
+            if deseason_metrics and not remove_seasonal:
+                truth_maps_metrics = {}
+                for tl in unique_truths.keys():
+                    ds_use_m = unique_truths_ds_metrics[tl]
+                    dz_truth = unique_truths[tl]['dz']
+                    wet_mask = (unique_truths[tl][var_name].isel(time=0) * 0 + 1).compute()
+                    truth_maps_metrics[tl] = calculate_snapshot_map_SpecificLayer(ds_use_m, var_name, dz_truth, wet_mask, d_idx, time_idx).compute()
+
+                emu_maps_metrics = {}
+                for label, emu_data in emulators_dict.items():
+                    ds_emu_use_m = emulators_ds_metrics[label]
+                    ds_emu_truth = emu_data['truth']
+                    dz_emu = ds_emu_truth['dz']
+                    wet_emu = (ds_emu_truth[var_name].isel(time=0) * 0 + 1).compute()
+                    emu_maps_metrics[label] = calculate_snapshot_map_SpecificLayer(ds_emu_use_m, var_name, dz_emu, wet_emu, d_idx, time_idx).compute()
+            else:
+                truth_maps_metrics = truth_maps
+                emu_maps_metrics = emu_maps
 
             # Normalization from first truth
             first_truth_map = truth_maps[truth_labels[0]]
@@ -6930,8 +7044,8 @@ def plot_snapshot_comparison_multidepth_together(emulators_dict, var_name, time_
                 # RMSE & Pattern Correlation for emulator panels
                 if not is_truth:
                     tl_for_emu = emulators_dict[row_label].get('truth_label', 'Truth')
-                    emu_vals = data_map.values.flatten()
-                    tru_vals = truth_maps[tl_for_emu].values.flatten()
+                    emu_vals = emu_maps_metrics[row_label].values.flatten()
+                    tru_vals = truth_maps_metrics[tl_for_emu].values.flatten()
                     valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
                     rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
                     corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]

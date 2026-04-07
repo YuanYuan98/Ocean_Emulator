@@ -618,122 +618,122 @@ masks_list_v2 = masks_list[1:]
 #     )
 #     save_current_fig(f"surface_ke_gulf_stream_t{ti}", SNAPSHOT_DIR)
 
-# ============================================================
-# Zonal Mean Bias
-# ============================================================
-print("\n" + "="*60)
-print("Zonal Mean Bias")
-print("="*60)
-
-plot_zonal_bias_ocean_comparison_together(
-    emulators_to_analyze,
-    'thetao',
-    '$^\\circ$C',
-    masks_list,
-    OUTPUT_DIR,
-    colorbar_fix=True
-)
-save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-
-plot_snapshot_zonal_bias_ocean_comparison_together(
-    emulators_dict=emulators_to_analyze,
-    variable_name='thetao',
-    units='°C',
-    masks_list=masks_list,
-    TIME_INDICES=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
-
-# ============================================================
-# Global Spatial Bias Maps
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Bias Maps")
-print("="*60)
-
-plot_temperature_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
-save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
-
-plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
-save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
-
-from functions import plot_ke_snapshot_bias_comparison_together
-plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
-save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
-
-# ============================================================
-# Zonal Mean Distribution
-# ============================================================
-print("\n" + "="*60)
-print("Zonal Mean Distribution")
-print("="*60)
-
-plot_zonal_mean_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list,
-    colorbar_fix=True
-)
-save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
-
-plot_zonal_snapshot_comparison_together(
-    emulators_to_analyze,
-    variable_name='thetao',
-    units='$^\circ$C',
-    masks_list=masks_list,
-    time_indices=TIME_INDICES,
-    colorbar_fix=True
-)
-save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
-
-# ============================================================
-# Global Spatial Distribution Maps (non-deseasoned)
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Distribution Maps")
-print("="*60)
-
-plot_temperature_mean_comparison_together(
-    emulators_to_analyze,
-    colorbar_fix=True
-)
-save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
-
-VARIABLE_TO_PLOT = 'thetao'
-
-plot_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    var_name=VARIABLE_TO_PLOT,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-    fix_colorbar=True
-)
-save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
-
-from functions import plot_ke_mean_comparison_together
-plot_ke_mean_comparison_together(
-    emulators_to_analyze,
-    depth_configs=DEPTH_LAYERS,
-)
-save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
-
-from functions import plot_ke_snapshot_comparison_multidepth_together
-plot_ke_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-)
-save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
-
 # # ============================================================
-# # Temporal Variance Maps (discrete colorbar, n_levels=12)
+# # Zonal Mean Bias
 # # ============================================================
 # print("\n" + "="*60)
-# print("Temporal Variance Maps (discrete, n_levels=12)")
+# print("Zonal Mean Bias")
 # print("="*60)
 #
+# plot_zonal_bias_ocean_comparison_together(
+#     emulators_to_analyze,
+#     'thetao',
+#     '$^\\circ$C',
+#     masks_list,
+#     OUTPUT_DIR,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+#
+# plot_snapshot_zonal_bias_ocean_comparison_together(
+#     emulators_dict=emulators_to_analyze,
+#     variable_name='thetao',
+#     units='°C',
+#     masks_list=masks_list,
+#     TIME_INDICES=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+#
+# # ============================================================
+# # Global Spatial Bias Maps
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Bias Maps")
+# print("="*60)
+#
+# plot_temperature_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
+# save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
+#
+# plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
+# save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+#
+# from functions import plot_ke_snapshot_bias_comparison_together
+# plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
+# save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
+#
+# # ============================================================
+# # Zonal Mean Distribution
+# # ============================================================
+# print("\n" + "="*60)
+# print("Zonal Mean Distribution")
+# print("="*60)
+#
+# plot_zonal_mean_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+#
+# plot_zonal_snapshot_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\circ$C',
+#     masks_list=masks_list,
+#     time_indices=TIME_INDICES,
+#     colorbar_fix=True
+# )
+# save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
+#
+# # ============================================================
+# # Global Spatial Distribution Maps (non-deseasoned)
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Distribution Maps")
+# print("="*60)
+#
+# plot_temperature_mean_comparison_together(
+#     emulators_to_analyze,
+#     colorbar_fix=True
+# )
+# save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# VARIABLE_TO_PLOT = 'thetao'
+#
+# plot_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     var_name=VARIABLE_TO_PLOT,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+#     fix_colorbar=True
+# )
+# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+#
+# from functions import plot_ke_mean_comparison_together
+# plot_ke_mean_comparison_together(
+#     emulators_to_analyze,
+#     depth_configs=DEPTH_LAYERS,
+# )
+# save_current_fig("ke_mean", SPATIAL_DISTRIBUTION_DIR)
+#
+# from functions import plot_ke_snapshot_comparison_multidepth_together
+# plot_ke_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+# )
+# save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+
+# ============================================================
+# Temporal Variance Maps (discrete colorbar, n_levels=12)
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Maps (discrete, n_levels=12)")
+print("="*60)
+
 # plot_variance_comparison_together(
 #     emulators_to_analyze,
 #     variable_name='thetao',
@@ -743,7 +743,7 @@ save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 #     n_levels=12
 # )
 # save_current_fig("variance_thetao_n12", VARIANCE_DIR)
-#
+
 # plot_variance_comparison_together(
 #     emulators_to_analyze,
 #     variable_name='so',
@@ -753,62 +753,62 @@ save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 #     n_levels=12
 # )
 # save_current_fig("variance_so_n12", VARIANCE_DIR)
+
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True,
+    n_levels=12
+)
+save_current_fig("variance_ke_n12", VARIANCE_DIR)
+
+
+# # ============================================================
+# # Global Spatial Distribution Maps (Anomaly)
+# # ============================================================
+# print("\n" + "="*60)
+# print("Global Spatial Distribution Maps (Deseasoned)")
+# print("="*60)
 #
-# plot_ke_variance_comparison_together(
+# VARIABLE_TO_PLOT = 'thetao'
+#
+# # Deseasoned temperature snapshot
+# plot_snapshot_comparison_multidepth_together(
 #     emulators_to_analyze,
-#     var_u='uo',
-#     var_v='vo',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True,
+#     var_name=VARIABLE_TO_PLOT,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+#     fix_colorbar=False,
+#     remove_seasonal=True,
 #     n_levels=12
 # )
-# save_current_fig("variance_ke_n12", VARIANCE_DIR)
-
-
-# ============================================================
-# Global Spatial Distribution Maps (Anomaly)
-# ============================================================
-print("\n" + "="*60)
-print("Global Spatial Distribution Maps (Deseasoned)")
-print("="*60)
-
-VARIABLE_TO_PLOT = 'thetao'
-
-# Deseasoned temperature snapshot
-plot_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    var_name=VARIABLE_TO_PLOT,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-    fix_colorbar=False,
-    remove_seasonal=True,
-    n_levels=12
-)
-save_current_fig("snapshot_multidepth_thetao_deseasoned", SPATIAL_DISTRIBUTION_DIR)
-
-# Deseasoned velocity snapshots
-for vel_var in ['uo', 'vo']:
-    plot_snapshot_comparison_multidepth_together(
-        emulators_to_analyze,
-        var_name=vel_var,
-        time_indices=TIME_INDICES,
-        depth_configs=DEPTH_LAYERS,
-        fix_colorbar=False,
-        remove_seasonal=True,
-        n_levels=12
-    )
-    save_current_fig(f"snapshot_multidepth_{vel_var}_deseasoned", SPATIAL_DISTRIBUTION_DIR)
-
-# Deseasoned EKE snapshot
-from functions import plot_ke_snapshot_comparison_multidepth_together
-plot_ke_snapshot_comparison_multidepth_together(
-    emulators_to_analyze,
-    time_indices=TIME_INDICES,
-    depth_configs=DEPTH_LAYERS,
-    remove_seasonal=True,
-    n_levels=12
-)
-save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+# save_current_fig("snapshot_multidepth_thetao_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+#
+# # Deseasoned velocity snapshots
+# for vel_var in ['uo', 'vo']:
+#     plot_snapshot_comparison_multidepth_together(
+#         emulators_to_analyze,
+#         var_name=vel_var,
+#         time_indices=TIME_INDICES,
+#         depth_configs=DEPTH_LAYERS,
+#         fix_colorbar=False,
+#         remove_seasonal=True,
+#         n_levels=12
+#     )
+#     save_current_fig(f"snapshot_multidepth_{vel_var}_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+#
+# # Deseasoned EKE snapshot
+# from functions import plot_ke_snapshot_comparison_multidepth_together
+# plot_ke_snapshot_comparison_multidepth_together(
+#     emulators_to_analyze,
+#     time_indices=TIME_INDICES,
+#     depth_configs=DEPTH_LAYERS,
+#     remove_seasonal=True,
+#     n_levels=12
+# )
+# save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
 
 
 print("\n" + "="*60)

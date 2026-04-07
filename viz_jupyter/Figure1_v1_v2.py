@@ -268,6 +268,20 @@ for label, emu_data in emulators_to_analyze.items():
 
 
 # # ============================================================
+# # Zonal Mean Distribution (per basin)
+# # ============================================================
+# from functions import plot_zonal_mean_comparison_together
+# plot_zonal_mean_comparison_together(
+#     emulators_to_analyze,
+#     variable_name='thetao',
+#     units='$^\\circ$C',
+#     masks_list=masks_list,
+#     colorbar_fix=True,
+#     deseason_metrics=True
+# )
+# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+
+# # ============================================================
 # # Global Zonal Mean Distribution (all ocean, no basin split)
 # # ============================================================
 # print("\n" + "="*60)
@@ -279,7 +293,8 @@ for label, emu_data in emulators_to_analyze.items():
 #     emulators_to_analyze,
 #     variable_name='thetao',
 #     units='$^\\circ$C',
-#     colorbar_fix=True
+#     colorbar_fix=True,
+#     deseason_metrics=True
 # )
 # save_current_fig("zonal_mean_global_thetao", ZONAL_MEAN_DIR)
 
@@ -338,7 +353,7 @@ for label, emu_data in emulators_to_analyze.items():
 #     overlay=True
 # )
 # save_current_fig("timeseries_so_only", TIMESERIES_DIR)
-#
+
 # # Detrended Time Series (Thetao)
 # plot_mean_timeseries_detrended_comparison_together(
 #     emulators_to_analyze,
@@ -397,10 +412,10 @@ for label, emu_data in emulators_to_analyze.items():
 
 
 # # ============================================================
-# # Global Spatial Distribution Maps (deseasoned snapshots only)
+# # Global Spatial Distribution Maps (non-deseason, metrics on deseasoned data)
 # # ============================================================
 # print("\n" + "="*60)
-# print("Global Spatial Distribution Maps (Deseasoned)")
+# print("Global Spatial Distribution Maps")
 # print("="*60)
 #
 # VARIABLE_TO_PLOT = 'thetao'
@@ -411,12 +426,13 @@ for label, emu_data in emulators_to_analyze.items():
 #     time_indices=TIME_INDICES,
 #     depth_configs=DEPTH_LAYERS,
 #     fix_colorbar=False,
-#     remove_seasonal=True,
+#     remove_seasonal=False,
+#     deseason_metrics=True,
 #     n_levels=12
 # )
-# save_current_fig("snapshot_multidepth_thetao_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
 #
-# # Deseasoned velocity snapshots
+# # Velocity snapshots
 # for vel_var in ['uo', 'vo']:
 #     plot_snapshot_comparison_multidepth_together(
 #         emulators_to_analyze,
@@ -424,23 +440,24 @@ for label, emu_data in emulators_to_analyze.items():
 #         time_indices=TIME_INDICES,
 #         depth_configs=DEPTH_LAYERS,
 #         fix_colorbar=False,
-#         remove_seasonal=True,
+#         remove_seasonal=False,
+#         deseason_metrics=True,
 #         n_levels=12
 #     )
-#     save_current_fig(f"snapshot_multidepth_{vel_var}_deseasoned", SPATIAL_DISTRIBUTION_DIR)
-#
-# from functions import plot_ke_snapshot_comparison_multidepth_together
-# plot_ke_snapshot_comparison_multidepth_together(
-#     emulators_to_analyze,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_LAYERS,
-#     remove_seasonal=True,
-#     n_levels=12
-# )
-# save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+#     save_current_fig(f"snapshot_multidepth_{vel_var}", SPATIAL_DISTRIBUTION_DIR)
+
+# # from functions import plot_ke_snapshot_comparison_multidepth_together
+# # plot_ke_snapshot_comparison_multidepth_together(
+# #     emulators_to_analyze,
+# #     time_indices=TIME_INDICES,
+# #     depth_configs=DEPTH_LAYERS,
+# #     remove_seasonal=True,
+# #     n_levels=12
+# # )
+# # save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
 
 
-# ============================================================
+# # ============================================================
 # T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
 # ============================================================
 print("\n" + "="*60)
@@ -494,12 +511,13 @@ for time_idx in TIME_INDICES:
     row_units = ['°C', 'm/s']
     nrows_fig, ncols_fig = 2, 3
 
-    # Layout: 2 map rows only in GridSpec; colorbars placed manually
-    fig = plt.figure(figsize=(5 * ncols_fig, 3.0 * nrows_fig + 1.0))
-    gs = GridSpec(nrows_fig, ncols_fig, figure=fig,
+    # Layout: 2 map rows + colorbar column on the right
+    fig = plt.figure(figsize=(5 * ncols_fig + 0.8, 2.5 * nrows_fig))
+    gs = GridSpec(nrows_fig, ncols_fig + 1, figure=fig,
                   height_ratios=[1, 1],
-                  hspace=0.18, wspace=0.05,
-                  top=0.93, bottom=0.08, left=0.08, right=0.97)
+                  width_ratios=[1, 1, 1, 0.03],
+                  hspace=0.08, wspace=0.08,
+                  top=0.90, bottom=0.05, left=0.08, right=0.97)
 
     proj = ccrs.Robinson(central_longitude=210)
     axes = np.empty((nrows_fig, ncols_fig), dtype=object)
@@ -507,17 +525,15 @@ for time_idx in TIME_INDICES:
         for j in range(ncols_fig):
             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
 
-    # Place colorbar axes manually just below each map row
+    # Place colorbar axes on the right side of each row (half height, centered)
     fig.canvas.draw()
     cbar_axes_row = []
     for i in range(nrows_fig):
-        # Get bottom of leftmost and rightmost map in this row
-        pos_left = axes[i, 0].get_position()
-        pos_right = axes[i, -1].get_position()
-        cb_width = (pos_right.x0 + pos_right.width - pos_left.x0) * 0.5
-        cb_x0 = pos_left.x0 + (pos_right.x0 + pos_right.width - pos_left.x0 - cb_width) / 2
-        cb_y0 = pos_left.y0 - 0.03
-        cax = fig.add_axes([cb_x0, cb_y0, cb_width, 0.015])
+        pos = axes[i, -1].get_position()
+        cb_height = pos.height * 2 / 3
+        cb_y0 = pos.y0 + (pos.height - cb_height) / 2
+        cb_x0 = pos.x0 + pos.width + 0.03
+        cax = fig.add_axes([cb_x0, cb_y0, 0.008, cb_height])
         cbar_axes_row.append(cax)
 
     # Compute symmetric color ranges per row (from truth, col=0)
@@ -556,13 +572,13 @@ for time_idx in TIME_INDICES:
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
                         verticalalignment='top', linespacing=1.3, zorder=20)
 
-    # Colorbar under each row
+    # Vertical colorbar on the right side of each row
     for i in range(nrows_fig):
         cb = fig.colorbar(plt.cm.ScalarMappable(norm=norms[i], cmap=plt.cm.RdBu_r),
-                          cax=cbar_axes_row[i], orientation='horizontal',
-                          label=f'{row_labels[i].replace(chr(10), " ")} ({row_units[i]})')
-        cb.ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=5))
+                          cax=cbar_axes_row[i], orientation='vertical',
+                          label=f'{row_units[i]}')
+        cb.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=3))
 
-    fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=0.97, fontsize=16)
+    fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
     plt.show()
     save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)
