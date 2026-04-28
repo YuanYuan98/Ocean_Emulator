@@ -1,0 +1,33 @@
+model,metric,value,region,depth
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke,0.0037671394225793284,,
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.011392421104373104,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke,0.004023195247212075,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.011136365279740358,,
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass,0.0011363377431671386,,
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass_bias,-0.004477888598751531,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass,0.0017065714676686463,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass_bias,-0.003907654874250023,,
+Samudra 2 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,5021.711710778125,Gulf Stream,
+OM4 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,3629.0713808696382,Gulf Stream,
+Samudra 2 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,7576.536687846464,Kuroshio,
+OM4 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,7452.95938037379,Kuroshio,
+Samudra 2 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,16982.594343041474,Agulhas,
+OM4 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,15728.123941322503,Agulhas,
+Samudra 2 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,11226.018986457417,Malvinas,
+OM4 (1/4$^\circ$),surface_temp_isotropic_spectrum_rmse,10570.01536512325,Malvinas,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.00040140241075610467,Gulf Stream,
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.00039270459729325035,Gulf Stream,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.00031998775064356953,Kuroshio,
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.000311455499293484,Kuroshio,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.0002624067984038822,Agulhas,
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.00025823119871020046,Agulhas,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.0001475413850823332,Malvinas,
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse,0.00014363380299275811,Malvinas,
+Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,2.3684990200504542e+23,,Surface (0-700m)
+OM4 (1/4$^\circ$),monthly_ohc_rmse,1.1377403332999134e+23,,Surface (0-700m)
+Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,5.905390768319425e+23,,Intermediate (700-2000m)
+OM4 (1/4$^\circ$),monthly_ohc_rmse,6.101283645734603e+23,,Intermediate (700-2000m)
+Samudra 2 (1/4$^\circ$),monthly_ohc_anomaly_rmse,8.411692343890498e+21,,Surface (0-700m)
+OM4 (1/4$^\circ$),monthly_ohc_anomaly_rmse,1.2851153040610284e+22,,Surface (0-700m)
+Samudra 2 (1/4$^\circ$),monthly_ohc_anomaly_rmse,4.571339761429094e+21,,Intermediate (700-2000m)
+OM4 (1/4$^\circ$),monthly_ohc_anomaly_rmse,4.680288001902552e+21,,Intermediate (700-2000m)

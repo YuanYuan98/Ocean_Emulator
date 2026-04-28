@@ -401,14 +401,15 @@ for label, emu_data in emulators_to_analyze.items():
 # )
 # save_current_fig("variance_so", VARIANCE_DIR)
 #
-# plot_ke_variance_comparison_together(
-#     emulators_to_analyze,
-#     var_u='uo',
-#     var_v='vo',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_ke", VARIANCE_DIR)
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True,
+    n_levels=12
+)
+save_current_fig("variance_ke", VARIANCE_DIR)
 
 
 # # ============================================================
@@ -458,127 +459,127 @@ for label, emu_data in emulators_to_analyze.items():
 
 
 # # ============================================================
-# T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
-# ============================================================
-print("\n" + "="*60)
-print("T vs U Anomaly Snapshot")
-print("="*60)
-
-from matplotlib.gridspec import GridSpec
-
-# Remove seasonal cycle
-def _deseason(da):
-    clim = da.groupby('time.dayofyear').mean('time')
-    return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
-
-# Get datasets
-emu_labels_list = list(emulators_to_analyze.keys())
-ds_truth = emulators_to_analyze[emu_labels_list[0]]['truth']
-ds_samudra = emulators_to_analyze[emu_labels_list[0]]['ds']
-ds_samudra2 = emulators_to_analyze[emu_labels_list[1]]['ds']
-
-# Deseason all fields
-print("Removing seasonal cycle...")
-truth_thetao_anom = _deseason(ds_truth['thetao'])
-truth_uo_anom = _deseason(ds_truth['uo'])
-sam_thetao_anom = _deseason(ds_samudra['thetao'])
-sam_uo_anom = _deseason(ds_samudra['uo'])
-sam2_thetao_anom = _deseason(ds_samudra2['thetao'])
-sam2_uo_anom = _deseason(ds_samudra2['uo'])
-
-# Depth: deep ocean (3100m, index 15) where imprinting is most visible
-DEPTH_IDX = 15
-DEPTH_LABEL = '3100 m'
-
-for time_idx in TIME_INDICES:
-    time_val = ds_truth.time.isel(time=time_idx).values
-    time_str = str(time_val)[:10]
-    print(f"Plotting T vs U snapshot at t={time_str}, depth={DEPTH_LABEL}...")
-
-    # Transposed layout: rows=variables, cols=datasets
-    # panels[row, col] where row=variable, col=dataset
-    panels = {
-        (0, 0): truth_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-        (0, 1): sam_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-        (0, 2): sam2_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-        (1, 0): truth_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-        (1, 1): sam_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-        (1, 2): sam2_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-    }
-
-    col_labels = ['OM4', 'Samudra', 'Samudra 2']
-    row_labels = ['Temperature\nAnomaly', 'U-Velocity\nAnomaly']
-    row_units = ['°C', 'm/s']
-    nrows_fig, ncols_fig = 2, 3
-
-    # Layout: 2 map rows + colorbar column on the right
-    fig = plt.figure(figsize=(5 * ncols_fig + 0.8, 2.5 * nrows_fig))
-    gs = GridSpec(nrows_fig, ncols_fig + 1, figure=fig,
-                  height_ratios=[1, 1],
-                  width_ratios=[1, 1, 1, 0.03],
-                  hspace=0.08, wspace=0.08,
-                  top=0.90, bottom=0.05, left=0.08, right=0.97)
-
-    proj = ccrs.Robinson(central_longitude=210)
-    axes = np.empty((nrows_fig, ncols_fig), dtype=object)
-    for i in range(nrows_fig):
-        for j in range(ncols_fig):
-            axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
-
-    # Place colorbar axes on the right side of each row (half height, centered)
-    fig.canvas.draw()
-    cbar_axes_row = []
-    for i in range(nrows_fig):
-        pos = axes[i, -1].get_position()
-        cb_height = pos.height * 2 / 3
-        cb_y0 = pos.y0 + (pos.height - cb_height) / 2
-        cb_x0 = pos.x0 + pos.width + 0.03
-        cax = fig.add_axes([cb_x0, cb_y0, 0.008, cb_height])
-        cbar_axes_row.append(cax)
-
-    # Compute symmetric color ranges per row (from truth, col=0)
-    norms = []
-    for i in range(nrows_fig):
-        valid = panels[(i, 0)].values.flatten()
-        valid = valid[~np.isnan(valid)]
-        abs_max = np.percentile(np.abs(valid), 95)
-        norms.append(colors.Normalize(vmin=-abs_max, vmax=abs_max))
-
-    for i in range(nrows_fig):
-        for j in range(ncols_fig):
-            ax = axes[i, j]
-            panels[(i, j)].plot.pcolormesh(
-                ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-                cmap=plt.cm.RdBu_r, norm=norms[i], add_colorbar=False, rasterized=True)
-            ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
-            ax.coastlines(zorder=11)
-            if i == 0:
-                ax.set_title(col_labels[j], fontweight='bold', fontsize=16)
-            else:
-                ax.set_title("")
-            if j == 0:
-                ax.text(-0.07, 0.55, row_labels[i], va='center', ha='right', rotation=90,
-                        transform=ax.transAxes, fontweight='bold', fontsize=16,
-                        multialignment='center')
-            # RMSE & Corr for emulator cols (vs OM4 truth, col=0)
-            if j > 0:
-                emu_vals = panels[(i, j)].values.flatten()
-                tru_vals = panels[(i, 0)].values.flatten()
-                valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
-                rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
-                corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
-                ax.text(0.02, 0.95, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
-                        transform=ax.transAxes, fontsize=13, fontweight='bold', color='black',
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
-                        verticalalignment='top', linespacing=1.3, zorder=20)
-
-    # Vertical colorbar on the right side of each row
-    for i in range(nrows_fig):
-        cb = fig.colorbar(plt.cm.ScalarMappable(norm=norms[i], cmap=plt.cm.RdBu_r),
-                          cax=cbar_axes_row[i], orientation='vertical',
-                          label=f'{row_units[i]}')
-        cb.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=3))
-
-    fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
-    plt.show()
-    save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)
+# # T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
+# # ============================================================
+# print("\n" + "="*60)
+# print("T vs U Anomaly Snapshot")
+# print("="*60)
+#
+# from matplotlib.gridspec import GridSpec
+#
+# # Remove seasonal cycle
+# def _deseason(da):
+#     clim = da.groupby('time.dayofyear').mean('time')
+#     return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+#
+# # Get datasets
+# emu_labels_list = list(emulators_to_analyze.keys())
+# ds_truth = emulators_to_analyze[emu_labels_list[0]]['truth']
+# ds_samudra = emulators_to_analyze[emu_labels_list[0]]['ds']
+# ds_samudra2 = emulators_to_analyze[emu_labels_list[1]]['ds']
+#
+# # Deseason all fields
+# print("Removing seasonal cycle...")
+# truth_thetao_anom = _deseason(ds_truth['thetao'])
+# truth_uo_anom = _deseason(ds_truth['uo'])
+# sam_thetao_anom = _deseason(ds_samudra['thetao'])
+# sam_uo_anom = _deseason(ds_samudra['uo'])
+# sam2_thetao_anom = _deseason(ds_samudra2['thetao'])
+# sam2_uo_anom = _deseason(ds_samudra2['uo'])
+#
+# # Depth: deep ocean (3100m, index 15) where imprinting is most visible
+# DEPTH_IDX = 15
+# DEPTH_LABEL = '3100 m'
+#
+# for time_idx in TIME_INDICES:
+#     time_val = ds_truth.time.isel(time=time_idx).values
+#     time_str = str(time_val)[:10]
+#     print(f"Plotting T vs U snapshot at t={time_str}, depth={DEPTH_LABEL}...")
+#
+#     # Transposed layout: rows=variables, cols=datasets
+#     # panels[row, col] where row=variable, col=dataset
+#     panels = {
+#         (0, 0): truth_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#         (0, 1): sam_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#         (0, 2): sam2_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#         (1, 0): truth_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#         (1, 1): sam_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#         (1, 2): sam2_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+#     }
+#
+#     col_labels = ['OM4', 'Samudra', 'Samudra 2']
+#     row_labels = ['Temperature\nAnomaly', 'U-Velocity\nAnomaly']
+#     row_units = ['°C', 'm/s']
+#     nrows_fig, ncols_fig = 2, 3
+#
+#     # Layout: 2 map rows + colorbar column on the right
+#     fig = plt.figure(figsize=(5 * ncols_fig + 0.8, 2.5 * nrows_fig))
+#     gs = GridSpec(nrows_fig, ncols_fig + 1, figure=fig,
+#                   height_ratios=[1, 1],
+#                   width_ratios=[1, 1, 1, 0.03],
+#                   hspace=0.08, wspace=0.08,
+#                   top=0.90, bottom=0.05, left=0.08, right=0.97)
+#
+#     proj = ccrs.Robinson(central_longitude=210)
+#     axes = np.empty((nrows_fig, ncols_fig), dtype=object)
+#     for i in range(nrows_fig):
+#         for j in range(ncols_fig):
+#             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
+#
+#     # Place colorbar axes on the right side of each row (half height, centered)
+#     fig.canvas.draw()
+#     cbar_axes_row = []
+#     for i in range(nrows_fig):
+#         pos = axes[i, -1].get_position()
+#         cb_height = pos.height * 2 / 3
+#         cb_y0 = pos.y0 + (pos.height - cb_height) / 2
+#         cb_x0 = pos.x0 + pos.width + 0.03
+#         cax = fig.add_axes([cb_x0, cb_y0, 0.008, cb_height])
+#         cbar_axes_row.append(cax)
+#
+#     # Compute symmetric color ranges per row (from truth, col=0)
+#     norms = []
+#     for i in range(nrows_fig):
+#         valid = panels[(i, 0)].values.flatten()
+#         valid = valid[~np.isnan(valid)]
+#         abs_max = np.percentile(np.abs(valid), 95)
+#         norms.append(colors.Normalize(vmin=-abs_max, vmax=abs_max))
+#
+#     for i in range(nrows_fig):
+#         for j in range(ncols_fig):
+#             ax = axes[i, j]
+#             panels[(i, j)].plot.pcolormesh(
+#                 ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+#                 cmap=plt.cm.RdBu_r, norm=norms[i], add_colorbar=False, rasterized=True)
+#             ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+#             ax.coastlines(zorder=11)
+#             if i == 0:
+#                 ax.set_title(col_labels[j], fontweight='bold', fontsize=16)
+#             else:
+#                 ax.set_title("")
+#             if j == 0:
+#                 ax.text(-0.07, 0.55, row_labels[i], va='center', ha='right', rotation=90,
+#                         transform=ax.transAxes, fontweight='bold', fontsize=16,
+#                         multialignment='center')
+#             # RMSE & Corr for emulator cols (vs OM4 truth, col=0)
+#             if j > 0:
+#                 emu_vals = panels[(i, j)].values.flatten()
+#                 tru_vals = panels[(i, 0)].values.flatten()
+#                 valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
+#                 rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
+#                 corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
+#                 ax.text(0.02, 0.95, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
+#                         transform=ax.transAxes, fontsize=13, fontweight='bold', color='black',
+#                         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
+#                         verticalalignment='top', linespacing=1.3, zorder=20)
+#
+#     # Vertical colorbar on the right side of each row
+#     for i in range(nrows_fig):
+#         cb = fig.colorbar(plt.cm.ScalarMappable(norm=norms[i], cmap=plt.cm.RdBu_r),
+#                           cax=cbar_axes_row[i], orientation='vertical',
+#                           label=f'{row_units[i]}')
+#         cb.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=3))
+#
+#     fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
+#     plt.show()
+#     save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)

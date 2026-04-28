@@ -1,0 +1,17 @@
+Initial Metrics
+We have identified a set of initial candidate visualizations (graphs/maps) as well as metrics derived from those visualizations: 
+
+Eddy Kinetic Energy
+Time mean EKE averaged over the final year of rollout (2022) at the surface, compared with EKE from DUACS “Surface geostrophic [eastward|northward] sea water velocity”. Use RMSE between these two as a metric.
+
+Regional Spectra
+Isotropic temperature anomaly spectra and temporal KE spectra over selected regions (those from Samudra v2 paper) at the surface, compared with OISST and DUACS (above) respectively. Use RMSE between these (pairwise per frequency bucket) as a metric.
+
+Ocean Heat Content
+Compute OHC for upper/middle/deep ocean total heat and plot monthly timeseries for last rollout year (2022) against ARGO IAP data. Use RMSE per month & depth-set.
+
+
+dataset:
+DUCAS: Available now at `emulators/jr7309/data/duacs`
+ARGO-IAP: Available now at `emulators/jr7309/data/argo-iap`
+OISST: Available now at `emulators/jr7309/data/oisst`
