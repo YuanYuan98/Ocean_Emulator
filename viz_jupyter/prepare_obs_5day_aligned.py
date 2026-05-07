@@ -1,3 +1,32 @@
+"""
+Prepare observation products for ``obs_evaluation.py``.
+
+What this script does
+---------------------
+- Reads the Samudra rollout (``predictions.zarr``), extracts the year's 5-day
+  reference timestamps, and validates the cadence (start ``YYYY-01-03 12:00:00``,
+  step 5 days).
+- DUACS and OISST (daily): centered 5-sample rolling mean in time, sampled on
+  the rollout dates and relabeled to the exact rollout timestamps.
+- ARGO-IAP (monthly): kept on its native monthly axis (no temporal alignment),
+  because forcing it to 5 days would invent variability.
+- Coordinate housekeeping only: rename ``latitude``/``longitude`` to
+  ``lat``/``lon``, normalize longitude to ``[0, 360)`` and sort, sort by
+  latitude.
+
+What this script does NOT do
+----------------------------
+- No spatial coarsening or interpolation. Each product is written on its
+  source native grid (DUACS ~0.125 deg, OISST ~0.25 deg, ARGO-IAP ~0.5 deg).
+  ``obs_evaluation.py`` computes diagnostics on each side's own grid and
+  reconciles in diagnostic space (global means, spectral curves, etc.).
+
+If a future diagnostic needs the obs and model on a common grid, add the
+regridding in the evaluation script -- do not bake it in here.
+
+See ``obs_data_process.md`` for the full rationale.
+"""
+
 from __future__ import annotations
 
 import argparse

@@ -10,7 +10,7 @@ The model outputs are:
 - approximately 1 degree resolution
 - saved every 5 days
 
-The observation products were not on the same temporal or spatial grid, so they were preprocessed to make the comparison better matched to the model output.
+The observation products were not on the same temporal grid, so they were preprocessed in time to match the rollout cadence. Spatially, each observation product is **kept on its own native grid** and compared against the model on the model's own grid (no spatial resampling is done at preprocessing time).
 
 The preprocessing script is:
 
@@ -18,13 +18,13 @@ The preprocessing script is:
 
 The processed observation products currently used by `obs_evaluation.py` are:
 
-- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/modelgrid_1deg/duacs.zarr`
-- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/modelgrid_1deg/oisst.zarr`
-- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/modelgrid_1deg/argo-iap.zarr`
+- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/duacs.zarr`
+- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/oisst.zarr`
+- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/argo-iap.zarr`
 
 ## Model Reference Grid
 
-The processed obs products were matched to the `Samudra` rollout grid:
+The temporal alignment is matched to the `Samudra` rollout grid:
 
 - latitude size: `180`
 - longitude size: `360`
@@ -55,7 +55,7 @@ Raw DUACS is daily.
 To compare with Samudra:
 
 1. Read the daily 2022 DUACS fields.
-2. Apply a centered 5-sample rolling mean in time.
+2. Apply a centered 5-sample rolling mean in time (`min_periods=5`).
 3. Sample those rolling means on the Samudra 2022 rollout dates.
 4. Relabel the result to the exact Samudra timestamps.
 
@@ -95,29 +95,19 @@ This is important because converting monthly ARGO-IAP into 5-day values would in
 
 ## Horizontal Spatial Processing
 
-All three observation products were coarse-grained to the Samudra model grid.
+There is no spatial coarsening or interpolation in `prepare_obs_5day_aligned.py`. The processed obs products keep the source product's native horizontal resolution:
 
-The current method is:
+- `DUACS`: ~`0.125 degree`
+- `OISST`: ~`0.25 degree`
+- `ARGO-IAP`: ~`0.5 degree` (monthly, native grid)
 
-1. Normalize longitude to `[0, 360)`.
-2. Sort by latitude and longitude.
-3. Coarsen the raw field by integer factors in latitude and longitude.
-4. After coarse-graining, interpolate onto the exact Samudra latitude and longitude centers.
+The only spatial operations applied are reproducible coordinate housekeeping:
 
-### Coarsening factors
+1. Rename `latitude`/`longitude` to `lat`/`lon` if needed.
+2. Normalize longitude to `[0, 360)` and sort by longitude when the source uses `[-180, 180)`.
+3. Sort by latitude.
 
-- `DUACS`: from `1440 x 2880` to `180 x 360`
-  so coarsening factor is `8 x 8`
-- `OISST`: from `720 x 1440` to `180 x 360`
-  so coarsening factor is `4 x 4`
-- `ARGO-IAP`: from `360 x 720` to `180 x 360`
-  so coarsening factor is `2 x 2`
-
-After that step, the processed obs products live on the same horizontal grid as Samudra:
-
-- `lat = 180`
-- `lon = 360`
-- longitude centers `0.5 ... 359.5`
+`obs_evaluation.py` then computes diagnostics independently on each side's own grid (the obs grid for obs, the model grid for the model) and compares the resulting quantities (maps, spectra, time series). This avoids ambiguity about which regridding scheme is used and pushes the question of "what scale is fair to compare" into the diagnostic itself rather than into the preprocessed file.
 
 ## What Is Compared To What
 
@@ -125,45 +115,49 @@ After that step, the processed obs products live on the same horizontal grid as 
 
 Uses:
 
-- DUACS on the processed Samudra horizontal grid
-- DUACS on the 2022 aligned 5-day timestamps
-- Samudra / Samudra 2 surface velocity at the same period
+- DUACS on its native ~0.125° grid, on the 2022 aligned 5-day timestamps
+- Samudra / Samudra 2 surface geostrophic velocity (derived from `zos`) on the model grid, same period
+
+Each side's EKE map is plotted on its own grid, then a global area-weighted mean is reported per side.
 
 Metric:
 
-- RMSE of time-mean surface EKE over 2022
+- global mean of time-mean surface geostrophic EKE over 2022 (and the bias against DUACS)
 
 ### Isotropic temperature anomaly spectra vs OISST
 
 Uses:
 
-- OISST on the processed Samudra horizontal grid
-- OISST on the aligned 5-day timestamps
-- Samudra / Samudra 2 surface temperature over the same aligned period
+- OISST on its native ~0.25° grid, on the aligned 5-day timestamps
+- Samudra / Samudra 2 surface temperature on the model grid, same aligned period
+
+Each side's regional 2D spectrum is computed on its own grid using its own `dx`/`dy`. The two curves are then compared bucket-by-bucket after interpolation onto a common wavenumber axis.
 
 Metric:
 
-- RMSE between observation and model spectra, computed bucket-by-bucket after interpolation onto a common frequency axis
+- RMSE between observation and model isotropic spectra
 
 ### Temporal KE spectra vs DUACS
 
 Uses:
 
-- DUACS on the processed Samudra horizontal grid
-- DUACS on the aligned 5-day timestamps
-- Samudra / Samudra 2 surface velocity over the same aligned period
+- DUACS on its native ~0.125° grid, on the aligned 5-day timestamps
+- Samudra / Samudra 2 surface geostrophic velocity on the model grid, same aligned period
+
+Each side's regional temporal KE spectrum (Welch PSD over time, averaged over the region) is computed on its own grid. The two curves are compared bucket-by-bucket after interpolation onto a common frequency axis.
 
 Metric:
 
-- RMSE between temporal KE spectra, bucket-by-bucket after interpolation onto a common frequency axis
+- RMSE between temporal KE spectra
 
 ### OHC monthly vs ARGO-IAP
 
 Uses:
 
-- ARGO-IAP on the processed Samudra horizontal grid
-- ARGO-IAP monthly time axis
-- Samudra / Samudra 2 monthly OHC derived from 5-day model output
+- ARGO-IAP on its native monthly, ~0.5° grid (grid metrics inferred at evaluation time)
+- Samudra / Samudra 2 monthly OHC, derived by averaging the 5-day model output to monthly
+
+Each side integrates per-layer OHC on its own grid, so no spatial regridding is required.
 
 Only the following layers are currently used:
 
@@ -189,13 +183,15 @@ This is intentional:
 - high-frequency products are matched to the 5-day model cadence
 - monthly OHC comparisons stay monthly
 
-### 2. The spatial coarsening is simple area-free block averaging
+### 2. No spatial regridding is done at preprocessing time
 
-The current horizontal coarsening uses plain mean over integer grid blocks, then interpolation to the exact Samudra centers.
+Each side stays on its own grid through the diagnostic. This means:
 
-This is simple and reproducible, but it is not a conservative regridding scheme.
+- map comparisons are visualized on different native grids and only summary statistics (e.g. global means) are directly compared as numbers
+- spectra are computed on each side's own grid and reconciled in spectral space, not in physical space
+- there is no area-weighted or conservative regridding step that could be a source of methodological error
 
-If stricter physical consistency is needed, a later refinement could replace this with conservative or area-weighted regridding.
+If a future diagnostic needs the obs and model on a common grid (e.g. for a pointwise difference map), that regridding has to be added explicitly in `obs_evaluation.py`; the preprocessed files will not do it for you.
 
 ### 3. ARGO-IAP depth range is limited
 
@@ -209,18 +205,18 @@ The current spectrum RMSE is computed directly on the spectral values after inte
 
 The main design choices were:
 
-- compare on the Samudra horizontal grid rather than the finer obs grid
-- compare DUACS and OISST on the Samudra 5-day timeline
+- align DUACS and OISST onto the Samudra 5-day timeline so that map and spectral diagnostics see the same temporal sampling on both sides
 - keep ARGO-IAP monthly because monthly OHC is the intended target
+- keep each obs product on its native horizontal grid and let the diagnostic decide what is fair to compare, rather than baking a particular regridding choice into the preprocessed files
 
-This makes the obs products closer to what the emulator can actually represent, while avoiding introducing fake high-frequency variability into the monthly OHC comparison.
+This avoids introducing fake high-frequency variability into the monthly OHC comparison, and keeps the preprocessing step minimal and reproducible.
 
 ## Current Default In Code
 
 `obs_evaluation.py` now assumes:
 
-- `DUACS` and `OISST` come from `modelgrid_1deg`
-- `ARGO-IAP` also comes from `modelgrid_1deg`, but still monthly
+- `DUACS`, `OISST`, and `ARGO-IAP` all come from `nativegrid/`
+- DUACS and OISST are on the 5-day aligned timeline; ARGO-IAP is still monthly
 
 So running
 
@@ -228,4 +224,4 @@ So running
 UV_CACHE_DIR=/tmp/uv-cache uv run python obs_evaluation.py
 ```
 
-will use the processed obs products described above.
+will use the processed obs products described above. The default location can be overridden via `--aligned-obs-root`.
