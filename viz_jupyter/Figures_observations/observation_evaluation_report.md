@@ -28,9 +28,10 @@ resulting comparison products have 72 timestamps for 2022.
 ARGO-IAP is monthly and was kept monthly. It is not forced onto the 5-day model
 timeline, because that would add artificial high-frequency information.
 
-All observation products were horizontally coarsened and interpolated to the
-Samudra comparison grid. The current coarsening is simple block averaging, not
-conservative regridding.
+No spatial regridding is applied. Each observation product is kept on its
+source native grid (DUACS ~0.125°, OISST ~0.25°, ARGO-IAP ~0.5°) and the
+diagnostics are computed on each side's own grid. Spectra use each grid's own
+`dx`/`dy`; OHC uses each grid's own cell area and layer thickness.
 
 ## Evaluations Performed
 
