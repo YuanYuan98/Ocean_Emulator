@@ -68,15 +68,31 @@ for (name, lon_slice, lat_slice), color in zip(SPECTRUM_REGIONS, COLORS):
         'Tropical Pacific': (0, 22),   # shift label to top edge
         'Niño 3.4':         (0, 0),
     }
-    dx, dy = label_offsets.get(name, (0, 0))
-    ax.text(
-        center_lon + dx, center_lat + dy, name,
-        transform=ccrs.PlateCarree(),
-        ha='center', va='center',
-        fontweight='bold',
-        color=color,
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color, alpha=0.9, linewidth=1.5),
-    )
+    if name == 'Niño 3.4':
+        # Niño 3.4 sits inside Tropical Pacific — move label south and point an arrow back.
+        pc_transform = ccrs.PlateCarree()._as_mpl_transform(ax)
+        ax.annotate(
+            name,
+            xy=(center_lon, center_lat),
+            xycoords=pc_transform,
+            xytext=(center_lon, -42),
+            textcoords=pc_transform,
+            ha='center', va='center',
+            fontweight='bold',
+            color=color,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color, alpha=0.9, linewidth=1.5),
+            arrowprops=dict(arrowstyle='->', color=color, linewidth=1.5, shrinkA=2, shrinkB=2),
+        )
+    else:
+        dx, dy = label_offsets.get(name, (0, 0))
+        ax.text(
+            center_lon + dx, center_lat + dy, name,
+            transform=ccrs.PlateCarree(),
+            ha='center', va='center',
+            fontweight='bold',
+            color=color,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color, alpha=0.9, linewidth=1.5),
+        )
 
     legend_patches.append(mpatches.Patch(
         facecolor=color, edgecolor=color, alpha=0.4,

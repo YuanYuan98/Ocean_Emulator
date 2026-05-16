@@ -6347,10 +6347,10 @@ def plot_zonal_mean_global_comparison_together(emulators_dict, variable_name, un
         valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
         rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
         corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
-        ax.text(0.02, 0.95, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
+        ax.text(0.02, 0.05, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
                 transform=ax.transAxes, fontsize=11, fontweight='bold', color='black',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
-                verticalalignment='top', linespacing=1.3, zorder=20)
+                verticalalignment='bottom', linespacing=1.3, zorder=20)
 
     fig.colorbar(p, cax=cbar_ax, orientation='vertical', label=f'{_display_name(variable_name)} ({units})')
     fig.suptitle(f"8-yr-Mean Global Zonal Mean {_display_name(variable_name)} ({units}){_scale_suffix(emulators_dict)}", y=1.02)

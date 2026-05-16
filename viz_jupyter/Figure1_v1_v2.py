@@ -281,22 +281,22 @@ for label, emu_data in emulators_to_analyze.items():
 # )
 # save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
 
-# # ============================================================
-# # Global Zonal Mean Distribution (all ocean, no basin split)
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Zonal Mean Distribution (All Ocean)")
-# print("="*60)
-#
-# from functions import plot_zonal_mean_global_comparison_together
-# plot_zonal_mean_global_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     colorbar_fix=True,
-#     deseason_metrics=True
-# )
-# save_current_fig("zonal_mean_global_thetao", ZONAL_MEAN_DIR)
+# ============================================================
+# Global Zonal Mean Distribution (all ocean, no basin split)
+# ============================================================
+print("\n" + "="*60)
+print("Global Zonal Mean Distribution (All Ocean)")
+print("="*60)
+
+from functions import plot_zonal_mean_global_comparison_together
+plot_zonal_mean_global_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\\circ$C',
+    colorbar_fix=True,
+    deseason_metrics=True
+)
+save_current_fig("zonal_mean_global_thetao", ZONAL_MEAN_DIR)
 
 # # ============================================================
 # # ENSO Evaluation
@@ -401,15 +401,15 @@ for label, emu_data in emulators_to_analyze.items():
 # )
 # save_current_fig("variance_so", VARIANCE_DIR)
 #
-plot_ke_variance_comparison_together(
-    emulators_to_analyze,
-    var_u='uo',
-    var_v='vo',
-    output_dir=OUTPUT_DIR,
-    colorbar_fix=True,
-    n_levels=12
-)
-save_current_fig("variance_ke", VARIANCE_DIR)
+# plot_ke_variance_comparison_together(
+#     emulators_to_analyze,
+#     var_u='uo',
+#     var_v='vo',
+#     output_dir=OUTPUT_DIR,
+#     colorbar_fix=True,
+#     n_levels=12
+# )
+# save_current_fig("variance_ke", VARIANCE_DIR)
 
 
 # # ============================================================
