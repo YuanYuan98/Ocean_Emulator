@@ -267,19 +267,19 @@ for label, emu_data in emulators_to_analyze.items():
     masks_list.append(masks)
 
 
-# # ============================================================
-# # Zonal Mean Distribution (per basin)
-# # ============================================================
-# from functions import plot_zonal_mean_comparison_together
-# plot_zonal_mean_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     masks_list=masks_list,
-#     colorbar_fix=True,
-#     deseason_metrics=True
-# )
-# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+# ============================================================
+# Zonal Mean Distribution (per basin)
+# ============================================================
+from functions import plot_zonal_mean_comparison_together
+plot_zonal_mean_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\\circ$C',
+    masks_list=masks_list,
+    colorbar_fix=True,
+    deseason_metrics=True
+)
+save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
 
 # ============================================================
 # Global Zonal Mean Distribution (all ocean, no basin split)
@@ -298,288 +298,288 @@ plot_zonal_mean_global_comparison_together(
 )
 save_current_fig("zonal_mean_global_thetao", ZONAL_MEAN_DIR)
 
-# # ============================================================
-# # ENSO Evaluation
-# # ============================================================
-# print("\n" + "="*60)
-# print("ENSO Evaluation (Niño 3.4)")
-# print("="*60)
-#
-# emulators_to_analyze_enso = emulators_to_analyze
-#
-# from functions import plot_nino34_comparison_together, compute_nino34_metrics
-#
-# ENSO_DIR = os.path.join(PDF_DIR, "enso")
-# os.makedirs(ENSO_DIR, exist_ok=True)
-#
-# # Niño 3.4 Index time series
-# plot_nino34_comparison_together(emulators_to_analyze_enso)
-# save_current_fig("nino34_index", ENSO_DIR)
-#
-# # Niño 3.4 numerical metrics
-# nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
-# print("\nNiño 3.4 Metrics:")
-# with pd.option_context('display.float_format', '{:.4f}'.format):
-#     print(nino_metrics.to_string(index=False))
-# csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
-# nino_metrics.to_csv(csv_path, index=False)
-# print(f"  -> Saved: {csv_path}")
+# ============================================================
+# ENSO Evaluation
+# ============================================================
+print("\n" + "="*60)
+print("ENSO Evaluation (Niño 3.4)")
+print("="*60)
 
-# # ============================================================
-# # Time Series
-# # ============================================================
-# print("\n" + "="*60)
-# print("Time Series Plots")
-# print("="*60)
-#
-# # Time Series (Thetao)
-# plot_mean_timeseries_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     var_units='$^\\circ$C',
-#     var_label='Temperature',
-#     output_dir=OUTPUT_DIR,
-#     overlay=True
-# )
-# save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
-#
-# # Time Series (Salinity)
-# plot_mean_timeseries_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='so',
-#     var_units='psu',
-#     var_label='Salinity',
-#     output_dir=OUTPUT_DIR,
-#     overlay=True
-# )
-# save_current_fig("timeseries_so_only", TIMESERIES_DIR)
+emulators_to_analyze_enso = emulators_to_analyze
 
-# # Detrended Time Series (Thetao)
-# plot_mean_timeseries_detrended_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     var_units='$^\\circ$C',
-#     var_label='Temperature',
-#     output_dir=OUTPUT_DIR,
-#     overlay=True
-# )
-# save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
-#
-# # Detrended Time Series (Salinity)
-# plot_mean_timeseries_detrended_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='so',
-#     var_units='psu',
-#     var_label='Salinity',
-#     output_dir=OUTPUT_DIR,
-#     overlay=True
-# )
-# save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+from functions import plot_nino34_comparison_together, compute_nino34_metrics
 
-# # ============================================================
-# # Temporal Variance Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Maps")
-# print("="*60)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_thetao", VARIANCE_DIR)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='so',
-#     units='psu',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_so", VARIANCE_DIR)
-#
-# plot_ke_variance_comparison_together(
-#     emulators_to_analyze,
-#     var_u='uo',
-#     var_v='vo',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True,
-#     n_levels=12
-# )
-# save_current_fig("variance_ke", VARIANCE_DIR)
+ENSO_DIR = os.path.join(PDF_DIR, "enso")
+os.makedirs(ENSO_DIR, exist_ok=True)
+
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index", ENSO_DIR)
+
+# Niño 3.4 numerical metrics
+nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+print("\nNiño 3.4 Metrics:")
+with pd.option_context('display.float_format', '{:.4f}'.format):
+    print(nino_metrics.to_string(index=False))
+csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+nino_metrics.to_csv(csv_path, index=False)
+print(f"  -> Saved: {csv_path}")
+
+# ============================================================
+# Time Series
+# ============================================================
+print("\n" + "="*60)
+print("Time Series Plots")
+print("="*60)
+
+# Time Series (Thetao)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR,
+    overlay=True
+)
+save_current_fig("timeseries_thetao_only", TIMESERIES_DIR)
+
+# Time Series (Salinity)
+plot_mean_timeseries_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR,
+    overlay=True
+)
+save_current_fig("timeseries_so_only", TIMESERIES_DIR)
+
+# Detrended Time Series (Thetao)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    var_units='$^\\circ$C',
+    var_label='Temperature',
+    output_dir=OUTPUT_DIR,
+    overlay=True
+)
+save_current_fig("timeseries_thetao_detrended", TIMESERIES_DIR)
+
+# Detrended Time Series (Salinity)
+plot_mean_timeseries_detrended_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    var_units='psu',
+    var_label='Salinity',
+    output_dir=OUTPUT_DIR,
+    overlay=True
+)
+save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+
+# ============================================================
+# Temporal Variance Maps
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Maps")
+print("="*60)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\\circ$C',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_thetao", VARIANCE_DIR)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    units='psu',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_so", VARIANCE_DIR)
+
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True,
+    n_levels=12
+)
+save_current_fig("variance_ke", VARIANCE_DIR)
 
 
-# # ============================================================
-# # Global Spatial Distribution Maps (non-deseason, metrics on deseasoned data)
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Spatial Distribution Maps")
-# print("="*60)
-#
-# VARIABLE_TO_PLOT = 'thetao'
-#
-# plot_snapshot_comparison_multidepth_together(
+# ============================================================
+# Global Spatial Distribution Maps (non-deseason, metrics on deseasoned data)
+# ============================================================
+print("\n" + "="*60)
+print("Global Spatial Distribution Maps")
+print("="*60)
+
+VARIABLE_TO_PLOT = 'thetao'
+
+plot_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    var_name=VARIABLE_TO_PLOT,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+    fix_colorbar=False,
+    remove_seasonal=False,
+    deseason_metrics=True,
+    n_levels=12
+)
+save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+
+# Velocity snapshots
+for vel_var in ['uo', 'vo']:
+    plot_snapshot_comparison_multidepth_together(
+        emulators_to_analyze,
+        var_name=vel_var,
+        time_indices=TIME_INDICES,
+        depth_configs=DEPTH_LAYERS,
+        fix_colorbar=False,
+        remove_seasonal=False,
+        deseason_metrics=True,
+        n_levels=12
+    )
+    save_current_fig(f"snapshot_multidepth_{vel_var}", SPATIAL_DISTRIBUTION_DIR)
+
+# from functions import plot_ke_snapshot_comparison_multidepth_together
+# plot_ke_snapshot_comparison_multidepth_together(
 #     emulators_to_analyze,
-#     var_name=VARIABLE_TO_PLOT,
 #     time_indices=TIME_INDICES,
 #     depth_configs=DEPTH_LAYERS,
-#     fix_colorbar=False,
-#     remove_seasonal=False,
-#     deseason_metrics=True,
+#     remove_seasonal=True,
 #     n_levels=12
 # )
-# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
-#
-# # Velocity snapshots
-# for vel_var in ['uo', 'vo']:
-#     plot_snapshot_comparison_multidepth_together(
-#         emulators_to_analyze,
-#         var_name=vel_var,
-#         time_indices=TIME_INDICES,
-#         depth_configs=DEPTH_LAYERS,
-#         fix_colorbar=False,
-#         remove_seasonal=False,
-#         deseason_metrics=True,
-#         n_levels=12
-#     )
-#     save_current_fig(f"snapshot_multidepth_{vel_var}", SPATIAL_DISTRIBUTION_DIR)
-
-# # from functions import plot_ke_snapshot_comparison_multidepth_together
-# # plot_ke_snapshot_comparison_multidepth_together(
-# #     emulators_to_analyze,
-# #     time_indices=TIME_INDICES,
-# #     depth_configs=DEPTH_LAYERS,
-# #     remove_seasonal=True,
-# #     n_levels=12
-# # )
-# # save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
+# save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
 
 
-# # ============================================================
-# # T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
-# # ============================================================
-# print("\n" + "="*60)
-# print("T vs U Anomaly Snapshot")
-# print("="*60)
-#
-# from matplotlib.gridspec import GridSpec
-#
-# # Remove seasonal cycle
-# def _deseason(da):
-#     clim = da.groupby('time.dayofyear').mean('time')
-#     return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
-#
-# # Get datasets
-# emu_labels_list = list(emulators_to_analyze.keys())
-# ds_truth = emulators_to_analyze[emu_labels_list[0]]['truth']
-# ds_samudra = emulators_to_analyze[emu_labels_list[0]]['ds']
-# ds_samudra2 = emulators_to_analyze[emu_labels_list[1]]['ds']
-#
-# # Deseason all fields
-# print("Removing seasonal cycle...")
-# truth_thetao_anom = _deseason(ds_truth['thetao'])
-# truth_uo_anom = _deseason(ds_truth['uo'])
-# sam_thetao_anom = _deseason(ds_samudra['thetao'])
-# sam_uo_anom = _deseason(ds_samudra['uo'])
-# sam2_thetao_anom = _deseason(ds_samudra2['thetao'])
-# sam2_uo_anom = _deseason(ds_samudra2['uo'])
-#
-# # Depth: deep ocean (3100m, index 15) where imprinting is most visible
-# DEPTH_IDX = 15
-# DEPTH_LABEL = '3100 m'
-#
-# for time_idx in TIME_INDICES:
-#     time_val = ds_truth.time.isel(time=time_idx).values
-#     time_str = str(time_val)[:10]
-#     print(f"Plotting T vs U snapshot at t={time_str}, depth={DEPTH_LABEL}...")
-#
-#     # Transposed layout: rows=variables, cols=datasets
-#     # panels[row, col] where row=variable, col=dataset
-#     panels = {
-#         (0, 0): truth_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#         (0, 1): sam_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#         (0, 2): sam2_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#         (1, 0): truth_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#         (1, 1): sam_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#         (1, 2): sam2_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
-#     }
-#
-#     col_labels = ['OM4', 'Samudra', 'Samudra 2']
-#     row_labels = ['Temperature\nAnomaly', 'U-Velocity\nAnomaly']
-#     row_units = ['°C', 'm/s']
-#     nrows_fig, ncols_fig = 2, 3
-#
-#     # Layout: 2 map rows + colorbar column on the right
-#     fig = plt.figure(figsize=(5 * ncols_fig + 0.8, 2.5 * nrows_fig))
-#     gs = GridSpec(nrows_fig, ncols_fig + 1, figure=fig,
-#                   height_ratios=[1, 1],
-#                   width_ratios=[1, 1, 1, 0.03],
-#                   hspace=0.08, wspace=0.08,
-#                   top=0.90, bottom=0.05, left=0.08, right=0.97)
-#
-#     proj = ccrs.Robinson(central_longitude=210)
-#     axes = np.empty((nrows_fig, ncols_fig), dtype=object)
-#     for i in range(nrows_fig):
-#         for j in range(ncols_fig):
-#             axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
-#
-#     # Place colorbar axes on the right side of each row (half height, centered)
-#     fig.canvas.draw()
-#     cbar_axes_row = []
-#     for i in range(nrows_fig):
-#         pos = axes[i, -1].get_position()
-#         cb_height = pos.height * 2 / 3
-#         cb_y0 = pos.y0 + (pos.height - cb_height) / 2
-#         cb_x0 = pos.x0 + pos.width + 0.03
-#         cax = fig.add_axes([cb_x0, cb_y0, 0.008, cb_height])
-#         cbar_axes_row.append(cax)
-#
-#     # Compute symmetric color ranges per row (from truth, col=0)
-#     norms = []
-#     for i in range(nrows_fig):
-#         valid = panels[(i, 0)].values.flatten()
-#         valid = valid[~np.isnan(valid)]
-#         abs_max = np.percentile(np.abs(valid), 95)
-#         norms.append(colors.Normalize(vmin=-abs_max, vmax=abs_max))
-#
-#     for i in range(nrows_fig):
-#         for j in range(ncols_fig):
-#             ax = axes[i, j]
-#             panels[(i, j)].plot.pcolormesh(
-#                 ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
-#                 cmap=plt.cm.RdBu_r, norm=norms[i], add_colorbar=False, rasterized=True)
-#             ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
-#             ax.coastlines(zorder=11)
-#             if i == 0:
-#                 ax.set_title(col_labels[j], fontweight='bold', fontsize=16)
-#             else:
-#                 ax.set_title("")
-#             if j == 0:
-#                 ax.text(-0.07, 0.55, row_labels[i], va='center', ha='right', rotation=90,
-#                         transform=ax.transAxes, fontweight='bold', fontsize=16,
-#                         multialignment='center')
-#             # RMSE & Corr for emulator cols (vs OM4 truth, col=0)
-#             if j > 0:
-#                 emu_vals = panels[(i, j)].values.flatten()
-#                 tru_vals = panels[(i, 0)].values.flatten()
-#                 valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
-#                 rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
-#                 corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
-#                 ax.text(0.02, 0.95, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
-#                         transform=ax.transAxes, fontsize=13, fontweight='bold', color='black',
-#                         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
-#                         verticalalignment='top', linespacing=1.3, zorder=20)
-#
-#     # Vertical colorbar on the right side of each row
-#     for i in range(nrows_fig):
-#         cb = fig.colorbar(plt.cm.ScalarMappable(norm=norms[i], cmap=plt.cm.RdBu_r),
-#                           cax=cbar_axes_row[i], orientation='vertical',
-#                           label=f'{row_units[i]}')
-#         cb.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=3))
-#
-#     fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
-#     plt.show()
-#     save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)
+# ============================================================
+# T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
+# ============================================================
+print("\n" + "="*60)
+print("T vs U Anomaly Snapshot")
+print("="*60)
+
+from matplotlib.gridspec import GridSpec
+
+# Remove seasonal cycle
+def _deseason(da):
+    clim = da.groupby('time.dayofyear').mean('time')
+    return (da.groupby('time.dayofyear') - clim).drop_vars('dayofyear')
+
+# Get datasets
+emu_labels_list = list(emulators_to_analyze.keys())
+ds_truth = emulators_to_analyze[emu_labels_list[0]]['truth']
+ds_samudra = emulators_to_analyze[emu_labels_list[0]]['ds']
+ds_samudra2 = emulators_to_analyze[emu_labels_list[1]]['ds']
+
+# Deseason all fields
+print("Removing seasonal cycle...")
+truth_thetao_anom = _deseason(ds_truth['thetao'])
+truth_uo_anom = _deseason(ds_truth['uo'])
+sam_thetao_anom = _deseason(ds_samudra['thetao'])
+sam_uo_anom = _deseason(ds_samudra['uo'])
+sam2_thetao_anom = _deseason(ds_samudra2['thetao'])
+sam2_uo_anom = _deseason(ds_samudra2['uo'])
+
+# Depth: deep ocean (3100m, index 15) where imprinting is most visible
+DEPTH_IDX = 15
+DEPTH_LABEL = '3100 m'
+
+for time_idx in TIME_INDICES:
+    time_val = ds_truth.time.isel(time=time_idx).values
+    time_str = str(time_val)[:10]
+    print(f"Plotting T vs U snapshot at t={time_str}, depth={DEPTH_LABEL}...")
+
+    # Transposed layout: rows=variables, cols=datasets
+    # panels[row, col] where row=variable, col=dataset
+    panels = {
+        (0, 0): truth_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+        (0, 1): sam_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+        (0, 2): sam2_thetao_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+        (1, 0): truth_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+        (1, 1): sam_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+        (1, 2): sam2_uo_anom.isel(time=time_idx, lev=DEPTH_IDX).compute(),
+    }
+
+    col_labels = ['OM4', 'Samudra', 'Samudra 2']
+    row_labels = ['Temperature\nAnomaly', 'U-Velocity\nAnomaly']
+    row_units = ['°C', 'm/s']
+    nrows_fig, ncols_fig = 2, 3
+
+    # Layout: 2 map rows + colorbar column on the right
+    fig = plt.figure(figsize=(5 * ncols_fig + 0.8, 2.5 * nrows_fig))
+    gs = GridSpec(nrows_fig, ncols_fig + 1, figure=fig,
+                  height_ratios=[1, 1],
+                  width_ratios=[1, 1, 1, 0.03],
+                  hspace=0.08, wspace=0.08,
+                  top=0.90, bottom=0.05, left=0.08, right=0.97)
+
+    proj = ccrs.Robinson(central_longitude=210)
+    axes = np.empty((nrows_fig, ncols_fig), dtype=object)
+    for i in range(nrows_fig):
+        for j in range(ncols_fig):
+            axes[i, j] = fig.add_subplot(gs[i, j], projection=proj)
+
+    # Place colorbar axes on the right side of each row (half height, centered)
+    fig.canvas.draw()
+    cbar_axes_row = []
+    for i in range(nrows_fig):
+        pos = axes[i, -1].get_position()
+        cb_height = pos.height * 2 / 3
+        cb_y0 = pos.y0 + (pos.height - cb_height) / 2
+        cb_x0 = pos.x0 + pos.width + 0.03
+        cax = fig.add_axes([cb_x0, cb_y0, 0.008, cb_height])
+        cbar_axes_row.append(cax)
+
+    # Compute symmetric color ranges per row (from truth, col=0)
+    norms = []
+    for i in range(nrows_fig):
+        valid = panels[(i, 0)].values.flatten()
+        valid = valid[~np.isnan(valid)]
+        abs_max = np.percentile(np.abs(valid), 95)
+        norms.append(colors.Normalize(vmin=-abs_max, vmax=abs_max))
+
+    for i in range(nrows_fig):
+        for j in range(ncols_fig):
+            ax = axes[i, j]
+            panels[(i, j)].plot.pcolormesh(
+                ax=ax, transform=ccrs.PlateCarree(), x='x', y='y',
+                cmap=plt.cm.RdBu_r, norm=norms[i], add_colorbar=False, rasterized=True)
+            ax.add_feature(cfeature.LAND, zorder=10, edgecolor='black', facecolor='lightgray')
+            ax.coastlines(zorder=11)
+            if i == 0:
+                ax.set_title(col_labels[j], fontweight='bold', fontsize=16)
+            else:
+                ax.set_title("")
+            if j == 0:
+                ax.text(-0.07, 0.55, row_labels[i], va='center', ha='right', rotation=90,
+                        transform=ax.transAxes, fontweight='bold', fontsize=16,
+                        multialignment='center')
+            # RMSE & Corr for emulator cols (vs OM4 truth, col=0)
+            if j > 0:
+                emu_vals = panels[(i, j)].values.flatten()
+                tru_vals = panels[(i, 0)].values.flatten()
+                valid = ~(np.isnan(emu_vals) | np.isnan(tru_vals))
+                rmse = np.sqrt(np.mean((emu_vals[valid] - tru_vals[valid])**2))
+                corr = np.corrcoef(emu_vals[valid], tru_vals[valid])[0, 1]
+                ax.text(0.02, 0.95, f'RMSE: {rmse:.4f}\nCorr: {corr:.4f}',
+                        transform=ax.transAxes, fontsize=13, fontweight='bold', color='black',
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
+                        verticalalignment='top', linespacing=1.3, zorder=20)
+
+    # Vertical colorbar on the right side of each row
+    for i in range(nrows_fig):
+        cb = fig.colorbar(plt.cm.ScalarMappable(norm=norms[i], cmap=plt.cm.RdBu_r),
+                          cax=cbar_axes_row[i], orientation='vertical',
+                          label=f'{row_units[i]}')
+        cb.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=3))
+
+    fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
+    plt.show()
+    save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)

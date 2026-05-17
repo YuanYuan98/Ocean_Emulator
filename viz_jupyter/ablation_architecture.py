@@ -123,7 +123,7 @@ TRUTH_CONFIGS = [
 
 LEVS_PATH = '/pscratch/sd/a/asubel/Data/Chapter_2/CM4_CMIP_New.zarr/'
 OCEAN_SAMPLE_PATH = '/pscratch/sd/a/asubel/full-model/scratch/ocean_sample.nc'
-STATIC_GRID_PATH = 's3://emulators/am16581/ocean_static_no_mask_table.zarr'
+STATIC_GRID_PATH = 's3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr'
 
 print(f"Output Directory: {OUTPUT_DIR}")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -199,15 +199,15 @@ dz_from_data = (depth_levels[1:] - depth_levels[:-1])
 # Load Grid & Generate Masks
 shape_processed = (emulators_raw[0].y.size, emulators_raw[0].x.size)
 print(f"Loading target grid for shape {shape_processed}...")
-target_grid_path = f"s3://emulators/am16581/grids/gaussian_grid_{shape_processed[0]}_by_{shape_processed[1]}.zarr"
-target_grid = xr.open_zarr(target_grid_path, storage_options=storage_options)
+target_grid_path = f"s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_{shape_processed[0]}_by_{shape_processed[1]}.zarr"
+target_grid = xr.open_zarr(target_grid_path, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
 target_grid = target_grid.rename({
     "grid_x": "x_b", "grid_y": "y_b", "grid_xt": "x", "grid_yt": "y",
     "grid_lon": "lon_b", "grid_lat": "lat_b", "grid_lont": "lon", "grid_latt": "lat",
 }).compute()
 
 print("Regridding basin mask...")
-ds_static = xr.open_zarr(STATIC_GRID_PATH, storage_options=storage_options)
+ds_static = xr.open_zarr(STATIC_GRID_PATH, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
 ds_source = ds_static[['basin', 'geolat', 'geolon']].rename({'geolat': 'lat', 'geolon': 'lon'})
 ds_target = target_grid[['lat', 'lon']]
 regridder = xe.Regridder(ds_source, ds_target, method='nearest_s2d', periodic=True, reuse_weights=False)
@@ -236,8 +236,8 @@ for idx, emu_ds in enumerate(emulators_raw):
     shape = (emu_ds.y.size, emu_ds.x.size)
     print(f"Processing resolution {shape}...")
 
-    target_grid_path = f"s3://emulators/am16581/grids/gaussian_grid_{shape[0]}_by_{shape[1]}.zarr"
-    target_grid_res = xr.open_zarr(target_grid_path, storage_options=storage_options)
+    target_grid_path = f"s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_{shape[0]}_by_{shape[1]}.zarr"
+    target_grid_res = xr.open_zarr(target_grid_path, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
     target_grid_res = target_grid_res.rename({
         "grid_x": "x_b", "grid_y": "y_b", "grid_xt": "x", "grid_yt": "y",
         "grid_lon": "lon_b", "grid_lat": "lat_b", "grid_lont": "lon", "grid_latt": "lat",
@@ -279,81 +279,81 @@ for label, emu_data in emulators_to_analyze.items():
     masks = extract_basin_masks(ds_truth)
     masks_list.append(masks)
 
-# # ============================================================
-# # ENSO Evaluation
-# # ============================================================
-# print("\n" + "="*60)
-# print("ENSO Evaluation (Niño 3.4)")
-# print("="*60)
+# ============================================================
+# ENSO Evaluation
+# ============================================================
+print("\n" + "="*60)
+print("ENSO Evaluation (Niño 3.4)")
+print("="*60)
 
-# emulators_to_analyze_enso = emulators_to_analyze
+emulators_to_analyze_enso = emulators_to_analyze
 
-# from functions import plot_nino34_comparison_together, compute_nino34_metrics
+from functions import plot_nino34_comparison_together, compute_nino34_metrics
 
-# ENSO_DIR = os.path.join(PDF_DIR, "enso")
-# os.makedirs(ENSO_DIR, exist_ok=True)
+ENSO_DIR = os.path.join(PDF_DIR, "enso")
+os.makedirs(ENSO_DIR, exist_ok=True)
 
-# # Niño 3.4 Index time series
-# plot_nino34_comparison_together(emulators_to_analyze_enso)
-# save_current_fig("nino34_index", ENSO_DIR)
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index", ENSO_DIR)
 
-# # Niño 3.4 numerical metrics
-# nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
-# print("\nNiño 3.4 Metrics:")
-# with pd.option_context('display.float_format', '{:.4f}'.format):
-#     print(nino_metrics.to_string(index=False))
-# csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
-# nino_metrics.to_csv(csv_path, index=False)
-# print(f"  -> Saved: {csv_path}")
+# Niño 3.4 numerical metrics
+nino_metrics = compute_nino34_metrics(emulators_to_analyze_enso)
+print("\nNiño 3.4 Metrics:")
+with pd.option_context('display.float_format', '{:.4f}'.format):
+    print(nino_metrics.to_string(index=False))
+csv_path = os.path.join(ENSO_DIR, "nino34_metrics.csv")
+nino_metrics.to_csv(csv_path, index=False)
+print(f"  -> Saved: {csv_path}")
 
-# emulators_to_analyze_enso = {
-#     label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra 2"]
-# }
-# # Niño 3.4 Index time series
-# plot_nino34_comparison_together(emulators_to_analyze_enso)
-# save_current_fig("nino34_index_v1_v2", ENSO_DIR)
+emulators_to_analyze_enso = {
+    label: data for label, data in emulators_to_analyze.items() if label in ["Samudra", "Samudra 2"]
+}
+# Niño 3.4 Index time series
+plot_nino34_comparison_together(emulators_to_analyze_enso)
+save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 
 
 
 # SPECTRUM_REGIONS is imported from functions.py
 
 
-# # ============================================================
-# # Temporal Variance Numerical Metrics
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Numerical Metrics")
-# print("="*60)
+# ============================================================
+# Temporal Variance Numerical Metrics
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Numerical Metrics")
+print("="*60)
 
-# import pandas as pd
-# from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+import pandas as pd
+from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
-# for var_name in ['thetao', 'so']:
-#     print(f"\n--- {var_name} ---")
-#     raw = compute_temporal_variance_metrics(
-#         emulators_dict=emulators_to_analyze,
-#         variable_name=var_name,
-#         spectrum_regions=SPECTRUM_REGIONS,
-#     )
-#     table = format_variance_metrics_table(raw)
-#     with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#         print(table.to_string())
-#     csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
-#     table.to_csv(csv_path)
-#     print(f"  -> Saved: {csv_path}")
+for var_name in ['thetao', 'so']:
+    print(f"\n--- {var_name} ---")
+    raw = compute_temporal_variance_metrics(
+        emulators_dict=emulators_to_analyze,
+        variable_name=var_name,
+        spectrum_regions=SPECTRUM_REGIONS,
+    )
+    table = format_variance_metrics_table(raw)
+    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+        print(table.to_string())
+    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+    table.to_csv(csv_path)
+    print(f"  -> Saved: {csv_path}")
 
-# print(f"\n--- KE ---")
-# ke_raw = compute_ke_temporal_variance_metrics(
-#     emulators_dict=emulators_to_analyze,
-#     spectrum_regions=SPECTRUM_REGIONS,
-# )
-# ke_table = format_variance_metrics_table(ke_raw)
-# with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#     print(ke_table.to_string())
-# csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
-# ke_table.to_csv(csv_path)
-# print(f"  -> Saved: {csv_path}")
+print(f"\n--- KE ---")
+ke_raw = compute_ke_temporal_variance_metrics(
+    emulators_dict=emulators_to_analyze,
+    spectrum_regions=SPECTRUM_REGIONS,
+)
+ke_table = format_variance_metrics_table(ke_raw)
+with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+    print(ke_table.to_string())
+csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+ke_table.to_csv(csv_path)
+print(f"  -> Saved: {csv_path}")
 
 
 # ============================================================
@@ -535,200 +535,200 @@ ncols = (n_regions + 1) // 2
 
 
 
-# # ============================================================
-# # Temporal Variance Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Maps")
-# print("="*60)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\\circ$C',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_thetao", VARIANCE_DIR)
-#
-# plot_variance_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='so',
-#     units='psu',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_so", VARIANCE_DIR)
-#
-# plot_ke_variance_comparison_together(
-#     emulators_to_analyze,
-#     var_u='uo',
-#     var_v='vo',
-#     output_dir=OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("variance_ke", VARIANCE_DIR)
+# ============================================================
+# Temporal Variance Maps
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Maps")
+print("="*60)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\\circ$C',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_thetao", VARIANCE_DIR)
+
+plot_variance_comparison_together(
+    emulators_to_analyze,
+    variable_name='so',
+    units='psu',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_so", VARIANCE_DIR)
+
+plot_ke_variance_comparison_together(
+    emulators_to_analyze,
+    var_u='uo',
+    var_v='vo',
+    output_dir=OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("variance_ke", VARIANCE_DIR)
 
 
 
 
 
-# # ============================================================
-# # Zonal Mean Bias
-# # ============================================================
-# print("\n" + "="*60)
-# print("Zonal Mean Bias")
-# print("="*60)
+# ============================================================
+# Zonal Mean Bias
+# ============================================================
+print("\n" + "="*60)
+print("Zonal Mean Bias")
+print("="*60)
 
-# plot_ohc_zonal_bias_ocean_comparison_together(
-#     emulators_to_analyze,
-#     masks_list=masks_list,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
+plot_ohc_zonal_bias_ocean_comparison_together(
+    emulators_to_analyze,
+    masks_list=masks_list,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
 
-# plot_zonal_bias_ocean_comparison_together(
-#     emulators_to_analyze,
-#     'thetao',
-#     '$^\\circ$C',
-#     masks_list,
-#     OUTPUT_DIR,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+plot_zonal_bias_ocean_comparison_together(
+    emulators_to_analyze,
+    'thetao',
+    '$^\\circ$C',
+    masks_list,
+    OUTPUT_DIR,
+    colorbar_fix=True
+)
+save_current_fig("zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
 
-# plot_snapshot_zonal_bias_ocean_comparison_together(
-#     emulators_dict=emulators_to_analyze,
-#     variable_name='thetao',
-#     units='°C',
-#     masks_list=masks_list,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
+plot_snapshot_zonal_bias_ocean_comparison_together(
+    emulators_dict=emulators_to_analyze,
+    variable_name='thetao',
+    units='°C',
+    masks_list=masks_list,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("snapshot_zonal_bias_ocean_thetao", ZONAL_BIAS_DIR)
 
-# plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
-#     emulators_dict=emulators_to_analyze,
-#     masks_list=masks_list,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
-
-
-# # ============================================================
-# # Global Spatial Bias Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Spatial Bias Maps")
-# print("="*60)
-
-# plot_ohc_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
-# save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
-
-# plot_temperature_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
-# save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
-
-# plot_ohc_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
-# save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
-
-# plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
-# save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
-
-# from functions import plot_ke_snapshot_bias_comparison_together
-# plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
-# save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
+plot_snapshot_ohc_zonal_bias_ocean_comparison_together(
+    emulators_dict=emulators_to_analyze,
+    masks_list=masks_list,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("snapshot_ohc_zonal_bias_ocean", ZONAL_BIAS_DIR)
 
 
-# # ============================================================
-# # Zonal Mean Distribution
-# # ============================================================
-# print("\n" + "="*60)
-# print("Zonal Mean Distribution")
-# print("="*60)
+# ============================================================
+# Global Spatial Bias Maps
+# ============================================================
+print("\n" + "="*60)
+print("Global Spatial Bias Maps")
+print("="*60)
 
-# plot_zonal_mean_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
+plot_ohc_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
+save_current_fig("ohc_bias", SPATIAL_BIAS_DIR)
 
-# plot_ohc_zonal_mean_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
+plot_temperature_bias_comparison_together(emulators_to_analyze, colorbar_fix=True)
+save_current_fig("temperature_bias", SPATIAL_BIAS_DIR)
 
-# plot_zonal_snapshot_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list,
-#     time_indices=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
+plot_ohc_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
+save_current_fig("ohc_snapshot_bias", SPATIAL_BIAS_DIR)
 
-# plot_ohc_zonal_snapshot_comparison_together(
-#     emulators_to_analyze,
-#     variable_name='thetao',
-#     units='$^\circ$C',
-#     masks_list=masks_list,
-#     TIME_INDICES=TIME_INDICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
+plot_temperature_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, colorbar_fix=True)
+save_current_fig("temperature_snapshot_bias", SPATIAL_BIAS_DIR)
+
+from functions import plot_ke_snapshot_bias_comparison_together
+plot_ke_snapshot_bias_comparison_together(emulators_to_analyze, TIME_INDICES, DEPTH_LAYERS)
+save_current_fig("ke_snapshot_bias", SPATIAL_BIAS_DIR)
 
 
-# # ============================================================
-# # Global Spatial Distribution Maps
-# # ============================================================
-# print("\n" + "="*60)
-# print("Global Spatial Distribution Maps")
-# print("="*60)
+# ============================================================
+# Zonal Mean Distribution
+# ============================================================
+print("\n" + "="*60)
+print("Zonal Mean Distribution")
+print("="*60)
 
-# plot_ohc_mean_comparison_together(
-#     emulators_to_analyze,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
+plot_zonal_mean_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list,
+    colorbar_fix=True
+)
+save_current_fig("zonal_mean_thetao", ZONAL_MEAN_DIR)
 
-# plot_temperature_mean_comparison_together(
-#     emulators_to_analyze,
-#     colorbar_fix=True
-# )
-# save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+plot_ohc_zonal_mean_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_mean", ZONAL_MEAN_DIR)
 
-# VARIABLE_TO_PLOT = 'thetao'
+plot_zonal_snapshot_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list,
+    time_indices=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("zonal_snapshot_thetao", ZONAL_MEAN_DIR)
 
-# plot_snapshot_comparison_multidepth_together(
-#     emulators_to_analyze,
-#     var_name=VARIABLE_TO_PLOT,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_LAYERS,
-#     fix_colorbar=True
-# )
-# save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+plot_ohc_zonal_snapshot_comparison_together(
+    emulators_to_analyze,
+    variable_name='thetao',
+    units='$^\circ$C',
+    masks_list=masks_list,
+    TIME_INDICES=TIME_INDICES,
+    colorbar_fix=True
+)
+save_current_fig("ohc_zonal_snapshot", ZONAL_MEAN_DIR)
 
-# plot_ohc_snapshot_comparison_multidepth_together(
-#     emulators_to_analyze,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_SLICES,
-#     colorbar_fix=True
-# )
-# save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 
-# from functions import plot_ke_snapshot_comparison_multidepth_together
-# plot_ke_snapshot_comparison_multidepth_together(
-#     emulators_to_analyze,
-#     time_indices=TIME_INDICES,
-#     depth_configs=DEPTH_LAYERS,
-# )
-# save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+# ============================================================
+# Global Spatial Distribution Maps
+# ============================================================
+print("\n" + "="*60)
+print("Global Spatial Distribution Maps")
+print("="*60)
+
+plot_ohc_mean_comparison_together(
+    emulators_to_analyze,
+    colorbar_fix=True
+)
+save_current_fig("ohc_mean", SPATIAL_DISTRIBUTION_DIR)
+
+plot_temperature_mean_comparison_together(
+    emulators_to_analyze,
+    colorbar_fix=True
+)
+save_current_fig("temperature_mean", SPATIAL_DISTRIBUTION_DIR)
+
+VARIABLE_TO_PLOT = 'thetao'
+
+plot_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    var_name=VARIABLE_TO_PLOT,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+    fix_colorbar=True
+)
+save_current_fig("snapshot_multidepth_thetao", SPATIAL_DISTRIBUTION_DIR)
+
+plot_ohc_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_SLICES,
+    colorbar_fix=True
+)
+save_current_fig("ohc_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
+
+from functions import plot_ke_snapshot_comparison_multidepth_together
+plot_ke_snapshot_comparison_multidepth_together(
+    emulators_to_analyze,
+    time_indices=TIME_INDICES,
+    depth_configs=DEPTH_LAYERS,
+)
+save_current_fig("ke_snapshot_multidepth", SPATIAL_DISTRIBUTION_DIR)
 

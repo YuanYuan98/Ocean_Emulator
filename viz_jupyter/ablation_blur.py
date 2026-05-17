@@ -91,7 +91,7 @@ TRUTH_CONFIGS = [
 
 LEVS_PATH = '/pscratch/sd/a/asubel/Data/Chapter_2/CM4_CMIP_New.zarr/'
 OCEAN_SAMPLE_PATH = '/pscratch/sd/a/asubel/full-model/scratch/ocean_sample.nc'
-STATIC_GRID_PATH = 's3://emulators/am16581/ocean_static_no_mask_table.zarr'
+STATIC_GRID_PATH = 's3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr'
 
 print(f"Output Directory: {OUTPUT_DIR}")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -167,15 +167,15 @@ dz_from_data = (depth_levels[1:] - depth_levels[:-1])
 # Load Grid & Generate Masks
 shape_processed = (emulators_raw[0].y.size, emulators_raw[0].x.size)
 print(f"Loading target grid for shape {shape_processed}...")
-target_grid_path = f"s3://emulators/am16581/grids/gaussian_grid_{shape_processed[0]}_by_{shape_processed[1]}.zarr"
-target_grid = xr.open_zarr(target_grid_path, storage_options=storage_options)
+target_grid_path = f"s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_{shape_processed[0]}_by_{shape_processed[1]}.zarr"
+target_grid = xr.open_zarr(target_grid_path, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
 target_grid = target_grid.rename({
     "grid_x": "x_b", "grid_y": "y_b", "grid_xt": "x", "grid_yt": "y",
     "grid_lon": "lon_b", "grid_lat": "lat_b", "grid_lont": "lon", "grid_latt": "lat",
 }).compute()
 
 print("Regridding basin mask...")
-ds_static = xr.open_zarr(STATIC_GRID_PATH, storage_options=storage_options)
+ds_static = xr.open_zarr(STATIC_GRID_PATH, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
 ds_source = ds_static[['basin', 'geolat', 'geolon']].rename({'geolat': 'lat', 'geolon': 'lon'})
 ds_target = target_grid[['lat', 'lon']]
 regridder = xe.Regridder(ds_source, ds_target, method='nearest_s2d', periodic=True, reuse_weights=False)
@@ -204,8 +204,8 @@ for idx, emu_ds in enumerate(emulators_raw):
     shape = (emu_ds.y.size, emu_ds.x.size)
     print(f"Processing resolution {shape}...")
 
-    target_grid_path = f"s3://emulators/am16581/grids/gaussian_grid_{shape[0]}_by_{shape[1]}.zarr"
-    target_grid_res = xr.open_zarr(target_grid_path, storage_options=storage_options)
+    target_grid_path = f"s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_{shape[0]}_by_{shape[1]}.zarr"
+    target_grid_res = xr.open_zarr(target_grid_path, storage_options={"anon": True, "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"}})
     target_grid_res = target_grid_res.rename({
         "grid_x": "x_b", "grid_y": "y_b", "grid_xt": "x", "grid_yt": "y",
         "grid_lon": "lon_b", "grid_lat": "lat_b", "grid_lont": "lon", "grid_latt": "lat",
@@ -286,41 +286,41 @@ save_current_fig("nino34_index_v1_v2", ENSO_DIR)
 # SPECTRUM_REGIONS is imported from functions.py
 
 
-# # ============================================================
-# # Temporal Variance Numerical Metrics
-# # ============================================================
-# print("\n" + "="*60)
-# print("Temporal Variance Numerical Metrics")
-# print("="*60)
+# ============================================================
+# Temporal Variance Numerical Metrics
+# ============================================================
+print("\n" + "="*60)
+print("Temporal Variance Numerical Metrics")
+print("="*60)
 
-# from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
+from functions import compute_temporal_variance_metrics, compute_ke_temporal_variance_metrics, format_variance_metrics_table
 
 
-# for var_name in ['thetao', 'so']:
-#     print(f"\n--- {var_name} ---")
-#     raw = compute_temporal_variance_metrics(
-#         emulators_dict=emulators_to_analyze,
-#         variable_name=var_name,
-#         spectrum_regions=SPECTRUM_REGIONS,
-#     )
-#     table = format_variance_metrics_table(raw)
-#     with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#         print(table.to_string())
-#     csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
-#     table.to_csv(csv_path)
-#     print(f"  -> Saved: {csv_path}")
+for var_name in ['thetao', 'so']:
+    print(f"\n--- {var_name} ---")
+    raw = compute_temporal_variance_metrics(
+        emulators_dict=emulators_to_analyze,
+        variable_name=var_name,
+        spectrum_regions=SPECTRUM_REGIONS,
+    )
+    table = format_variance_metrics_table(raw)
+    with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+        print(table.to_string())
+    csv_path = os.path.join(PDF_DIR, f"temporal_variance_metrics_{var_name}.csv")
+    table.to_csv(csv_path)
+    print(f"  -> Saved: {csv_path}")
 
-# print(f"\n--- KE ---")
-# ke_raw = compute_ke_temporal_variance_metrics(
-#     emulators_dict=emulators_to_analyze,
-#     spectrum_regions=SPECTRUM_REGIONS,
-# )
-# ke_table = format_variance_metrics_table(ke_raw)
-# with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
-#     print(ke_table.to_string())
-# csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
-# ke_table.to_csv(csv_path)
-# print(f"  -> Saved: {csv_path}")
+print(f"\n--- KE ---")
+ke_raw = compute_ke_temporal_variance_metrics(
+    emulators_dict=emulators_to_analyze,
+    spectrum_regions=SPECTRUM_REGIONS,
+)
+ke_table = format_variance_metrics_table(ke_raw)
+with pd.option_context('display.float_format', '{:.4e}'.format, 'display.max_rows', None, 'display.max_columns', None, 'display.width', 300):
+    print(ke_table.to_string())
+csv_path = os.path.join(PDF_DIR, "temporal_variance_metrics_ke.csv")
+ke_table.to_csv(csv_path)
+print(f"  -> Saved: {csv_path}")
 
 
 # ============================================================
