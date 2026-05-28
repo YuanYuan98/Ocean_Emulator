@@ -259,6 +259,8 @@ for i, ds in enumerate(processed_emulators):
         'truth_label': TRUTH_CONFIGS[i][1]
     }
 
+# ----- COMMENTED OUT: basin masks, zonal mean, ENSO, time series -----
+"""
 from functions import extract_basin_masks
 masks_list = []
 for label, emu_data in emulators_to_analyze.items():
@@ -375,14 +377,17 @@ plot_mean_timeseries_detrended_comparison_together(
     overlay=True
 )
 save_current_fig("timeseries_so_detrended", TIMESERIES_DIR)
+"""
 
 # ============================================================
-# Temporal Variance Maps
+# Temporal Variance of EKE (only)
 # ============================================================
 print("\n" + "="*60)
-print("Temporal Variance Maps")
+print("Temporal Variance of EKE")
 print("="*60)
 
+# ----- COMMENTED OUT: thetao + so variance -----
+"""
 plot_variance_comparison_together(
     emulators_to_analyze,
     variable_name='thetao',
@@ -400,6 +405,7 @@ plot_variance_comparison_together(
     colorbar_fix=True
 )
 save_current_fig("variance_so", VARIANCE_DIR)
+"""
 
 plot_ke_variance_comparison_together(
     emulators_to_analyze,
@@ -412,6 +418,8 @@ plot_ke_variance_comparison_together(
 save_current_fig("variance_ke", VARIANCE_DIR)
 
 
+# ----- COMMENTED OUT: Global Spatial Distribution Maps -----
+"""
 # ============================================================
 # Global Spatial Distribution Maps (non-deseason, metrics on deseasoned data)
 # ============================================================
@@ -446,6 +454,7 @@ for vel_var in ['uo', 'vo']:
         n_levels=12
     )
     save_current_fig(f"snapshot_multidepth_{vel_var}", SPATIAL_DISTRIBUTION_DIR)
+"""
 
 # from functions import plot_ke_snapshot_comparison_multidepth_together
 # plot_ke_snapshot_comparison_multidepth_together(
@@ -458,6 +467,8 @@ for vel_var in ['uo', 'vo']:
 # save_current_fig("ke_snapshot_multidepth_deseasoned", SPATIAL_DISTRIBUTION_DIR)
 
 
+# ----- COMMENTED OUT: T vs U Anomaly Snapshot -----
+"""
 # ============================================================
 # T vs U Anomaly Snapshot: 2 rows (T, uo) × 3 cols (OM4, Samudra, Samudra 2)
 # ============================================================
@@ -583,3 +594,4 @@ for time_idx in TIME_INDICES:
     fig.suptitle(f"Anomaly Snapshot at {DEPTH_LABEL}, t={time_str}", y=1.02, fontsize=16)
     plt.show()
     save_current_fig(f"snapshot_T_vs_U_{DEPTH_LABEL.replace(' ','')}_{time_str}", SPATIAL_DISTRIBUTION_DIR)
+"""

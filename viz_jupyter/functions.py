@@ -1069,6 +1069,7 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
         ax.set_title(key, fontweight='bold')
 
         # Emulator rows
+        truth_vals = plot_data_truth[ref_tl][key].values.flatten()
         for i, ds_name in enumerate(datasets):
             ax = axes[n_truths + i, j]
             p_mesh = plot_data[ds_name][key].plot.pcolormesh(
@@ -1080,6 +1081,17 @@ def plot_ke_variance_comparison_together(emulators_dict, var_u='uo', var_v='vo',
             if j == 0: ax.text(-0.07, 0.55, row_label, va='center', ha='right', rotation=90,
                                transform=ax.transAxes, fontweight='bold', multialignment='center')
             ax.set_title("")
+
+            # Global EKE pattern correlation & RMSE vs truth
+            emu_vals = plot_data[ds_name][key].values.flatten()
+            valid = ~(np.isnan(emu_vals) | np.isnan(truth_vals))
+            if valid.sum() > 1:
+                corr = np.corrcoef(emu_vals[valid], truth_vals[valid])[0, 1]
+                rmse = np.sqrt(np.mean((emu_vals[valid] - truth_vals[valid]) ** 2))
+                ax.text(0.02, 0.95, f'Corr: {corr:.3f}\nRMSE: {rmse:.2e}',
+                        transform=ax.transAxes, fontsize=9, fontweight='bold', color='black',
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
+                        verticalalignment='top', linespacing=1.2, zorder=20)
 
         _ext = 'both' if n_levels is not None else 'neither'
         cb = fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"EKE ({units})", extend=_ext)
