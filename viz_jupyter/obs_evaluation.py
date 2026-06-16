@@ -91,8 +91,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--plot-deseasoned-anomaly",
-    action="store_true",
-    help="Also write deseasoned-anomaly time-series figures. Disabled by default to keep the report set compact.",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help=(
+        "Write monthly-climatology-removed anomaly time-series figures. "
+        "Enabled by default; pass --no-plot-deseasoned-anomaly to skip."
+    ),
 )
 args = parser.parse_args()
 
@@ -806,6 +810,18 @@ def _series_without_given_monthly_climatology(series: pd.Series, climatology: pd
 def _series_without_monthly_climatology(series: pd.Series) -> pd.Series:
     climatology = _series_monthly_climatology(series)
     return _series_without_given_monthly_climatology(series, climatology)
+
+
+def _series_without_linear_trend(series: pd.Series) -> pd.Series:
+    values = series.astype(float)
+    finite = np.isfinite(values.values)
+    if finite.sum() < 2:
+        return values - values.mean()
+
+    x = np.arange(len(values), dtype=float)
+    slope, intercept = np.polyfit(x[finite], values.values[finite], 1)
+    trend = pd.Series(slope * x + intercept, index=values.index)
+    return values - trend
 
 
 def _has_repeated_calendar_months(series: pd.Series) -> bool:
@@ -2305,7 +2321,7 @@ def _plot_ohc_deseasoned_anomaly_timeseries(
             ax.text(
                 0.5,
                 0.5,
-                "Need at least two complete calendar years\nfor deseasoned monthly anomalies",
+                "Need at least two complete calendar years\nfor deseasonalized monthly anomalies",
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
@@ -2315,7 +2331,8 @@ def _plot_ohc_deseasoned_anomaly_timeseries(
         for label, sim in sim_ohc.items():
             sim_series = sim.sel(depth_slice=depth_title).to_series()
             if obs_has_clim:
-                sim_anom = _series_without_given_monthly_climatology(sim_series, obs_clim)
+                sim_clim = _series_monthly_climatology(sim_series)
+                sim_anom = _series_without_given_monthly_climatology(sim_series, sim_clim)
                 rmse = _rmse_between_series(obs_anom, sim_anom)
                 ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
             else:
@@ -2330,7 +2347,7 @@ def _plot_ohc_deseasoned_anomaly_timeseries(
             )
 
         ax.set_title(f"{depth_title}", fontsize=14)
-        ax.set_ylabel("Deseasoned anomaly (J)", fontsize=13)
+        ax.set_ylabel("Deseasonalized anomaly (J)", fontsize=13)
         ax.tick_params(axis="both", labelsize=12)
         ax.grid(True, alpha=0.3)
 
@@ -2346,11 +2363,145 @@ def _plot_ohc_deseasoned_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = f"ARGO climatology {climatology_label}" if climatology_label is not None else None
+    extra = (
+        f"climatologies: ARGO {climatology_label}; models {period_label}"
+        if climatology_label is not None
+        else f"climatologies: each series {period_label}"
+    )
     _finish_timeseries_figure(
         fig,
         axes,
-        "Monthly OHC Deseasoned Anomaly vs ARGO-IAP",
+        "Monthly OHC Deseasonalized Anomaly vs ARGO-IAP",
+        period_label,
+        "Time",
+        extra=extra,
+    )
+    return pd.DataFrame(rows)
+
+
+def _plot_ohc_detrended_anomaly_timeseries(
+    obs_ohc: xr.DataArray,
+    sim_ohc: dict[str, xr.DataArray],
+    emulators: dict[str, dict],
+    period_label: str,
+) -> pd.DataFrame:
+    fig, axes = plt.subplots(len(OHC_DEPTH_SLICES), 1, figsize=(11.5, 3.8 * len(OHC_DEPTH_SLICES)), sharex=True)
+    axes = np.atleast_1d(axes)
+    rows = []
+
+    for depth_idx, depth_slice in enumerate(OHC_DEPTH_SLICES):
+        ax = axes[depth_idx]
+        depth_title = depth_slice["title"]
+        obs_series = obs_ohc.sel(depth_slice=depth_title).to_series()
+        obs_anom = _series_without_linear_trend(obs_series)
+        ax.plot(obs_anom.index, obs_anom.values, "--", color="black", linewidth=2, label="ARGO-IAP")
+
+        for label, sim in sim_ohc.items():
+            sim_series = sim.sel(depth_slice=depth_title).to_series()
+            sim_anom = _series_without_linear_trend(sim_series)
+            rmse = _rmse_between_series(obs_anom, sim_anom)
+            rows.append({"model": label, "depth": depth_title, "metric": "monthly_ohc_detrended_anomaly_rmse", "value": rmse})
+            ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+
+        ax.set_title(f"{depth_title}", fontsize=14)
+        ax.set_ylabel("Detrended anomaly (J)", fontsize=13)
+        ax.tick_params(axis="both", labelsize=12)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(*axes[0].get_legend_handles_labels(), truth_labels={"ARGO-IAP"})
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=ncol,
+        bbox_to_anchor=(0.5, 0.04),
+        frameon=False,
+        fontsize=12,
+    )
+    _finish_timeseries_figure(fig, axes, "Monthly OHC Detrended Anomaly vs ARGO-IAP", period_label, "Time")
+    return pd.DataFrame(rows)
+
+
+def _plot_ohc_detrended_deseasonalized_anomaly_timeseries(
+    obs_ohc: xr.DataArray,
+    sim_ohc: dict[str, xr.DataArray],
+    emulators: dict[str, dict],
+    period_label: str,
+    obs_climatology_ohc: xr.DataArray | None = None,
+    climatology_label: str | None = None,
+) -> pd.DataFrame:
+    fig, axes = plt.subplots(len(OHC_DEPTH_SLICES), 1, figsize=(11.5, 3.8 * len(OHC_DEPTH_SLICES)), sharex=True)
+    axes = np.atleast_1d(axes)
+    rows = []
+
+    for depth_idx, depth_slice in enumerate(OHC_DEPTH_SLICES):
+        ax = axes[depth_idx]
+        depth_title = depth_slice["title"]
+        obs_series = obs_ohc.sel(depth_slice=depth_title).to_series()
+        obs_clim_source = obs_climatology_ohc if obs_climatology_ohc is not None else obs_ohc
+        obs_clim_series = obs_clim_source.sel(depth_slice=depth_title).to_series()
+        obs_has_clim = _has_repeated_calendar_months(obs_clim_series)
+        if obs_has_clim:
+            obs_clim = _series_monthly_climatology(obs_clim_series)
+            obs_deseasonalized = _series_without_given_monthly_climatology(obs_series, obs_clim)
+            obs_anom = _series_without_linear_trend(obs_deseasonalized)
+            ax.plot(obs_anom.index, obs_anom.values, "--", color="black", linewidth=2, label="ARGO-IAP")
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                "Need at least two complete calendar years\nfor detrended deseasonalized monthly anomalies",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=12,
+            )
+
+        for label, sim in sim_ohc.items():
+            sim_series = sim.sel(depth_slice=depth_title).to_series()
+            if obs_has_clim:
+                sim_clim = _series_monthly_climatology(sim_series)
+                sim_deseasonalized = _series_without_given_monthly_climatology(sim_series, sim_clim)
+                sim_anom = _series_without_linear_trend(sim_deseasonalized)
+                rmse = _rmse_between_series(obs_anom, sim_anom)
+                ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+            else:
+                rmse = np.nan
+            rows.append(
+                {
+                    "model": label,
+                    "depth": depth_title,
+                    "metric": "monthly_ohc_detrended_deseasonalized_anomaly_rmse",
+                    "value": rmse,
+                }
+            )
+
+        ax.set_title(f"{depth_title}", fontsize=14)
+        ax.set_ylabel("Detrended DS anomaly (J)", fontsize=13)
+        ax.tick_params(axis="both", labelsize=12)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        handles, labels, ncol = _legend_truth_first(handles, labels, truth_labels={"ARGO-IAP"})
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=ncol,
+            bbox_to_anchor=(0.5, 0.04),
+            frameon=False,
+            fontsize=12,
+        )
+    extra = (
+        f"climatologies: ARGO {climatology_label}; models {period_label}"
+        if climatology_label is not None
+        else f"climatologies: each series {period_label}"
+    )
+    _finish_timeseries_figure(
+        fig,
+        axes,
+        "Monthly OHC Detrended Deseasonalized Anomaly vs ARGO-IAP",
         period_label,
         "Time",
         extra=extra,
@@ -2575,7 +2726,7 @@ def _plot_layer_mean_deseasoned_anomaly_timeseries(
             ax.text(
                 0.5,
                 0.5,
-                "Need at least two complete calendar years\nfor deseasoned monthly anomalies",
+                "Need at least two complete calendar years\nfor deseasonalized monthly anomalies",
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
@@ -2585,7 +2736,8 @@ def _plot_layer_mean_deseasoned_anomaly_timeseries(
         for label, sim in sim_series_by_layer.items():
             sim_series = sim.sel(depth_slice=depth_title).to_series()
             if obs_has_clim:
-                sim_anom = _series_without_given_monthly_climatology(sim_series, obs_clim)
+                sim_clim = _series_monthly_climatology(sim_series)
+                sim_anom = _series_without_given_monthly_climatology(sim_series, sim_clim)
                 rmse = _rmse_between_series(obs_anom, sim_anom)
                 ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
             else:
@@ -2600,7 +2752,7 @@ def _plot_layer_mean_deseasoned_anomaly_timeseries(
             )
 
         ax.set_title(depth_title, fontsize=14)
-        ax.set_ylabel(f"Deseasoned anomaly ({spec['units']})", fontsize=13)
+        ax.set_ylabel(f"Deseasonalized anomaly ({spec['units']})", fontsize=13)
         ax.tick_params(axis="both", labelsize=12)
         ax.grid(True, alpha=0.3)
 
@@ -2616,11 +2768,160 @@ def _plot_layer_mean_deseasoned_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = f"ARGO climatology {climatology_label}" if climatology_label is not None else None
+    extra = (
+        f"climatologies: ARGO {climatology_label}; models {period_label}"
+        if climatology_label is not None
+        else f"climatologies: each series {period_label}"
+    )
     _finish_timeseries_figure(
         fig,
         axes,
-        f"Monthly Layer-Mean {spec['title']} Deseasoned Anomaly vs ARGO-IAP",
+        f"Monthly Layer-Mean {spec['title']} Deseasonalized Anomaly vs ARGO-IAP",
+        period_label,
+        "Time",
+        extra=extra,
+    )
+    return pd.DataFrame(rows)
+
+
+def _plot_layer_mean_detrended_anomaly_timeseries(
+    obs_series_by_layer: xr.DataArray,
+    sim_series_by_layer: dict[str, xr.DataArray],
+    emulators: dict[str, dict],
+    spec: dict,
+    period_label: str,
+) -> pd.DataFrame:
+    fig, axes = plt.subplots(len(OHC_DEPTH_SLICES), 1, figsize=(11.5, 3.8 * len(OHC_DEPTH_SLICES)), sharex=True)
+    axes = np.atleast_1d(axes)
+    rows = []
+
+    for depth_idx, depth_slice in enumerate(OHC_DEPTH_SLICES):
+        ax = axes[depth_idx]
+        depth_title = depth_slice["title"]
+        obs_series = obs_series_by_layer.sel(depth_slice=depth_title).to_series()
+        obs_anom = _series_without_linear_trend(obs_series)
+        ax.plot(obs_anom.index, obs_anom.values, "--", color="black", linewidth=2, label="ARGO-IAP")
+
+        for label, sim in sim_series_by_layer.items():
+            sim_series = sim.sel(depth_slice=depth_title).to_series()
+            sim_anom = _series_without_linear_trend(sim_series)
+            rmse = _rmse_between_series(obs_anom, sim_anom)
+            rows.append(
+                {
+                    "model": label,
+                    "depth": depth_title,
+                    "metric": _layer_mean_metric_name(spec, "detrended_anomaly"),
+                    "value": rmse,
+                }
+            )
+            ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+
+        ax.set_title(depth_title, fontsize=14)
+        ax.set_ylabel(f"Detrended anomaly ({spec['units']})", fontsize=13)
+        ax.tick_params(axis="both", labelsize=12)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(*axes[0].get_legend_handles_labels(), truth_labels={"ARGO-IAP"})
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=ncol,
+        bbox_to_anchor=(0.5, 0.04),
+        frameon=False,
+        fontsize=12,
+    )
+    _finish_timeseries_figure(
+        fig,
+        axes,
+        f"Monthly Layer-Mean {spec['title']} Detrended Anomaly vs ARGO-IAP",
+        period_label,
+        "Time",
+    )
+    return pd.DataFrame(rows)
+
+
+def _plot_layer_mean_detrended_deseasonalized_anomaly_timeseries(
+    obs_series_by_layer: xr.DataArray,
+    sim_series_by_layer: dict[str, xr.DataArray],
+    emulators: dict[str, dict],
+    spec: dict,
+    period_label: str,
+    obs_climatology_by_layer: xr.DataArray | None = None,
+    climatology_label: str | None = None,
+) -> pd.DataFrame:
+    fig, axes = plt.subplots(len(OHC_DEPTH_SLICES), 1, figsize=(11.5, 3.8 * len(OHC_DEPTH_SLICES)), sharex=True)
+    axes = np.atleast_1d(axes)
+    rows = []
+
+    for depth_idx, depth_slice in enumerate(OHC_DEPTH_SLICES):
+        ax = axes[depth_idx]
+        depth_title = depth_slice["title"]
+        obs_series = obs_series_by_layer.sel(depth_slice=depth_title).to_series()
+        obs_clim_source = obs_climatology_by_layer if obs_climatology_by_layer is not None else obs_series_by_layer
+        obs_clim_series = obs_clim_source.sel(depth_slice=depth_title).to_series()
+        obs_has_clim = _has_repeated_calendar_months(obs_clim_series)
+        if obs_has_clim:
+            obs_clim = _series_monthly_climatology(obs_clim_series)
+            obs_deseasonalized = _series_without_given_monthly_climatology(obs_series, obs_clim)
+            obs_anom = _series_without_linear_trend(obs_deseasonalized)
+            ax.plot(obs_anom.index, obs_anom.values, "--", color="black", linewidth=2, label="ARGO-IAP")
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                "Need at least two complete calendar years\nfor detrended deseasonalized monthly anomalies",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=12,
+            )
+
+        for label, sim in sim_series_by_layer.items():
+            sim_series = sim.sel(depth_slice=depth_title).to_series()
+            if obs_has_clim:
+                sim_clim = _series_monthly_climatology(sim_series)
+                sim_deseasonalized = _series_without_given_monthly_climatology(sim_series, sim_clim)
+                sim_anom = _series_without_linear_trend(sim_deseasonalized)
+                rmse = _rmse_between_series(obs_anom, sim_anom)
+                ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+            else:
+                rmse = np.nan
+            rows.append(
+                {
+                    "model": label,
+                    "depth": depth_title,
+                    "metric": _layer_mean_metric_name(spec, "detrended_deseasonalized_anomaly"),
+                    "value": rmse,
+                }
+            )
+
+        ax.set_title(depth_title, fontsize=14)
+        ax.set_ylabel(f"Detrended DS anomaly ({spec['units']})", fontsize=13)
+        ax.tick_params(axis="both", labelsize=12)
+        ax.grid(True, alpha=0.3)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        handles, labels, ncol = _legend_truth_first(handles, labels, truth_labels={"ARGO-IAP"})
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=ncol,
+            bbox_to_anchor=(0.5, 0.04),
+            frameon=False,
+            fontsize=12,
+        )
+    extra = (
+        f"climatologies: ARGO {climatology_label}; models {period_label}"
+        if climatology_label is not None
+        else f"climatologies: each series {period_label}"
+    )
+    _finish_timeseries_figure(
+        fig,
+        axes,
+        f"Monthly Layer-Mean {spec['title']} Detrended Deseasonalized Anomaly vs ARGO-IAP",
         period_label,
         "Time",
         extra=extra,
@@ -2733,6 +3034,10 @@ def main() -> None:
     ohc_anomaly_metrics = _plot_ohc_anomaly_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
     save_current_fig(f"ohc_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
+    print("Evaluating monthly OHC detrended anomaly vs ARGO-IAP...")
+    ohc_detrended_metrics = _plot_ohc_detrended_anomaly_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
+    save_current_fig(f"ohc_detrended_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+
     print("Evaluating monthly OHC climatology vs ARGO-IAP...")
     ohc_climatology_metrics = _plot_ohc_monthly_climatology(
         obs_ohc,
@@ -2745,6 +3050,7 @@ def main() -> None:
     save_current_fig(f"ohc_monthly_climatology_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
     ohc_deseasoned_metrics = pd.DataFrame()
+    ohc_detrended_deseasonalized_metrics = pd.DataFrame()
     if args.plot_deseasoned_anomaly:
         print("Evaluating monthly OHC deseasoned anomaly vs ARGO-IAP...")
         ohc_deseasoned_metrics = _plot_ohc_deseasoned_anomaly_timeseries(
@@ -2756,6 +3062,17 @@ def main() -> None:
             climatology_label=obs_clim_label,
         )
         save_current_fig(f"ohc_deseasoned_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+
+        print("Evaluating monthly OHC detrended deseasonalized anomaly vs ARGO-IAP...")
+        ohc_detrended_deseasonalized_metrics = _plot_ohc_detrended_deseasonalized_anomaly_timeseries(
+            obs_ohc,
+            sim_ohc,
+            emulators,
+            ohc_label,
+            obs_climatology_ohc=obs_ohc_climatology_source,
+            climatology_label=obs_clim_label,
+        )
+        save_current_fig(f"ohc_detrended_deseasonalized_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
     layer_mean_metrics = []
     for spec in ARGO_STRUCTURE_VARIABLES:
@@ -2777,6 +3094,12 @@ def main() -> None:
             _plot_layer_mean_anomaly_timeseries(obs_layer_mean, sim_layer_mean, emulators, spec, ohc_label)
         )
         save_current_fig(f"{spec['filename']}_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+
+        print(f"Evaluating monthly layer-mean {spec['title']} detrended anomaly vs ARGO-IAP...")
+        layer_mean_metrics.append(
+            _plot_layer_mean_detrended_anomaly_timeseries(obs_layer_mean, sim_layer_mean, emulators, spec, ohc_label)
+        )
+        save_current_fig(f"{spec['filename']}_detrended_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
         print(f"Evaluating monthly layer-mean {spec['title']} climatology vs ARGO-IAP...")
         layer_mean_metrics.append(
@@ -2807,6 +3130,20 @@ def main() -> None:
             )
             save_current_fig(f"{spec['filename']}_deseasoned_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
+            print(f"Evaluating monthly layer-mean {spec['title']} detrended deseasonalized anomaly vs ARGO-IAP...")
+            layer_mean_metrics.append(
+                _plot_layer_mean_detrended_deseasonalized_anomaly_timeseries(
+                    obs_layer_mean,
+                    sim_layer_mean,
+                    emulators,
+                    spec,
+                    ohc_label,
+                    obs_climatology_by_layer=obs_layer_mean_climatology_source,
+                    climatology_label=obs_clim_label,
+                )
+            )
+            save_current_fig(f"{spec['filename']}_detrended_deseasonalized_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+
     structure_metrics = []
     for spec in ARGO_STRUCTURE_VARIABLES:
         print(f"Evaluating annual-mean {spec['title']} zonal mean vs ARGO-IAP...")
@@ -2834,8 +3171,10 @@ def main() -> None:
             ke_spec_metrics,
             ohc_metrics,
             ohc_anomaly_metrics,
+            ohc_detrended_metrics,
             ohc_climatology_metrics,
             ohc_deseasoned_metrics,
+            ohc_detrended_deseasonalized_metrics,
             *layer_mean_metrics,
             *structure_metrics,
             ohc_structure_metrics,
