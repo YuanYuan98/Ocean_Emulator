@@ -30,6 +30,7 @@ See ``obs_data_process.md`` for the full rationale.
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +44,10 @@ DEFAULT_ROLLOUT = Path(
     "/global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/ablation_studies/2025-12-02-samudra_om4_v1_onedeg_eval/predictions.zarr"
 )
 
+DUACS_KEEP_VARS = ["ugos", "vgos", "ugosa", "vgosa", "adt", "sla"]
+ARGO_TEMP_ALIASES = ["temp", "thetao", "temperature", "T"]
+ARGO_SALT_ALIASES = ["so", "salinity", "salt", "sal", "psal", "S"]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare rollout-aligned 5-day observation products")
@@ -50,6 +55,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--rollout-path", type=Path, default=DEFAULT_ROLLOUT)
     parser.add_argument("--year", type=int, default=2022)
+    parser.add_argument(
+        "--products",
+        nargs="+",
+        choices=["all", "duacs", "oisst", "argo-iap"],
+        default=["all"],
+        help="Products to rebuild. Use --products argo-iap after downloading a longer ARGO-IAP record.",
+    )
+    parser.add_argument("--argo-start-year", type=int, default=None)
+    parser.add_argument("--argo-end-year", type=int, default=None)
     return parser.parse_args()
 
 
@@ -123,13 +137,79 @@ def _chunk_for_write(ds: xr.Dataset) -> xr.Dataset:
     return ds.chunk(chunks)
 
 
+def _find_var_name(ds: xr.Dataset, candidates: list[str]) -> str | None:
+    for name in candidates:
+        if name in ds.data_vars:
+            return name
+    return None
+
+
+def _argo_file_time(path: Path) -> pd.Timestamp | None:
+    match = re.search(r"_year_(\d{4})_month_(\d{2})\.nc$", path.name, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    year = int(match.group(1))
+    month = int(match.group(2))
+    if not 1 <= month <= 12:
+        return None
+    return pd.Timestamp(year=year, month=month, day=1)
+
+
+def _open_argo_files(
+    raw_root: Path,
+    keywords: list[str],
+    start_year: int | None = None,
+    end_year: int | None = None,
+) -> xr.Dataset | None:
+    candidates: list[tuple[pd.Timestamp, Path]] = []
+    for path in (raw_root / "argo-iap").glob("*.nc"):
+        if not any(keyword in path.name.lower() for keyword in keywords):
+            continue
+        timestamp = _argo_file_time(path)
+        if timestamp is None:
+            continue
+        if start_year is not None and timestamp.year < start_year:
+            continue
+        if end_year is not None and timestamp.year > end_year:
+            continue
+        candidates.append((timestamp, path))
+    candidates.sort()
+    files = [path for _, path in candidates]
+    if not files:
+        return None
+    ds = xr.open_mfdataset([str(p) for p in files], combine="nested", concat_dim="time")
+    ds = ds.assign_coords(time=pd.DatetimeIndex([timestamp for timestamp, _ in candidates]))
+    return ds
+
+
+def _validate_monthly_argo_times(ds: xr.Dataset, label: str) -> None:
+    times = pd.DatetimeIndex(ds.time.values)
+    if times.empty:
+        raise ValueError(f"No {label} times found")
+    expected = pd.date_range(times[0], times[-1], freq="MS")
+    missing = expected.difference(times)
+    duplicates = times[times.duplicated()]
+    if len(missing) or len(duplicates):
+        msg = [f"{label} does not have a complete unique monthly time axis."]
+        if len(missing):
+            msg.append(f"Missing first entries: {[str(val.date()) for val in missing[:10]]}")
+        if len(duplicates):
+            msg.append(f"Duplicate first entries: {[str(val.date()) for val in duplicates[:10]]}")
+        raise ValueError(" ".join(msg))
+
+
 def _prepare_duacs(
     raw_root: Path,
     output_root: Path,
     target_times: pd.DatetimeIndex,
 ) -> None:
     input_path = raw_root / "duacs" / "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_179.94W-179.94E_89.94S-89.94N_2022-01-01-2023-01-01.zarr"
-    ds = xr.open_zarr(input_path)[["ugos", "vgos"]]
+    ds_raw = xr.open_zarr(input_path)
+    keep_vars = [name for name in DUACS_KEEP_VARS if name in ds_raw.data_vars]
+    missing = sorted(set(DUACS_KEEP_VARS) - set(keep_vars))
+    if missing:
+        print(f"  -> DUACS fields not found and not written: {missing}")
+    ds = ds_raw[keep_vars]
     ds = _standardize_daily_ds(ds)
     ds = _align_daily_with_centered_rolling(ds, target_times)
     _chunk_for_write(ds).to_zarr(output_root / "duacs.zarr", mode="w")
@@ -149,25 +229,63 @@ def _prepare_oisst(
 def _prepare_argo_iap(
     raw_root: Path,
     output_root: Path,
+    start_year: int | None = None,
+    end_year: int | None = None,
 ) -> None:
-    ds = xr.open_mfdataset(str(raw_root / "argo-iap" / "*.nc"), combine="by_coords")[["temp"]]
-    ds = ds.assign_coords(time=_coerce_datetime_index(ds.time.values)).sortby("time")
+    ds_temp = _open_argo_files(raw_root, ["temperature", "temp"], start_year, end_year)
+    if ds_temp is None:
+        ds_temp = xr.open_mfdataset(str(raw_root / "argo-iap" / "*.nc"), combine="by_coords")
+
+    ds_salt = _open_argo_files(raw_root, ["salinity", "salt", "psal"], start_year, end_year)
+
+    temp_name = _find_var_name(ds_temp, ARGO_TEMP_ALIASES)
+    salt_name = _find_var_name(ds_salt, ARGO_SALT_ALIASES) if ds_salt is not None else None
+    if temp_name is None:
+        raise KeyError(f"Could not find ARGO temperature variable in {list(ds_temp.data_vars)}")
+    _validate_monthly_argo_times(ds_temp, "ARGO-IAP temperature")
+
+    data_vars = {"temp": ds_temp[temp_name]}
+    if salt_name is None:
+        print(
+            "  -> ARGO salinity was not found in the raw files; "
+            "temperature/salinity structure evaluation will require adding it later."
+        )
+    else:
+        _validate_monthly_argo_times(ds_salt, "ARGO-IAP salinity")
+        temp_times = pd.DatetimeIndex(ds_temp.time.values)
+        salt_times = pd.DatetimeIndex(ds_salt.time.values)
+        if not temp_times.equals(salt_times):
+            raise ValueError("ARGO-IAP temperature and salinity files do not cover the same monthly time axis")
+        data_vars["salt"] = ds_salt[salt_name]
+
+    ds = xr.Dataset(data_vars)
+    ds = ds.sortby("time")
     if float(ds.lon.min()) < 0:
         ds = ds.assign_coords(lon=(ds.lon % 360)).sortby("lon")
     ds = ds.sortby("lat")
+    for name in list(ds.data_vars):
+        if np.issubdtype(ds[name].dtype, np.floating):
+            ds[name] = ds[name].astype("float32")
     _chunk_for_write(ds).to_zarr(output_root / "argo-iap.zarr", mode="w")
 
 
-def _write_readme(output_root: Path, target_times: pd.DatetimeIndex) -> None:
+def _write_readme(output_root: Path, target_times: pd.DatetimeIndex | None) -> None:
+    if target_times is None:
+        timeline_text = "DUACS/OISST target timeline was not rebuilt in this run.\n"
+    else:
+        timeline_text = (
+            f"Target timeline: {target_times[0]} through {target_times[-1]} every 5 days "
+            f"({len(target_times)} samples).\n"
+        )
     text = (
         "Observation products prepared for obs_evaluation.py on the native observation grid.\n\n"
-        f"Target timeline: {target_times[0]} through {target_times[-1]} every 5 days ({len(target_times)} samples).\n"
+        f"{timeline_text}"
         "DUACS and OISST were converted from daily products using a centered 5-sample rolling mean,\n"
         "then sampled on the rollout dates and relabeled to the exact rollout timestamps.\n"
         "Spatial resolution is preserved at the source product's native grid:\n"
         "  - DUACS: ~0.125 degree\n"
         "  - OISST: ~0.25 degree\n"
-        "  - ARGO-IAP: monthly, native grid\n"
+        "  - ARGO-IAP: monthly, native grid; salinity is included when present in the raw files\n"
         "obs_evaluation.py compares each side on its own native grid (no spatial resampling).\n"
     )
     (output_root / "README.txt").write_text(text)
@@ -176,15 +294,22 @@ def _write_readme(output_root: Path, target_times: pd.DatetimeIndex) -> None:
 def main() -> None:
     args = parse_args()
     args.output_root.mkdir(parents=True, exist_ok=True)
-    target_times = _rollout_times(args.rollout_path, args.year)
+    products = set(args.products)
+    if "all" in products:
+        products = {"duacs", "oisst", "argo-iap"}
+    needs_rollout = bool(products & {"duacs", "oisst"})
+    target_times = _rollout_times(args.rollout_path, args.year) if needs_rollout else None
 
     print(f"Preparing rollout-aligned products in {args.output_root}")
-    _prepare_duacs(args.raw_obs_root, args.output_root, target_times)
-    print("  -> wrote duacs.zarr")
-    _prepare_oisst(args.raw_obs_root, args.output_root, target_times)
-    print("  -> wrote oisst.zarr")
-    _prepare_argo_iap(args.raw_obs_root, args.output_root)
-    print("  -> wrote argo-iap.zarr")
+    if "duacs" in products:
+        _prepare_duacs(args.raw_obs_root, args.output_root, target_times)
+        print("  -> wrote duacs.zarr")
+    if "oisst" in products:
+        _prepare_oisst(args.raw_obs_root, args.output_root, target_times)
+        print("  -> wrote oisst.zarr")
+    if "argo-iap" in products:
+        _prepare_argo_iap(args.raw_obs_root, args.output_root, args.argo_start_year, args.argo_end_year)
+        print("  -> wrote argo-iap.zarr")
     _write_readme(args.output_root, target_times)
     print("  -> wrote README.txt")
 

@@ -22,6 +22,15 @@ The processed observation products currently used by `obs_evaluation.py` are:
 - `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/oisst.zarr`
 - `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/argo-iap.zarr`
 
+The prepared ARGO store now includes both `temp` and `salt`, so
+temperature/salinity spatial-vertical structure diagnostics can run directly
+against `nativegrid/argo-iap.zarr`.
+
+Model-native diagnostics in `obs_evaluation.py` use the OM4 finite ocean mask
+as the common model wet mask for both OM4 and Samudra / Samudra 2. This avoids
+treating finite Samudra prediction values over land or otherwise invalid cells
+as valid ocean values.
+
 ## Model Reference Grid
 
 The temporal alignment is matched to the `Samudra` rollout grid:
@@ -44,7 +53,8 @@ The raw products had different native grids:
 
 - `DUACS`: daily, about `0.125 degree`
 - `OISST`: daily, about `0.25 degree`
-- `ARGO-IAP`: monthly, about `0.5 degree`, depth only to `2000 m`
+- `ARGO-IAP`: monthly, about `0.5 degree`, depth only to `2000 m`; the local
+  raw copy contains matching 1980-2022 temperature and salinity files.
 
 ## Time Processing
 
@@ -89,7 +99,12 @@ Because of that, it was **not** forced onto a 5-day timeline in the final setup.
 Instead:
 
 - it stays monthly in time
-- it is used for monthly OHC comparisons only
+- it is used for monthly OHC, temperature, and salinity time-series
+  comparisons over the common model/ARGO overlap
+- its full 1980-2022 monthly record is used as the observational seasonal cycle
+  for monthly climatology diagnostics
+- it is used for annual-mean temperature/salinity/OHC map and structure
+  comparisons
 
 This is important because converting monthly ARGO-IAP into 5-day values would introduce artificial time information rather than real observations.
 
@@ -141,47 +156,127 @@ Metric:
 
 Uses:
 
-- DUACS on its native ~0.125° grid, on the aligned 5-day timestamps
+- raw daily DUACS on its native ~0.125° grid
+- 5-day averaged DUACS on the aligned Samudra timestamps
 - Samudra / Samudra 2 surface geostrophic velocity on the model grid, same aligned period
 
-Each side's regional temporal KE spectrum (Welch PSD over time, averaged over the region) is computed on its own grid. The two curves are compared bucket-by-bucket after interpolation onto a common frequency axis.
+Each side's regional temporal KE spectrum (Welch PSD over time, averaged over the region) is computed on its own grid. The raw daily DUACS, 5-day averaged DUACS, and model curves are plotted together. Model RMSE is reported separately against raw daily DUACS and against 5-day averaged DUACS, using only overlapping frequency support.
 
 Metric:
 
-- RMSE between temporal KE spectra
+- RMSE between model and raw daily DUACS temporal KE spectra
+- RMSE between model and 5-day averaged DUACS temporal KE spectra
 
 ### OHC monthly vs ARGO-IAP
 
 Uses:
 
-- ARGO-IAP on its native monthly, ~0.5° grid (grid metrics inferred at evaluation time)
-- Samudra / Samudra 2 monthly OHC, derived by averaging the 5-day model output to monthly
+- ARGO-IAP on its native monthly, ~0.5° grid
+- Samudra / Samudra 2 monthly OHC, derived by averaging the 5-day model output
+  to monthly
 
-Each side integrates per-layer OHC on its own grid, so no spatial regridding is required.
+Each side integrates per-layer OHC on its own grid, so no spatial regridding is
+required.
 
 Only the following layers are currently used:
 
 - `0-700 m`
 - `700-2000 m`
 
-The `2000-7000 m` layer is **not** used now, because the ARGO-IAP product only extends to `2000 m`.
+The `2000-7000 m` layer is not used because the ARGO-IAP product only extends
+to `2000 m`.
 
 Metrics:
 
 - monthly OHC RMSE
 - monthly OHC anomaly RMSE
+- monthly OHC climatology RMSE
+
+### Temperature/salinity monthly time series vs ARGO-IAP
+
+Uses:
+
+- ARGO-IAP monthly temperature and salinity on its native ~0.5° grid
+- Samudra / Samudra 2 monthly layer-mean `thetao` and `so`, derived by
+  averaging the 5-day model output to monthly
+
+Each side computes global volume-weighted layer means on its own grid. The
+layers match the OHC diagnostics:
+
+- `0-700 m`
+- `700-2000 m`
+
+Metrics:
+
+- monthly temperature layer-mean RMSE
+- monthly temperature layer-mean anomaly RMSE
+- monthly temperature layer-mean climatology RMSE
+- monthly salinity layer-mean RMSE
+- monthly salinity layer-mean anomaly RMSE
+- monthly salinity layer-mean climatology RMSE
+
+### Temperature/salinity/OHC maps vs ARGO-IAP
+
+Uses:
+
+- ARGO-IAP annual-mean temperature and salinity on its native ~0.5° grid
+- Samudra / Samudra 2 annual-mean `thetao` and `so`, interpolated onto the
+  ARGO latitude, longitude, and depth grid
+
+Temperature and salinity maps show volume-weighted layer means for `0-700 m`
+and `700-2000 m`. OHC maps show layer-integrated heat content per unit area in
+`J m^-2`, computed from temperature, layer thickness, seawater density, and heat
+capacity. After interpolation, model fields are masked to the ARGO-IAP finite
+ocean mask before plotting or computing map diagnostics. Map color scales use
+the ARGO-IAP robust range; model values outside that range are shown with
+colorbar extensions.
+
+Metrics:
+
+- annual-mean temperature layer-map RMSE and mean bias
+- annual-mean salinity layer-map RMSE and mean bias
+- annual-mean OHC per-area layer-map RMSE and mean bias
+
+### Temperature/salinity/OHC structure vs ARGO-IAP
+
+Uses:
+
+- ARGO-IAP monthly temperature and salinity on its native ~0.5° grid
+- Samudra / Samudra 2 annual-mean `thetao` and `so`, interpolated onto the
+  ARGO latitude, longitude, and depth grid inside `obs_evaluation.py`
+
+Unlike the other native-grid diagnostics, this comparison performs explicit
+pointwise interpolation because the goal is to compare spatial and vertical
+structure. After interpolation, model fields are masked to the ARGO-IAP finite
+ocean mask before zonal means are computed.
+
+Diagnostic:
+
+- separate zonal-mean annual-mean distribution figures for ARGO-IAP, Samudra 2,
+  and OM4 for temperature, salinity, and per-layer OHC
+- separate zonal-mean annual-mean model-minus-ARGO bias figures for
+  temperature, salinity, and per-layer OHC versus latitude and depth
+
+Metric:
+
+- area- and layer-thickness-weighted spatial/vertical RMSE for annual-mean
+  temperature and salinity over the common 0-2000 m ARGO depth range
+- area-weighted spatial/vertical RMSE for per-layer OHC bias in `J m^-2`
 
 ## Important Caveats
 
 ### 1. The temporal filtering is different across products
 
 - DUACS and OISST are explicitly converted to a 5-day representation
+- raw daily DUACS is also loaded directly for temporal-frequency comparisons
 - ARGO-IAP remains monthly
 
 This is intentional:
 
 - high-frequency products are matched to the 5-day model cadence
 - monthly OHC comparisons stay monthly
+- ARGO temperature/salinity structure comparisons stay monthly and are then
+  summarized as annual means
 
 ### 2. No spatial regridding is done at preprocessing time
 
@@ -191,13 +286,26 @@ Each side stays on its own grid through the diagnostic. This means:
 - spectra are computed on each side's own grid and reconciled in spectral space, not in physical space
 - there is no area-weighted or conservative regridding step that could be a source of methodological error
 
-If a future diagnostic needs the obs and model on a common grid (e.g. for a pointwise difference map), that regridding has to be added explicitly in `obs_evaluation.py`; the preprocessed files will not do it for you.
+The ARGO temperature/salinity structure diagnostic is the exception: it
+interpolates the annual-mean model fields onto the ARGO grid inside
+`obs_evaluation.py`, because pointwise spatial and vertical structure is the
+quantity being evaluated. That interpolation is deliberately not baked into the
+preprocessed files.
 
-### 3. ARGO-IAP depth range is limited
+### 3. ARGO-IAP monthly climatology is observation-based
 
-ARGO-IAP here only goes to `2000 m`, so only upper and intermediate OHC are comparable.
+The current local ARGO-IAP raw and prepared products cover January 1980 through
+December 2022. The default monthly climatology calculation uses the full
+prepared 1980-2022 ARGO-IAP record. This gives a stable observational seasonal
+cycle for the monthly climatology figures even when a model comparison window is
+shorter than the full ARGO record.
 
-### 4. Spectral RMSE is not log-space RMSE
+### 4. ARGO-IAP depth range is limited
+
+ARGO-IAP here only goes to `2000 m`, so temperature/salinity structure is only
+compared over the common ARGO-covered depth range.
+
+### 5. Spectral RMSE is not log-space RMSE
 
 The current spectrum RMSE is computed directly on the spectral values after interpolation to a common spectral axis. If a log-space comparison is preferred, that would be a methodological change.
 
@@ -206,10 +314,12 @@ The current spectrum RMSE is computed directly on the spectral values after inte
 The main design choices were:
 
 - align DUACS and OISST onto the Samudra 5-day timeline so that map and spectral diagnostics see the same temporal sampling on both sides
-- keep ARGO-IAP monthly because monthly OHC is the intended target
+- keep ARGO-IAP monthly because OHC and temperature/salinity structure are
+  monthly observational products
 - keep each obs product on its native horizontal grid and let the diagnostic decide what is fair to compare, rather than baking a particular regridding choice into the preprocessed files
 
-This avoids introducing fake high-frequency variability into the monthly OHC comparison, and keeps the preprocessing step minimal and reproducible.
+This avoids introducing fake high-frequency variability into ARGO comparisons,
+including OHC, and keeps the preprocessing step minimal and reproducible.
 
 ## Current Default In Code
 
@@ -217,11 +327,22 @@ This avoids introducing fake high-frequency variability into the monthly OHC com
 
 - `DUACS`, `OISST`, and `ARGO-IAP` all come from `nativegrid/`
 - DUACS and OISST are on the 5-day aligned timeline; ARGO-IAP is still monthly
+- raw daily DUACS is also loaded from `--raw-obs-root` for temporal spectra
+- OHC uses the common ARGO/model overlap by default; `--ohc-start-date` and
+  `--ohc-end-date` can force a specific monthly OHC window when longer ARGO
+  products are available
+- ARGO-IAP monthly climatologies default to the full prepared ARGO time range;
+  `--obs-climatology-start-date` and `--obs-climatology-end-date` can override
+  the climatology window
+- the default DUACS velocity kind is `absolute`, meaning `ugos`/`vgos` from
+  absolute dynamic topography; `--duacs-velocity-kind anomaly` switches to
+  `ugosa`/`vgosa` from sea-level anomaly and uses model geostrophic velocity
+  anomalies for the temporal spectra
 
 So running
 
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run python obs_evaluation.py
+../.venv/bin/python obs_evaluation.py
 ```
 
 will use the processed obs products described above. The default location can be overridden via `--aligned-obs-root`.

@@ -1,0 +1,35 @@
+Loading ARGO and emulator datasets...
+ - Samudra 2 (1/4$^\circ$)
+ - OM4 (1/4$^\circ$)
+Using period 2022
+Refreshing Temperature time series...
+  -> Saved: Figures_observations/pdf_figures/timeseries/temperature_monthly_vs_argo_iap_2022.pdf
+Refreshing Temperature structure...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/structure/argo_temperature_zonal_mean_bias_2022.pdf
+Refreshing Salinity time series...
+  -> Saved: Figures_observations/pdf_figures/timeseries/salinity_monthly_vs_argo_iap_2022.pdf
+Refreshing Salinity structure...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/structure/argo_salinity_zonal_mean_bias_2022.pdf
+Refreshing OHC structure...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/structure/argo_ohc_zonal_mean_bias_2022.pdf
+Removed old combined structure figure: Figures_observations/pdf_figures/structure/argo_ts_zonal_mean_bias_2022.pdf
+Saved merged metrics: Figures_observations/pdf_figures/metrics/observation_metrics_2022.csv
+Done.

@@ -1,0 +1,154 @@
+Loading ARGO and emulator datasets...
+ - Samudra 2 (1/4$^\circ$)
+ - OM4 (1/4$^\circ$)
+Using period 2022
+Refreshing Temperature maps...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/maps/temperature_layer_mean_maps_vs_argo_iap_2022.pdf
+Refreshing Salinity maps...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/maps/salinity_layer_mean_maps_vs_argo_iap_2022.pdf
+Refreshing OHC maps...
+  -> Saved: Figures_observations/pdf_figures/maps/ohc_layer_integrated_maps_vs_argo_iap_2022.pdf
+Refreshing Temperature time series...
+  -> Saved: Figures_observations/pdf_figures/timeseries/temperature_monthly_vs_argo_iap_2022.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/temperature_anomaly_vs_argo_iap_2022.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/temperature_monthly_climatology_vs_argo_iap_2022.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/temperature_deseasoned_anomaly_vs_argo_iap_2022.pdf
+Refreshing Temperature zonal mean...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+  -> Saved: Figures_observations/pdf_figures/structure/argo_temperature_zonal_mean_2022.pdf
+Refreshing Temperature structure...
+/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/.venv/lib64/python3.11/site-packages/dask/_task_spec.py:741: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
