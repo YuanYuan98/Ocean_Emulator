@@ -1,0 +1,4 @@
+Preparing rollout-aligned products in /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid
+  -> DUACS fields not found and not written: ['adt', 'sla']
+  -> wrote duacs.zarr
+  -> wrote README.txt

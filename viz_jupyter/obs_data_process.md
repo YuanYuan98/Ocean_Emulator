@@ -61,7 +61,9 @@ timeline:
 
 The raw products had different native grids:
 
-- `DUACS`: daily, about `0.125 degree`
+- `DUACS`: daily, about `0.125 degree`; the long temporal-spectrum target is
+  `2014-10-18` through `2022-12-26`, which supplies the centered 5-day windows
+  for the model overlap period
 - `OISST`: daily, about `0.25 degree`; the local raw copy covers
   `1982-01-01` through `2022-12-31`
 - `ARGO-IAP`: monthly, about `0.5 degree`, depth only to `2000 m`; the local
@@ -75,15 +77,20 @@ Raw DUACS is daily.
 
 To compare with Samudra:
 
-1. Read the daily 2022 DUACS fields.
+1. Read the daily DUACS fields over the target period.
 2. Apply a centered 5-sample rolling mean in time (`min_periods=5`).
-3. Sample those rolling means on the Samudra 2022 rollout dates.
+3. Sample those rolling means on the Samudra rollout dates.
 4. Relabel the result to the exact Samudra timestamps.
 
-So the final DUACS comparison product is:
+For map diagnostics, the final DUACS comparison product can be sliced to the
+requested evaluation year. For temporal spectra, the long target product should
+cover the Samudra 2 overlap period:
 
-- temporally aligned to the model
-- represented on the same 72 timestamps as the rollout
+- time: `2014-10-20 12:00:00` through `2022-12-24 12:00:00` (`598` samples)
+- grid: original DUACS native grid
+- variables kept when present: `ugos`, `vgos`, `ugosa`, `vgosa`, `adt`, `sla`
+- raw daily DUACS is kept separately for temporal spectra and is sliced to the
+  same period as the 5-day DUACS inside `obs_evaluation.py`
 
 ### OISST
 
@@ -185,10 +192,11 @@ Metric:
 Uses:
 
 - raw daily DUACS on its native ~0.125° grid
-- 5-day averaged DUACS on the aligned Samudra timestamps
+- 5-day averaged DUACS on the aligned Samudra timestamps, preferably covering
+  `2014-10` through `2022-12`
 - Samudra / Samudra 2 surface geostrophic velocity on the model grid, same aligned period
 
-Each side's regional temporal KE spectrum (Welch PSD over time, averaged over the region) is computed on its own grid. The raw daily DUACS, 5-day averaged DUACS, and model curves are plotted together. Model RMSE is reported separately against raw daily DUACS and against 5-day averaged DUACS, using only overlapping frequency support.
+Each side's regional temporal KE spectrum (Welch PSD over time, averaged over the region) is computed on its own grid. The raw daily DUACS, 5-day averaged DUACS, and model curves are plotted together. The raw daily DUACS is sliced to the same span as the 5-day DUACS before computing the spectrum. Model RMSE is reported separately against raw daily DUACS and against 5-day averaged DUACS, using only overlapping frequency support.
 
 Metric:
 
@@ -371,9 +379,14 @@ including OHC, and keeps the preprocessing step minimal and reproducible.
 
 - `DUACS`, `OISST`, and `ARGO-IAP` all come from `nativegrid/`
 - DUACS and `oisst.zarr` are on the 5-day aligned timeline; ARGO-IAP is still
-  monthly
+  monthly. DUACS temporal spectra should use the long 2014-2022 5-day aligned
+  product when available, while 2022 map diagnostics still slice that product
+  by `--year`.
 - `oisst_daily.zarr` is used as the raw-daily OISST reference for SST spectra
-- raw daily DUACS is also loaded from `--raw-obs-root` for temporal spectra
+- raw daily DUACS is also loaded from `--raw-obs-root` for temporal spectra.
+  `obs_evaluation.py` automatically prefers the long
+  `2014-10-18-2022-12-26` DUACS zarr when it exists, or accepts
+  `--duacs-raw-path`.
 - OHC uses the common ARGO/model overlap by default; `--ohc-start-date` and
   `--ohc-end-date` can force a specific monthly OHC window when longer ARGO
   products are available

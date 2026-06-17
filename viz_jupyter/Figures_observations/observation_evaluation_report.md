@@ -40,10 +40,13 @@ those variants.
 
 ## Preprocessing
 
-DUACS and OISST are daily products. DUACS is used both as raw daily 2022 data
-and as a centered 5-day mean sampled on the aligned Samudra rollout dates. OISST
-is stored both as raw daily SST and as centered 5-day SST over the common
-2014-2022 model/OISST period used by the surface-temperature spectra.
+DUACS and OISST are daily products. DUACS is used both as raw daily data and as
+a centered 5-day mean sampled on the aligned Samudra rollout dates. The EKE maps
+slice DUACS to the requested evaluation year, while the temporal KE spectra
+should use the common 2014-2022 model/DUACS period when the long DUACS product
+is prepared. OISST is stored both as raw daily SST and as centered 5-day SST
+over the common 2014-2022 model/OISST period used by the surface-temperature
+spectra.
 
 ARGO-IAP is monthly and was kept monthly. It is not forced onto the 5-day model
 timeline, because that would add artificial high-frequency information.
@@ -100,9 +103,10 @@ File:
 Regional temporal spectra are computed from surface geostrophic KE in the same
 four regions. The model geostrophic velocities are derived from `zos`, while
 DUACS provides observed geostrophic velocities. The figure includes raw daily
-DUACS, 5-day averaged DUACS, and the model curves. Welch spectra are computed
-along time, and RMSE is reported separately against raw daily DUACS and 5-day
-averaged DUACS over overlapping frequency support.
+DUACS, 5-day averaged DUACS, and the model curves over the 5-day DUACS/model
+overlap period. Raw daily DUACS is sliced to the same date span before the
+Welch spectra are computed. RMSE is reported separately against raw daily DUACS
+and 5-day averaged DUACS over overlapping frequency support.
 
 ### Monthly global OHC vs ARGO-IAP
 

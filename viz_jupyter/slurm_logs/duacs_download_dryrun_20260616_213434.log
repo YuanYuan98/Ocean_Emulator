@@ -1,0 +1,43 @@
+INFO - 2026-06-17T04:34:41Z - Selected dataset version: "202411"
+INFO - 2026-06-17T04:34:41Z - Selected dataset part: "default"
+INFO - 2026-06-17T04:34:45Z - Total size of the download: 277.50 GB.
+{
+  "file_path": "/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/duacs/cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_179.94W-179.94E_89.94S-89.94N_2014-10-18-2022-12-26.zarr",
+  "output_directory": "/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/duacs",
+  "filename": "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_179.94W-179.94E_89.94S-89.94N_2014-10-18-2022-12-26.zarr",
+  "file_size": "284162.36 MB",
+  "data_transfer_size": "646627.20 MB",
+  "variables": [
+    "ugos",
+    "vgos",
+    "ugosa",
+    "vgosa",
+    "adt",
+    "sla"
+  ],
+  "coordinates_extent": [
+    {
+      "minimum": -179.9375,
+      "maximum": 179.9375,
+      "unit": "degrees_east",
+      "coordinate_id": "longitude"
+    },
+    {
+      "minimum": -89.9375,
+      "maximum": 89.9375,
+      "unit": "degrees_north",
+      "coordinate_id": "latitude"
+    },
+    {
+      "minimum": "2014-10-18T00:00:00+00:00",
+      "maximum": "2022-12-26T00:00:00+00:00",
+      "unit": "iso8601",
+      "coordinate_id": "time"
+    }
+  ],
+  "status": "001",
+  "message": "The request was run with the dry-run option. No data was downloaded.",
+  "file_status": "DOWNLOADED"
+}
+Running:
+uvx --with h5py copernicusmarine subset -i cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D --start-datetime 2014-10-18 --end-datetime 2022-12-26 --file-format zarr --output-directory /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/duacs --output-filename cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_179.94W-179.94E_89.94S-89.94N_2014-10-18-2022-12-26.zarr --disable-progress-bar -v ugos -v vgos -v ugosa -v vgosa -v adt -v sla --dry-run

@@ -47,6 +47,18 @@ DEFAULT_ROLLOUT = Path(
 )
 
 DUACS_KEEP_VARS = ["ugos", "vgos", "ugosa", "vgosa", "adt", "sla"]
+DUACS_RAW_LONG_COLLECTION = (
+    "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_velocity_"
+    "2014-10-18-2022-12-26_yearly"
+)
+DUACS_RAW_LONG_ZARR = (
+    "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_"
+    "179.94W-179.94E_89.94S-89.94N_2014-10-18-2022-12-26.zarr"
+)
+DUACS_RAW_2022_ZARR = (
+    "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_"
+    "179.94W-179.94E_89.94S-89.94N_2022-01-01-2023-01-01.zarr"
+)
 ARGO_TEMP_ALIASES = ["temp", "thetao", "temperature", "T"]
 ARGO_SALT_ALIASES = ["so", "salinity", "salt", "sal", "psal", "S"]
 
@@ -79,6 +91,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--argo-start-year", type=int, default=None)
     parser.add_argument("--argo-end-year", type=int, default=None)
+    parser.add_argument(
+        "--duacs-raw-path",
+        type=Path,
+        default=None,
+        help=(
+            "Optional raw daily DUACS zarr or yearly-zarr collection path. Defaults "
+            "to the 2014-2022 DUACS collection under --raw-obs-root when present, "
+            "otherwise the legacy 2022 zarr."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -231,19 +253,66 @@ def _validate_monthly_argo_times(ds: xr.Dataset, label: str) -> None:
         raise ValueError(" ".join(msg))
 
 
+def _open_zarr_or_collection(path: Path) -> xr.Dataset:
+    if path.is_dir() and path.suffix == ".zarr":
+        return xr.open_zarr(path)
+    if path.is_dir():
+        zarrs = sorted(path.glob("*.zarr"))
+        if len(zarrs) == 1:
+            return xr.open_zarr(zarrs[0])
+        if len(zarrs) > 1:
+            datasets = [xr.open_zarr(zarr) for zarr in zarrs]
+            ds = xr.concat(
+                datasets,
+                dim="time",
+                data_vars="minimal",
+                coords="minimal",
+                compat="override",
+                combine_attrs="override",
+            )
+            ds = ds.sortby("time")
+            times = pd.DatetimeIndex(ds.time.values)
+            keep = ~times.duplicated()
+            if not keep.all():
+                ds = ds.isel(time=keep)
+            return ds
+    return xr.open_zarr(path)
+
+
 def _prepare_duacs(
     raw_root: Path,
     output_root: Path,
     target_times: pd.DatetimeIndex,
+    duacs_raw_path: Path | None = None,
 ) -> None:
-    input_path = raw_root / "duacs" / "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_179.94W-179.94E_89.94S-89.94N_2022-01-01-2023-01-01.zarr"
-    ds_raw = xr.open_zarr(input_path)
+    first_date = target_times.min().normalize() - pd.Timedelta(days=2)
+    last_date = target_times.max().normalize() + pd.Timedelta(days=2)
+    input_path = duacs_raw_path
+    if input_path is None:
+        needs_long_raw = first_date < pd.Timestamp("2022-01-01") or last_date > pd.Timestamp("2023-01-01")
+        candidate_names = (
+            [DUACS_RAW_LONG_COLLECTION, DUACS_RAW_LONG_ZARR]
+            if needs_long_raw
+            else [DUACS_RAW_LONG_COLLECTION, DUACS_RAW_LONG_ZARR, DUACS_RAW_2022_ZARR]
+        )
+        for candidate_name in candidate_names:
+            candidate = raw_root / "duacs" / candidate_name
+            if candidate.exists():
+                input_path = candidate
+                break
+    if input_path is None:
+        input_path = raw_root / "duacs" / DUACS_RAW_LONG_COLLECTION
+    if not input_path.exists():
+        raise FileNotFoundError(f"Raw DUACS zarr not found: {input_path}")
+
+    ds_raw = _open_zarr_or_collection(input_path)
     keep_vars = [name for name in DUACS_KEEP_VARS if name in ds_raw.data_vars]
     missing = sorted(set(DUACS_KEEP_VARS) - set(keep_vars))
     if missing:
         print(f"  -> DUACS fields not found and not written: {missing}")
     ds = ds_raw[keep_vars]
     ds = _standardize_daily_ds(ds)
+    ds = ds.sel(time=slice(first_date, last_date))
     ds = _align_daily_with_centered_rolling(ds, target_times)
     _chunk_for_write(ds).to_zarr(output_root / "duacs.zarr", mode="w")
 
@@ -372,7 +441,7 @@ def main() -> None:
 
     print(f"Preparing rollout-aligned products in {args.output_root}")
     if "duacs" in products:
-        _prepare_duacs(args.raw_obs_root, args.output_root, target_times)
+        _prepare_duacs(args.raw_obs_root, args.output_root, target_times, args.duacs_raw_path)
         print("  -> wrote duacs.zarr")
     if "oisst" in products:
         _prepare_oisst(args.raw_obs_root, args.output_root, target_times)

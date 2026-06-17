@@ -81,6 +81,16 @@ parser.add_argument(
     help="Root directory containing the raw observation products",
 )
 parser.add_argument(
+    "--duacs-raw-path",
+    type=Path,
+    default=None,
+    help=(
+        "Optional raw daily DUACS zarr path for temporal spectra. Defaults to a "
+        "2014-2022 DUACS zarr under --raw-obs-root when present, otherwise the "
+        "legacy 2022-only DUACS zarr."
+    ),
+)
+parser.add_argument(
     "--duacs-velocity-kind",
     choices=["absolute", "anomaly"],
     default="absolute",
@@ -128,6 +138,16 @@ DUACS_RAW_ZARR = (
     "duacs/"
     "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_"
     "179.94W-179.94E_89.94S-89.94N_2022-01-01-2023-01-01.zarr"
+)
+DUACS_RAW_LONG_COLLECTION = (
+    "duacs/"
+    "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_velocity_"
+    "2014-10-18-2022-12-26_yearly"
+)
+DUACS_RAW_LONG_ZARR = (
+    "duacs/"
+    "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_"
+    "179.94W-179.94E_89.94S-89.94N_2014-10-18-2022-12-26.zarr"
 )
 
 DUACS_VELOCITY_COMPONENTS = {
@@ -404,7 +424,16 @@ EMULATOR_CONFIGS = [
 
 OBS_CONFIG = {
     "duacs": args.aligned_obs_root / "duacs.zarr",
-    "duacs_raw": args.raw_obs_root / DUACS_RAW_ZARR,
+    "duacs_raw": args.duacs_raw_path
+    if args.duacs_raw_path is not None
+    else next(
+        (
+            args.raw_obs_root / relative
+            for relative in [DUACS_RAW_LONG_COLLECTION, DUACS_RAW_LONG_ZARR, DUACS_RAW_ZARR]
+            if (args.raw_obs_root / relative).exists()
+        ),
+        args.raw_obs_root / DUACS_RAW_LONG_COLLECTION,
+    ),
     "oisst": args.aligned_obs_root / "oisst.zarr",
     "oisst_daily": args.aligned_obs_root / "oisst_daily.zarr",
     "argo_iap": args.aligned_obs_root / "argo-iap.zarr",
@@ -527,6 +556,23 @@ def _maybe_open_dataset(path: Path) -> xr.Dataset:
             zarrs = sorted([p for p in path.iterdir() if p.suffix == ".zarr"])
             if len(zarrs) == 1:
                 return xr.open_zarr(zarrs[0])
+            if len(zarrs) > 1:
+                datasets = [xr.open_zarr(zarr) for zarr in zarrs]
+                ds = xr.concat(
+                    datasets,
+                    dim="time",
+                    data_vars="minimal",
+                    coords="minimal",
+                    compat="override",
+                    combine_attrs="override",
+                )
+                if "time" in ds.coords:
+                    ds = ds.sortby("time")
+                    times = pd.DatetimeIndex(ds.time.values)
+                    keep = ~times.duplicated()
+                    if not keep.all():
+                        ds = ds.isel(time=keep)
+                return ds
             raise FileNotFoundError(f"No readable observation files under {path}")
         return xr.open_mfdataset(files, combine="by_coords")
     raise ValueError(f"Unsupported observation path: {path}")
@@ -2106,6 +2152,13 @@ def _plot_temporal_ke_spectra(
     emulators: dict[str, dict],
     velocity_kind: str = "absolute",
 ) -> pd.DataFrame:
+    span_start, span_end = _time_bounds(duacs_5day)
+    raw_start = span_start.normalize()
+    raw_end = span_end.normalize()
+    duacs_raw = duacs_raw.sel(time=slice(raw_start, raw_end))
+    if duacs_raw.sizes.get("time", 0) == 0:
+        raise ValueError(f"No raw daily DUACS data found over 5-day DUACS span {raw_start} to {raw_end}")
+
     u_5day_name, v_5day_name = _duacs_velocity_names(duacs_5day, velocity_kind)
     u_raw_name, v_raw_name = _duacs_velocity_names(duacs_raw, velocity_kind)
     velocity_label = _duacs_velocity_label(velocity_kind)
@@ -2181,7 +2234,7 @@ def _plot_temporal_ke_spectra(
     fig.suptitle(
         _figure_title_with_context(
             "Regional Surface Geostrophic KE Temporal Spectra vs DUACS",
-            extra=f"{velocity_label}; raw daily and 5-day averaged DUACS",
+            extra=f"{velocity_label}; {_period_label(span_start, span_end)}; raw daily and 5-day averaged DUACS",
         ),
         y=0.975,
         fontsize=14,
@@ -2992,13 +3045,10 @@ def main() -> None:
             _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["duacs"]))
         )
     )
-    duacs_raw = _year_slice(
-        _infer_obs_grid_metrics(
-            _drop_singleton_nonspatial_dims(
-                _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["duacs_raw"]))
-            )
-        ),
-        args.year,
+    duacs_raw = _infer_obs_grid_metrics(
+        _drop_singleton_nonspatial_dims(
+            _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["duacs_raw"]))
+        )
     )
     oisst = _infer_obs_grid_metrics(
         _drop_singleton_nonspatial_dims(

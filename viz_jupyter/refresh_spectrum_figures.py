@@ -19,6 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Refresh observation spectrum figures")
     parser.add_argument("--year", type=int, default=2022)
     parser.add_argument("--duacs-velocity-kind", choices=["absolute", "anomaly"], default="absolute")
+    parser.add_argument(
+        "--duacs-raw-path",
+        type=Path,
+        default=None,
+        help="Optional raw daily DUACS zarr path. Defaults to obs_evaluation.py's configured raw DUACS path.",
+    )
     return parser.parse_args()
 
 
@@ -72,10 +78,12 @@ def _replace_spectrum_metrics(metrics_path: Path, spectrum_metrics: pd.DataFrame
 def main() -> None:
     args = parse_args()
     oe = _import_obs_evaluation()
+    if args.duacs_raw_path is not None:
+        oe.OBS_CONFIG["duacs_raw"] = args.duacs_raw_path
 
     print("Loading observations for spectrum diagnostics...")
-    duacs = _prepared_obs_dataset(oe, "duacs", args.year)
-    duacs_raw = _prepared_obs_dataset(oe, "duacs_raw", args.year)
+    duacs = _prepared_obs_dataset(oe, "duacs", None)
+    duacs_raw = _prepared_obs_dataset(oe, "duacs_raw", None)
     oisst = _prepared_obs_dataset(oe, "oisst", None)
     oisst_daily = _prepared_obs_dataset_optional(oe, "oisst_daily", None)
 
