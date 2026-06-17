@@ -157,7 +157,7 @@ Metric:
 
 - global mean of time-mean surface geostrophic EKE over 2022 (and the bias against DUACS)
 
-### Isotropic temperature anomaly spectra vs OISST
+### Isotropic SSTA spectra vs OISST
 
 Uses:
 
@@ -170,15 +170,15 @@ Each side's regional 2D spectrum is computed on its own grid using its own
 `dx`/`dy`. The raw daily OISST, 5-day averaged OISST, and model curves are
 plotted together. Model RMSE is reported separately against raw daily OISST and
 against 5-day averaged OISST after interpolation onto a common wavenumber axis.
+Before the 2D spectra are computed, each product is converted to true
+climatological SSTA by subtracting its own 2014-2022 calendar-day climatology
+at each grid point. The calendar-day key is `MM-DD`, so leap-day handling does
+not mix Feb 29 with Mar 1.
 
 Metric:
 
-- RMSE between model and raw daily OISST isotropic temperature spectra
-- RMSE between model and 5-day averaged OISST isotropic temperature spectra
-
-Metric:
-
-- RMSE between observation and model isotropic spectra
+- RMSE between model and raw daily OISST isotropic SSTA spectra
+- RMSE between model and 5-day averaged OISST isotropic SSTA spectra
 
 ### Temporal KE spectra vs DUACS
 
@@ -217,8 +217,11 @@ to `2000 m`.
 Metrics:
 
 - monthly OHC RMSE
-- monthly OHC anomaly RMSE
+- monthly OHC mean-removed anomaly RMSE
+- monthly OHC detrended anomaly RMSE
 - monthly OHC climatology RMSE
+- monthly OHC deseasonalized anomaly RMSE
+- monthly OHC detrended deseasonalized anomaly RMSE
 
 ### Temperature/salinity monthly time series vs ARGO-IAP
 
@@ -237,11 +240,17 @@ layers match the OHC diagnostics:
 Metrics:
 
 - monthly temperature layer-mean RMSE
-- monthly temperature layer-mean anomaly RMSE
+- monthly temperature layer-mean mean-removed anomaly RMSE
+- monthly temperature layer-mean detrended anomaly RMSE
 - monthly temperature layer-mean climatology RMSE
+- monthly temperature layer-mean deseasonalized anomaly RMSE
+- monthly temperature layer-mean detrended deseasonalized anomaly RMSE
 - monthly salinity layer-mean RMSE
-- monthly salinity layer-mean anomaly RMSE
+- monthly salinity layer-mean mean-removed anomaly RMSE
+- monthly salinity layer-mean detrended anomaly RMSE
 - monthly salinity layer-mean climatology RMSE
+- monthly salinity layer-mean deseasonalized anomaly RMSE
+- monthly salinity layer-mean detrended deseasonalized anomaly RMSE
 
 ### Temperature/salinity/OHC maps vs ARGO-IAP
 

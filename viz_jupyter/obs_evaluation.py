@@ -894,11 +894,11 @@ def _compute_isotropic_spectrum_from_surface(
     data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose("time", lat_dim, lon_dim)
     dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
-    anomaly = data - data.mean("time")
-    valid_space = np.isfinite(anomaly).any("time")
-    anomaly = anomaly.where(valid_space)
+    ssta = _calendar_day_climatology_anomaly(data)
+    valid_space = np.isfinite(ssta).any("time")
+    ssta = ssta.where(valid_space)
     k_cent, spec = compute_isotropic_spectrum_torch(
-        torch.as_tensor(anomaly.fillna(0.0).values),
+        torch.as_tensor(ssta.fillna(0.0).values),
         dx=dx_mean,
         dy=dy_mean,
         n_factor=2,
@@ -943,6 +943,20 @@ def _compute_temporal_ke_spectrum_from_surface(
     psd_mean = np.nanmean(psd, axis=1)
     valid = freqs > 0
     return freqs[valid], psd_mean[valid]
+
+
+def _calendar_day_climatology_anomaly(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    times = _coerce_datetime_values(field[time_dim].values)
+    calendar_day = xr.DataArray(
+        np.asarray([f"{timestamp.month:02d}-{timestamp.day:02d}" for timestamp in times]),
+        dims=[time_dim],
+        coords={time_dim: field[time_dim]},
+        name="calendar_day",
+    )
+    with_calendar_day = field.assign_coords(calendar_day=calendar_day)
+    climatology = with_calendar_day.groupby("calendar_day").mean(time_dim, skipna=True)
+    anomaly = with_calendar_day.groupby("calendar_day") - climatology
+    return anomaly.drop_vars("calendar_day")
 
 
 def _rmse_between_curves(x_ref: np.ndarray, y_ref: np.ndarray, x_other: np.ndarray, y_other: np.ndarray) -> float:
@@ -2043,7 +2057,7 @@ def _plot_temperature_spectra(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg",
+                    "metric": "surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg",
                     "value": rmse_5day,
                 }
             )
@@ -2053,7 +2067,7 @@ def _plot_temperature_spectra(
                     {
                         "model": label,
                         "region": region_name,
-                        "metric": "surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily",
+                        "metric": "surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily",
                         "value": rmse_daily,
                     }
                 )
@@ -2076,8 +2090,13 @@ def _plot_temperature_spectra(
         frameon=False,
         fontsize=11,
     )
-    fig.suptitle("Regional Surface Temperature Spectra vs OISST", y=0.965, fontsize=15)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.87, bottom=0.15, wspace=0.25, hspace=0.34)
+    fig.suptitle(
+        "Regional Surface Temperature SSTA Spectra vs OISST\n2014-2022 calendar-day climatology removed",
+        y=0.975,
+        fontsize=15,
+        linespacing=1.15,
+    )
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.83, bottom=0.15, wspace=0.25, hspace=0.34)
     return pd.DataFrame(rows)
 
 

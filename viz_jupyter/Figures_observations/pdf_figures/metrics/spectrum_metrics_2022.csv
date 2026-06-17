@@ -1,20 +1,20 @@
 model,region,metric,value
-Samudra 2 (1/4$^\circ$),Gulf Stream,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,5042.727256876128
-Samudra 2 (1/4$^\circ$),Gulf Stream,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,5730.445997816439
-OM4 (1/4$^\circ$),Gulf Stream,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,4181.359311717901
-OM4 (1/4$^\circ$),Gulf Stream,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,4831.458392125254
-Samudra 2 (1/4$^\circ$),Kuroshio,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,11363.768698310763
-Samudra 2 (1/4$^\circ$),Kuroshio,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,11533.663960225447
-OM4 (1/4$^\circ$),Kuroshio,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,8816.844634943705
-OM4 (1/4$^\circ$),Kuroshio,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,9264.307336477754
-Samudra 2 (1/4$^\circ$),Agulhas,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,23523.895533857027
-Samudra 2 (1/4$^\circ$),Agulhas,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,24813.814210080327
-OM4 (1/4$^\circ$),Agulhas,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,21500.585548573432
-OM4 (1/4$^\circ$),Agulhas,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,22765.274609578843
-Samudra 2 (1/4$^\circ$),Malvinas,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,9979.329595358093
-Samudra 2 (1/4$^\circ$),Malvinas,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,10759.227780236608
-OM4 (1/4$^\circ$),Malvinas,surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg,8971.35219357858
-OM4 (1/4$^\circ$),Malvinas,surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily,9735.23532443322
+Samudra 2 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,4401.943636236917
+Samudra 2 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,5645.242086189468
+OM4 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,3235.0446410692634
+OM4 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,4382.594235514759
+Samudra 2 (1/4$^\circ$),Kuroshio,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,9413.2859396715
+Samudra 2 (1/4$^\circ$),Kuroshio,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,10933.36715088325
+OM4 (1/4$^\circ$),Kuroshio,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7232.939546114545
+OM4 (1/4$^\circ$),Kuroshio,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,8804.309691676091
+Samudra 2 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,19733.830117297148
+Samudra 2 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,22901.07763968004
+OM4 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,18447.624043006435
+OM4 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,21591.17752992224
+Samudra 2 (1/4$^\circ$),Malvinas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7734.414538068125
+Samudra 2 (1/4$^\circ$),Malvinas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,9817.472606038149
+OM4 (1/4$^\circ$),Malvinas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7033.099238927629
+OM4 (1/4$^\circ$),Malvinas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,9108.293671252844
 Samudra 2 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00041341013872290574
 Samudra 2 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00040140241075610467
 OM4 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.0004047052767879773
