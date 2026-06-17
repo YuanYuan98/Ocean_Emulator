@@ -1,0 +1,14 @@
+srun: job 54599435 queued and waiting for resources
+srun: job 54599435 has been allocated resources
+Loading observations for spectrum diagnostics...
+Loading emulator rollouts...
+ - Samudra 2 (1/4$^\circ$): /global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr
+ - OM4 (1/4$^\circ$): /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr
+Using OM4 (1/4$^\circ$) finite ocean mask for model-native diagnostics.
+Evaluating isotropic temperature spectra vs OISST...
+  -> Saved: Figures_observations/pdf_figures/spectrum/temperature_isotropic_spectra_vs_oisst.pdf
+Evaluating temporal KE spectra vs raw and 5-day DUACS...
+  WARNING: 5-day temporal KE spectrum uses only 1.0 years of data; Welch PSD has very low spectral degrees of freedom and curves below ~1 cycle/year are not statistically reliable.
+  -> Saved: Figures_observations/pdf_figures/spectrum/ke_temporal_spectra_vs_duacs.pdf
+  -> Saved spectrum metrics: Figures_observations/pdf_figures/metrics/spectrum_metrics_2022.csv
+  -> Updated spectrum rows in: Figures_observations/pdf_figures/metrics/observation_metrics_2022.csv

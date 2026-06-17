@@ -406,6 +406,7 @@ OBS_CONFIG = {
     "duacs": args.aligned_obs_root / "duacs.zarr",
     "duacs_raw": args.raw_obs_root / DUACS_RAW_ZARR,
     "oisst": args.aligned_obs_root / "oisst.zarr",
+    "oisst_daily": args.aligned_obs_root / "oisst_daily.zarr",
     "argo_iap": args.aligned_obs_root / "argo-iap.zarr",
 }
 
@@ -1999,8 +2000,17 @@ def _plot_argo_ohc_zonal_mean_bias(argo_iap: xr.Dataset, emulators: dict[str, di
     return pd.DataFrame(rows)
 
 
-def _plot_temperature_spectra(oisst: xr.Dataset, emulators: dict[str, dict]) -> pd.DataFrame:
-    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
+def _plot_temperature_spectra(
+    oisst_5day: xr.Dataset,
+    emulators: dict[str, dict],
+    oisst_daily: xr.Dataset | None = None,
+) -> pd.DataFrame:
+    sst_5day_name = _find_var_name(oisst_5day, ["sst", "analysed_sst", "thetao", "tos"])
+    sst_daily_name = (
+        _find_var_name(oisst_daily, ["sst", "analysed_sst", "thetao", "tos"])
+        if oisst_daily is not None
+        else None
+    )
     rows = []
     n_regions = len(SPECTRUM_REGIONS)
     nrows = 2
@@ -2010,26 +2020,53 @@ def _plot_temperature_spectra(oisst: xr.Dataset, emulators: dict[str, dict]) -> 
 
     for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
         ax = axes[idx]
-        k_obs, spec_obs = _compute_isotropic_spectrum_from_surface(
-            oisst[sst_name], oisst["dx"], oisst["dy"], lon_slice, lat_slice
+        k_5day, spec_5day = _compute_isotropic_spectrum_from_surface(
+            oisst_5day[sst_5day_name], oisst_5day["dx"], oisst_5day["dy"], lon_slice, lat_slice
         )
-        ax.loglog(k_obs, spec_obs, "--", color="black", linewidth=2, label="OISST")
+        if oisst_daily is not None and sst_daily_name is not None:
+            k_daily, spec_daily = _compute_isotropic_spectrum_from_surface(
+                oisst_daily[sst_daily_name], oisst_daily["dx"], oisst_daily["dy"], lon_slice, lat_slice
+            )
+            ax.loglog(k_daily, spec_daily, ":", color="0.35", linewidth=2, label="OISST raw daily")
+        else:
+            k_daily, spec_daily = None, None
+        ax.loglog(k_5day, spec_5day, "--", color="black", linewidth=2, label="OISST 5-day avg")
         for label, emu in emulators.items():
-            sim, _ = _temporal_overlap(emu["ds"], oisst)
+            sim, _ = _temporal_overlap(emu["ds"], oisst_5day)
             sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
             k_sim, spec_sim = _compute_isotropic_spectrum_from_surface(
                 sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice,
                 lat_dim="y", lon_dim="x",
             )
-            rmse = _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim)
-            rows.append({"model": label, "region": region_name, "metric": "surface_temp_isotropic_spectrum_rmse", "value": rmse})
+            rmse_5day = _rmse_between_curves(k_5day, spec_5day, k_sim, spec_sim)
+            rows.append(
+                {
+                    "model": label,
+                    "region": region_name,
+                    "metric": "surface_temp_isotropic_spectrum_rmse_vs_oisst_5day_avg",
+                    "value": rmse_5day,
+                }
+            )
+            if k_daily is not None and spec_daily is not None:
+                rmse_daily = _rmse_between_curves(k_daily, spec_daily, k_sim, spec_sim)
+                rows.append(
+                    {
+                        "model": label,
+                        "region": region_name,
+                        "metric": "surface_temp_isotropic_spectrum_rmse_vs_oisst_raw_daily",
+                        "value": rmse_daily,
+                    }
+                )
             ax.loglog(k_sim, spec_sim, "-", color=emu["color"], linewidth=2, label=label)
         ax.set_title(region_name)
         ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
         ax.set_ylabel("PSD")
         ax.grid(True, which="both", alpha=0.3)
 
-    handles, labels, ncol = _legend_truth_first(*axes[0].get_legend_handles_labels(), truth_labels={"OISST"})
+    handles, labels, ncol = _legend_truth_first(
+        *axes[0].get_legend_handles_labels(),
+        truth_labels={"OISST raw daily", "OISST 5-day avg"},
+    )
     fig.legend(
         handles,
         labels,
@@ -2949,6 +2986,15 @@ def main() -> None:
             _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["oisst"]))
         )
     )
+    if OBS_CONFIG["oisst_daily"].exists():
+        oisst_daily = _infer_obs_grid_metrics(
+            _drop_singleton_nonspatial_dims(
+                _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["oisst_daily"]))
+            )
+        )
+    else:
+        print(f"  WARNING: daily OISST path not found, skipping raw-daily SST spectra: {OBS_CONFIG['oisst_daily']}")
+        oisst_daily = None
     argo_iap = _drop_singleton_nonspatial_dims(
         _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["argo_iap"]))
     )
@@ -2997,7 +3043,7 @@ def main() -> None:
     save_current_fig(f"ohc_layer_integrated_maps_vs_argo_iap_{args.year}", MAP_DIR)
 
     print("Evaluating isotropic temperature spectra vs OISST...")
-    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators)
+    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
     save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
 
     print("Evaluating temporal KE spectra vs raw and 5-day DUACS...")

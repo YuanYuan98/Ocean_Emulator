@@ -1,0 +1,8 @@
+Downloading NOAA OISST v2.1 daily files for 1982-1982
+Output directory: /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/oisst
+Tasks: 365; workers: 8; dry_run=False
+  -> 100/365 complete (7.23 files/s; counts={'downloaded': 100}; bytes=0.16 GiB)
+  -> 200/365 complete (7.31 files/s; counts={'downloaded': 200}; bytes=0.32 GiB)
+  -> 300/365 complete (7.47 files/s; counts={'downloaded': 300}; bytes=0.48 GiB)
+  -> 365/365 complete (7.51 files/s; counts={'downloaded': 365}; bytes=0.58 GiB)
+Download complete.

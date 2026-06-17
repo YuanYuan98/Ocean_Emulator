@@ -20,6 +20,7 @@ The processed observation products currently used by `obs_evaluation.py` are:
 
 - `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/duacs.zarr`
 - `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/oisst.zarr`
+- `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/oisst_daily.zarr`
 - `/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/obs_data/nativegrid/argo-iap.zarr`
 
 The prepared ARGO store now includes both `temp` and `salt`, so
@@ -47,12 +48,22 @@ The 2022 rollout time axis used as the main reference is:
 - cadence: every `5` days
 - number of samples: `72`
 
+The long OISST spectrum comparison now also uses the Samudra 2 overlap
+timeline:
+
+- start: `2014-10-20 12:00:00`
+- end: `2022-12-24 12:00:00`
+- cadence: model rollout timestamps, mostly every `5` days with a few `6` day
+  gaps inherited from the rollout calendar
+- number of 5-day samples: `598`
+
 ## Raw Observation Products
 
 The raw products had different native grids:
 
 - `DUACS`: daily, about `0.125 degree`
-- `OISST`: daily, about `0.25 degree`
+- `OISST`: daily, about `0.25 degree`; the local raw copy covers
+  `1982-01-01` through `2022-12-31`
 - `ARGO-IAP`: monthly, about `0.5 degree`, depth only to `2000 m`; the local
   raw copy contains matching 1980-2022 temperature and salinity files.
 
@@ -78,17 +89,24 @@ So the final DUACS comparison product is:
 
 Raw OISST is daily.
 
-The same time processing as DUACS was used:
+Two prepared OISST products are now written:
 
-1. Read daily 2022 OISST.
+- `nativegrid/oisst.zarr`: centered 5-day rolling mean sampled on the Samudra 2
+  rollout timestamps from `2014-10-20 12:00:00` through
+  `2022-12-24 12:00:00` (`598` samples)
+- `nativegrid/oisst_daily.zarr`: raw daily OISST on the same native grid from
+  `2014-10-20 12:00:00` through `2022-12-24 12:00:00` (`2988` samples)
+
+The 5-day processing is:
+
+1. Read daily OISST over the requested comparison window plus the two-day
+   centered-rolling margin.
 2. Apply a centered 5-sample rolling mean.
-3. Sample on the Samudra rollout dates.
+3. Sample on the Samudra 2 rollout dates.
 4. Relabel to the exact rollout timestamps.
 
-So the final OISST comparison product also has:
-
-- `72` timestamps
-- exact match to the Samudra 2022 5-day timeline
+The daily product is standardized in coordinates only; it is not temporally
+smoothed.
 
 ### ARGO-IAP
 
@@ -143,10 +161,20 @@ Metric:
 
 Uses:
 
-- OISST on its native ~0.25° grid, on the aligned 5-day timestamps
+- raw daily OISST on its native ~0.25° grid
+- 5-day averaged OISST on its native ~0.25° grid, sampled on the aligned
+  Samudra 2 timestamps
 - Samudra / Samudra 2 surface temperature on the model grid, same aligned period
 
-Each side's regional 2D spectrum is computed on its own grid using its own `dx`/`dy`. The two curves are then compared bucket-by-bucket after interpolation onto a common wavenumber axis.
+Each side's regional 2D spectrum is computed on its own grid using its own
+`dx`/`dy`. The raw daily OISST, 5-day averaged OISST, and model curves are
+plotted together. Model RMSE is reported separately against raw daily OISST and
+against 5-day averaged OISST after interpolation onto a common wavenumber axis.
+
+Metric:
+
+- RMSE between model and raw daily OISST isotropic temperature spectra
+- RMSE between model and 5-day averaged OISST isotropic temperature spectra
 
 Metric:
 
@@ -268,12 +296,16 @@ Metric:
 ### 1. The temporal filtering is different across products
 
 - DUACS and OISST are explicitly converted to a 5-day representation
-- raw daily DUACS is also loaded directly for temporal-frequency comparisons
+- raw daily DUACS is loaded directly for temporal-frequency comparisons
+- raw daily OISST is also prepared for daily-vs-5-day SST spectrum comparisons
 - ARGO-IAP remains monthly
 
 This is intentional:
 
-- high-frequency products are matched to the 5-day model cadence
+- high-frequency products are matched to the 5-day model cadence where the
+  model is directly sampled
+- raw daily observation spectra are kept as additional references for the
+  effect of temporal smoothing
 - monthly OHC comparisons stay monthly
 - ARGO temperature/salinity structure comparisons stay monthly and are then
   summarized as annual means
@@ -313,7 +345,10 @@ The current spectrum RMSE is computed directly on the spectral values after inte
 
 The main design choices were:
 
-- align DUACS and OISST onto the Samudra 5-day timeline so that map and spectral diagnostics see the same temporal sampling on both sides
+- align DUACS and OISST onto the Samudra 5-day timeline so that map and some
+  spectral diagnostics see the same temporal sampling on both sides
+- keep raw daily OISST and raw daily DUACS available for spectrum diagnostics
+  that explicitly compare daily and 5-day observational sampling
 - keep ARGO-IAP monthly because OHC and temperature/salinity structure are
   monthly observational products
 - keep each obs product on its native horizontal grid and let the diagnostic decide what is fair to compare, rather than baking a particular regridding choice into the preprocessed files
@@ -326,7 +361,9 @@ including OHC, and keeps the preprocessing step minimal and reproducible.
 `obs_evaluation.py` now assumes:
 
 - `DUACS`, `OISST`, and `ARGO-IAP` all come from `nativegrid/`
-- DUACS and OISST are on the 5-day aligned timeline; ARGO-IAP is still monthly
+- DUACS and `oisst.zarr` are on the 5-day aligned timeline; ARGO-IAP is still
+  monthly
+- `oisst_daily.zarr` is used as the raw-daily OISST reference for SST spectra
 - raw daily DUACS is also loaded from `--raw-obs-root` for temporal spectra
 - OHC uses the common ARGO/model overlap by default; `--ohc-start-date` and
   `--ohc-end-date` can force a specific monthly OHC window when longer ARGO

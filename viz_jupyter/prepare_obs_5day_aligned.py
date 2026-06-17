@@ -8,6 +8,8 @@ What this script does
   step 5 days).
 - DUACS and OISST (daily): centered 5-sample rolling mean in time, sampled on
   the rollout dates and relabeled to the exact rollout timestamps.
+- OISST daily can also be written separately as ``oisst_daily.zarr`` for
+  diagnostics that compare daily and 5-day-smoothed observational spectra.
 - ARGO-IAP (monthly): kept on its native monthly axis (no temporal alignment),
   because forcing it to 5 days would invent variability.
 - Coordinate housekeeping only: rename ``latitude``/``longitude`` to
@@ -56,9 +58,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollout-path", type=Path, default=DEFAULT_ROLLOUT)
     parser.add_argument("--year", type=int, default=2022)
     parser.add_argument(
+        "--start-date",
+        default=None,
+        help=(
+            "Optional rollout start date for DUACS/OISST alignment. "
+            "When set, --end-date must also be set and --year is only used for products not using rollout times."
+        ),
+    )
+    parser.add_argument(
+        "--end-date",
+        default=None,
+        help="Optional rollout end date for DUACS/OISST alignment. Requires --start-date.",
+    )
+    parser.add_argument(
         "--products",
         nargs="+",
-        choices=["all", "duacs", "oisst", "argo-iap"],
+        choices=["all", "duacs", "oisst", "oisst-daily", "argo-iap"],
         default=["all"],
         help="Products to rebuild. Use --products argo-iap after downloading a longer ARGO-IAP record.",
     )
@@ -88,15 +103,33 @@ def _coerce_datetime_index(values: np.ndarray) -> pd.DatetimeIndex:
     return pd.to_datetime(flat.astype(str))
 
 
-def _rollout_times(rollout_path: Path, year: int) -> pd.DatetimeIndex:
+def _rollout_times(
+    rollout_path: Path,
+    year: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> pd.DatetimeIndex:
     ds = xr.open_zarr(rollout_path)
     times = _coerce_datetime_index(ds.time.values)
-    mask = (times >= pd.Timestamp(f"{year}-01-01")) & (times <= pd.Timestamp(f"{year}-12-31 23:59:59"))
+    if (start_date is None) != (end_date is None):
+        raise ValueError("--start-date and --end-date must be provided together")
+    if start_date is not None and end_date is not None:
+        start = pd.Timestamp(start_date)
+        end = pd.Timestamp(end_date)
+        if end == end.normalize():
+            end = end + pd.Timedelta(days=1) - pd.Timedelta(nanoseconds=1)
+    else:
+        start = pd.Timestamp(f"{year}-01-01")
+        end = pd.Timestamp(f"{year}-12-31 23:59:59")
+    mask = (times >= start) & (times <= end)
     target = times[mask]
     if len(target) == 0:
-        raise ValueError(f"No rollout timestamps found in {year}")
+        raise ValueError(f"No rollout timestamps found between {start} and {end}")
     deltas = np.unique((target[1:] - target[:-1]).days)
-    if target[0] != pd.Timestamp(f"{year}-01-03 12:00:00") or not np.array_equal(deltas, np.array([5])):
+    if start_date is None:
+        if target[0] != pd.Timestamp(f"{year}-01-03 12:00:00") or not np.array_equal(deltas, np.array([5])):
+            raise ValueError(f"Unexpected rollout cadence: first={target[0]!s}, deltas={deltas}")
+    elif not set(deltas).issubset({5, 6}):
         raise ValueError(f"Unexpected rollout cadence: first={target[0]!s}, deltas={deltas}")
     return target
 
@@ -220,10 +253,42 @@ def _prepare_oisst(
     output_root: Path,
     target_times: pd.DatetimeIndex,
 ) -> None:
-    ds = xr.open_mfdataset(str(raw_root / "oisst" / "*.nc"), combine="by_coords")[["sst"]]
+    first_date = target_times.min().normalize() - pd.Timedelta(days=2)
+    last_date = target_times.max().normalize() + pd.Timedelta(days=2)
+    needed_dates = pd.date_range(first_date, last_date, freq="D")
+    files = [raw_root / "oisst" / f"oisst-avhrr-v02r01.{date:%Y%m%d}.nc" for date in needed_dates]
+    missing = [path for path in files if not path.exists()]
+    if missing:
+        first_missing = ", ".join(path.name for path in missing[:5])
+        raise FileNotFoundError(
+            f"Missing {len(missing)} OISST daily files needed for centered 5-day alignment. "
+            f"First missing files: {first_missing}"
+        )
+    ds = xr.open_mfdataset([str(path) for path in files], combine="by_coords")[["sst"]]
     ds = _standardize_daily_ds(ds).squeeze(drop=True)
     ds = _align_daily_with_centered_rolling(ds, target_times)
     _chunk_for_write(ds).to_zarr(output_root / "oisst.zarr", mode="w")
+
+
+def _prepare_oisst_daily(
+    raw_root: Path,
+    output_root: Path,
+    target_times: pd.DatetimeIndex,
+) -> None:
+    first_date = target_times.min().normalize()
+    last_date = target_times.max().normalize()
+    needed_dates = pd.date_range(first_date, last_date, freq="D")
+    files = [raw_root / "oisst" / f"oisst-avhrr-v02r01.{date:%Y%m%d}.nc" for date in needed_dates]
+    missing = [path for path in files if not path.exists()]
+    if missing:
+        first_missing = ", ".join(path.name for path in missing[:5])
+        raise FileNotFoundError(
+            f"Missing {len(missing)} OISST daily files needed for daily output. "
+            f"First missing files: {first_missing}"
+        )
+    ds = xr.open_mfdataset([str(path) for path in files], combine="by_coords")[["sst"]]
+    ds = _standardize_daily_ds(ds).squeeze(drop=True)
+    _chunk_for_write(ds).to_zarr(output_root / "oisst_daily.zarr", mode="w")
 
 
 def _prepare_argo_iap(
@@ -282,6 +347,7 @@ def _write_readme(output_root: Path, target_times: pd.DatetimeIndex | None) -> N
         f"{timeline_text}"
         "DUACS and OISST were converted from daily products using a centered 5-sample rolling mean,\n"
         "then sampled on the rollout dates and relabeled to the exact rollout timestamps.\n"
+        "OISST daily, when written, is kept at the original daily cadence over the target timeline.\n"
         "Spatial resolution is preserved at the source product's native grid:\n"
         "  - DUACS: ~0.125 degree\n"
         "  - OISST: ~0.25 degree\n"
@@ -296,9 +362,13 @@ def main() -> None:
     args.output_root.mkdir(parents=True, exist_ok=True)
     products = set(args.products)
     if "all" in products:
-        products = {"duacs", "oisst", "argo-iap"}
-    needs_rollout = bool(products & {"duacs", "oisst"})
-    target_times = _rollout_times(args.rollout_path, args.year) if needs_rollout else None
+        products = {"duacs", "oisst", "oisst-daily", "argo-iap"}
+    needs_rollout = bool(products & {"duacs", "oisst", "oisst-daily"})
+    target_times = (
+        _rollout_times(args.rollout_path, args.year, args.start_date, args.end_date)
+        if needs_rollout
+        else None
+    )
 
     print(f"Preparing rollout-aligned products in {args.output_root}")
     if "duacs" in products:
@@ -307,6 +377,9 @@ def main() -> None:
     if "oisst" in products:
         _prepare_oisst(args.raw_obs_root, args.output_root, target_times)
         print("  -> wrote oisst.zarr")
+    if "oisst-daily" in products:
+        _prepare_oisst_daily(args.raw_obs_root, args.output_root, target_times)
+        print("  -> wrote oisst_daily.zarr")
     if "argo-iap" in products:
         _prepare_argo_iap(args.raw_obs_root, args.output_root, args.argo_start_year, args.argo_end_year)
         print("  -> wrote argo-iap.zarr")
