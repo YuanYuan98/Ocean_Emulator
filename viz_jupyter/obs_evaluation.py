@@ -140,6 +140,9 @@ SPECTRUM_REGIONS = [
     ("Malvinas", slice(311, 331), slice(-51, -31)),
 ]
 
+# Full calendar years used for the interannual (per-year mean +/- 1 std) spectra diagnostics.
+SPECTRA_INTERANNUAL_YEARS = list(range(2015, 2023))
+
 DUACS_RAW_ZARR = (
     "duacs/"
     "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D_multi-vars_"
@@ -1078,6 +1081,42 @@ def _rmse_between_curves(x_ref: np.ndarray, y_ref: np.ndarray, x_other: np.ndarr
     if valid.sum() == 0:
         return np.nan
     return float(np.sqrt(np.mean((y_ref[domain][valid] - y_other_on_ref[valid]) ** 2)))
+
+
+def _interannual_band(
+    curves: list[tuple[np.ndarray, np.ndarray]],
+) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None, int]:
+    """Aggregate per-year spectra into a geometric mean and a +/- 1 log-std band.
+
+    Each curve is (x, y). Curves are interpolated onto a common reference grid and the mean and
+    spread are taken on log values, because spectra span orders of magnitude and the band must
+    stay strictly positive on a log-log axis. Returns (x_ref, geom_mean, lower, upper,
+    n_years_used); the array entries are None if no usable curve was provided.
+    """
+    cleaned = []
+    for x, y in curves:
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        mask = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0)
+        if mask.sum() >= 2:
+            order = np.argsort(x[mask])
+            cleaned.append((x[mask][order], y[mask][order]))
+    if not cleaned:
+        return None, None, None, None, 0
+    x_ref = max((x for x, _ in cleaned), key=lambda arr: arr.size)
+    log_ref = np.log(x_ref)
+    log_rows = [np.interp(log_ref, np.log(x), np.log(y), left=np.nan, right=np.nan) for x, y in cleaned]
+    log_rows = np.asarray(log_rows)
+    with np.errstate(invalid="ignore"):
+        log_mean = np.nanmean(log_rows, axis=0)
+        log_std = np.nanstd(log_rows, axis=0)
+    return x_ref, np.exp(log_mean), np.exp(log_mean - log_std), np.exp(log_mean + log_std), log_rows.shape[0]
+
+
+def _plot_spectra_interannual_panel(ax, x_ref, geom_mean, lower, upper, style: str, color, label: str) -> None:
+    """Draw one interannual spectrum: a +/- 1 log-std shaded band plus the geometric-mean line."""
+    ax.fill_between(x_ref, lower, upper, color=color, alpha=0.15, linewidth=0)
+    ax.loglog(x_ref, geom_mean, style, color=color, linewidth=2, label=label)
 
 
 def _find_depth_name(ds: xr.Dataset | xr.DataArray) -> str:
@@ -2500,6 +2539,124 @@ def _plot_temperature_spectra(
     return pd.DataFrame(rows)
 
 
+def _yearly_isotropic_spectra(
+    field: xr.DataArray,
+    dx_2d: xr.DataArray,
+    dy_2d: xr.DataArray,
+    lon_slice: slice,
+    lat_slice: slice,
+    years: list[int],
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+) -> tuple[np.ndarray | None, dict[int, np.ndarray]]:
+    """Per-year isotropic SSTA spectra for a region.
+
+    The SSTA is taken relative to the calendar-day climatology of the FULL multi-year window
+    (so every year shares one baseline), the region is cropped to a fully-observed block once,
+    then the isotropic spectrum is computed per calendar year. Returns the common wavenumber
+    grid (None if nothing usable) and {year: spectrum}.
+    """
+    squeeze_dims = [dim for dim, size in field.sizes.items() if size == 1 and dim not in {"time", lat_dim, lon_dim}]
+    if squeeze_dims:
+        field = field.squeeze(squeeze_dims, drop=True)
+    data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose("time", lat_dim, lon_dim)
+    dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
+    dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
+    ssta = _calendar_day_climatology_anomaly(data)
+    ssta = _mask_region_for_spectrum(ssta, lat_dim, lon_dim)
+    k_common: np.ndarray | None = None
+    by_year: dict[int, np.ndarray] = {}
+    for year in years:
+        ssta_yr = ssta.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        if ssta_yr.sizes.get("time", 0) == 0:
+            continue
+        k_cent, spec = compute_isotropic_spectrum_torch(
+            torch.as_tensor(ssta_yr.fillna(0.0).values),
+            dx=dx_mean,
+            dy=dy_mean,
+            n_factor=2,
+            detrend="linear",
+            window="hann",
+            cutoff_before_bins=False,
+        )
+        by_year[year] = spec.cpu().numpy().mean(0)
+        if k_common is None:
+            k_common = k_cent.cpu().numpy() * 1000 * 2 * np.pi
+    return k_common, by_year
+
+
+def _plot_temperature_spectra_interannual(
+    oisst_5day: xr.Dataset,
+    emulators: dict[str, dict],
+    years: list[int] = SPECTRA_INTERANNUAL_YEARS,
+) -> pd.DataFrame:
+    """Isotropic SSTA spectra as an interannual mean +/- 1 std band: one spectrum per calendar
+    year over `years`, aggregated across years. Complements the pooled single-curve figure."""
+    sst_name = _find_var_name(oisst_5day, ["sst", "analysed_sst", "thetao", "tos"])
+    y0, y1 = years[0], years[-1]
+    window = slice(f"{y0}-01-01", f"{y1}-12-31")
+    oisst_w = oisst_5day.sel(time=window)
+    sim_w = {label: emu["ds"].sel(time=window) for label, emu in emulators.items()}
+
+    rows = []
+    n_regions = len(SPECTRUM_REGIONS)
+    nrows = 2
+    ncols = (n_regions + 1) // 2
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    axes = np.ravel(axes)
+
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+        ax = axes[idx]
+        k_obs, obs_by_year = _yearly_isotropic_spectra(
+            oisst_w[sst_name], oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice, years
+        )
+        if obs_by_year:
+            x_ref, gm, lo, hi, _ = _interannual_band([(k_obs, s) for s in obs_by_year.values()])
+            if x_ref is not None:
+                _plot_spectra_interannual_panel(ax, x_ref, gm, lo, hi, "--", "black", "OISST 5-day avg")
+        for label, emu in emulators.items():
+            sim = sim_w[label]
+            sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
+            k_sim, sim_by_year = _yearly_isotropic_spectra(
+                sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice, years, lat_dim="y", lon_dim="x"
+            )
+            if not sim_by_year:
+                continue
+            x_ref_s, gm_s, lo_s, hi_s, _ = _interannual_band([(k_sim, s) for s in sim_by_year.values()])
+            if x_ref_s is not None:
+                _plot_spectra_interannual_panel(ax, x_ref_s, gm_s, lo_s, hi_s, "-", emu["color"], label)
+            per_year = [
+                _rmse_between_curves(k_obs, obs_by_year[yr], k_sim, sim_by_year[yr])
+                for yr in sorted(set(obs_by_year) & set(sim_by_year))
+            ]
+            per_year = [v for v in per_year if np.isfinite(v)]
+            if per_year:
+                rows.append({"model": label, "region": region_name,
+                             "metric": "surface_ssta_isotropic_spectrum_interannual_rmse_vs_oisst_mean",
+                             "value": float(np.mean(per_year))})
+                rows.append({"model": label, "region": region_name,
+                             "metric": "surface_ssta_isotropic_spectrum_interannual_rmse_vs_oisst_std",
+                             "value": float(np.std(per_year))})
+        ax.set_title(region_name)
+        ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
+        ax.set_ylabel("PSD")
+        ax.grid(True, which="both", alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(
+        *axes[0].get_legend_handles_labels(), truth_labels={"OISST 5-day avg"}
+    )
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
+    fig.suptitle(
+        "Regional Surface Temperature SSTA Spectra vs OISST\n"
+        f"interannual mean $\\pm$1 std over {y0}–{y1} (per-year spectra)",
+        y=0.975,
+        fontsize=14,
+        linespacing=1.15,
+    )
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.83, bottom=0.15, wspace=0.25, hspace=0.34)
+    return pd.DataFrame(rows)
+
+
 def _plot_temporal_ke_spectra(
     duacs_5day: xr.Dataset,
     duacs_raw: xr.Dataset,
@@ -2592,6 +2749,110 @@ def _plot_temporal_ke_spectra(
         ),
         y=0.975,
         fontsize=14,
+        linespacing=1.15,
+    )
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.15, wspace=0.25, hspace=0.34)
+    return pd.DataFrame(rows)
+
+
+def _yearly_temporal_ke_spectra(
+    u: xr.DataArray,
+    v: xr.DataArray,
+    lon_slice: slice,
+    lat_slice: slice,
+    years: list[int],
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+    min_samples: int = 8,
+) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Per-year surface KE temporal (Welch) spectra for a region: {year: (freq, psd)}.
+
+    Each full year is a separate Welch estimate, so the per-year spectra only resolve down to
+    about 1 cycle/year; the lowest frequencies are intentionally left to the full-period figure.
+    """
+    by_year: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    for year in years:
+        u_yr = u.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        v_yr = v.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        if u_yr.sizes.get("time", 0) < min_samples:
+            continue
+        freq, psd = _compute_temporal_ke_spectrum_from_surface(u_yr, v_yr, lon_slice, lat_slice, lat_dim, lon_dim)
+        if freq.size:
+            by_year[year] = (freq, psd)
+    return by_year
+
+
+def _plot_temporal_ke_spectra_interannual(
+    duacs_5day: xr.Dataset,
+    emulators: dict[str, dict],
+    years: list[int] = SPECTRA_INTERANNUAL_YEARS,
+    velocity_kind: str = "absolute",
+) -> pd.DataFrame:
+    """Temporal KE spectra as an interannual mean +/- 1 std band (one Welch PSD per calendar
+    year). Complements the pooled single-curve figure, which still covers the lowest frequencies."""
+    u_name, v_name = _duacs_velocity_names(duacs_5day, velocity_kind)
+    velocity_label = _duacs_velocity_label(velocity_kind)
+    y0, y1 = years[0], years[-1]
+    window = slice(f"{y0}-01-01", f"{y1}-12-31")
+    duacs_w = duacs_5day.sel(time=window)
+
+    rows = []
+    n_regions = len(SPECTRUM_REGIONS)
+    nrows = 2
+    ncols = (n_regions + 1) // 2
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    axes = np.ravel(axes)
+
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+        ax = axes[idx]
+        obs_by_year = _yearly_temporal_ke_spectra(duacs_w[u_name], duacs_w[v_name], lon_slice, lat_slice, years)
+        if obs_by_year:
+            x_ref, gm, lo, hi, _ = _interannual_band(list(obs_by_year.values()))
+            if x_ref is not None:
+                _plot_spectra_interannual_panel(ax, x_ref, gm, lo, hi, "--", "black", "DUACS 5-day avg")
+        for label, emu in emulators.items():
+            sim = emu["ds"].sel(time=window)
+            sim_region = sim.sel(
+                x=_expand_numeric_slice(lon_slice, 1.0),
+                y=_expand_numeric_slice(lat_slice, 1.0),
+            )
+            sim_zos = _apply_native_wet_mask(sim_region["zos"], emu.get("wet_mask"))
+            sim_ug, sim_vg = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
+            if velocity_kind == "anomaly":
+                sim_ug, sim_vg = _time_mean_velocity_anomaly(sim_ug, sim_vg)
+            sim_by_year = _yearly_temporal_ke_spectra(sim_ug, sim_vg, lon_slice, lat_slice, years, lat_dim="y", lon_dim="x")
+            if not sim_by_year:
+                continue
+            x_ref_s, gm_s, lo_s, hi_s, _ = _interannual_band(list(sim_by_year.values()))
+            if x_ref_s is not None:
+                _plot_spectra_interannual_panel(ax, x_ref_s, gm_s, lo_s, hi_s, "-", emu["color"], label)
+            per_year = []
+            for yr in sorted(set(obs_by_year) & set(sim_by_year)):
+                fo, po = obs_by_year[yr]
+                fs, ps = sim_by_year[yr]
+                per_year.append(_rmse_between_curves(fo, po, fs, ps))
+            per_year = [v for v in per_year if np.isfinite(v)]
+            if per_year:
+                rows.append({"model": label, "region": region_name,
+                             "metric": "surface_geostrophic_ke_temporal_spectrum_interannual_rmse_vs_duacs_mean",
+                             "value": float(np.mean(per_year))})
+                rows.append({"model": label, "region": region_name,
+                             "metric": "surface_geostrophic_ke_temporal_spectrum_interannual_rmse_vs_duacs_std",
+                             "value": float(np.std(per_year))})
+        ax.set_title(region_name)
+        ax.set_xlabel("Frequency (cycles/year)")
+        ax.set_ylabel("PSD")
+        ax.grid(True, which="both", alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(
+        *axes[0].get_legend_handles_labels(), truth_labels={"DUACS 5-day avg"}
+    )
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
+    fig.suptitle(
+        "Regional Surface Geostrophic KE Temporal Spectra vs DUACS\n"
+        f"interannual mean $\\pm$1 std over {y0}–{y1} ({velocity_label}, per-year Welch)",
+        y=0.975,
+        fontsize=13,
         linespacing=1.15,
     )
     fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.15, wspace=0.25, hspace=0.34)
@@ -3461,6 +3722,10 @@ def main() -> None:
     temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
     save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
 
+    print("Evaluating interannual isotropic temperature spectra (mean +/- 1 std, 2015-2022) vs OISST...")
+    temp_spec_ia_metrics = _plot_temperature_spectra_interannual(oisst, emulators)
+    save_current_fig("temperature_isotropic_spectra_interannual_vs_oisst", SPECTRUM_DIR)
+
     print("Evaluating temporal KE spectra vs raw and 5-day DUACS...")
     ke_spec_metrics = _plot_temporal_ke_spectra(
         duacs,
@@ -3469,6 +3734,14 @@ def main() -> None:
         velocity_kind=args.duacs_velocity_kind,
     )
     save_current_fig("ke_temporal_spectra_vs_duacs", SPECTRUM_DIR)
+
+    print("Evaluating interannual temporal KE spectra (mean +/- 1 std, 2015-2022) vs DUACS...")
+    ke_spec_ia_metrics = _plot_temporal_ke_spectra_interannual(
+        duacs,
+        emulators,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig("ke_temporal_spectra_interannual_vs_duacs", SPECTRUM_DIR)
 
     ohc_start, ohc_end = _resolve_ohc_period(
         argo_iap,
@@ -3646,7 +3919,9 @@ def main() -> None:
             eke_lp_metrics,
             *argo_map_metrics,
             temp_spec_metrics,
+            temp_spec_ia_metrics,
             ke_spec_metrics,
+            ke_spec_ia_metrics,
             ohc_metrics,
             ohc_anomaly_metrics,
             ohc_detrended_metrics,
