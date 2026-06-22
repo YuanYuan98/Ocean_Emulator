@@ -61,12 +61,18 @@ parser.add_argument(
 parser.add_argument(
     "--obs-climatology-start-date",
     default=None,
-    help="Optional start date for ARGO-IAP monthly climatologies. Defaults to the full ARGO-IAP record.",
+    help=(
+        "Optional start date for ARGO-IAP monthly climatologies. Defaults to the model/observation "
+        "overlap period so the ARGO-IAP seasonal cycle is aligned with the emulators."
+    ),
 )
 parser.add_argument(
     "--obs-climatology-end-date",
     default=None,
-    help="Optional end date for ARGO-IAP monthly climatologies. Defaults to the full ARGO-IAP record.",
+    help=(
+        "Optional end date for ARGO-IAP monthly climatologies. Defaults to the model/observation "
+        "overlap period so the ARGO-IAP seasonal cycle is aligned with the emulators."
+    ),
 )
 parser.add_argument(
     "--aligned-obs-root",
@@ -392,6 +398,14 @@ def _finish_timeseries_figure(
     fig.tight_layout(rect=[0.025, 0.09, 0.99, top])
 
 
+def _climatology_extra(climatology_label: str | None, period_label: str) -> str:
+    if climatology_label is None:
+        return f"climatologies: each series {period_label}"
+    if climatology_label == period_label:
+        return f"seasonal cycle over {climatology_label} (ARGO & models aligned)"
+    return f"climatologies: ARGO {climatology_label}; models {period_label}"
+
+
 # ============================================================
 # Configuration
 # ============================================================
@@ -402,9 +416,10 @@ MAP_DIR = os.path.join(PDF_DIR, "maps")
 SPECTRUM_DIR = os.path.join(PDF_DIR, "spectrum")
 TIMESERIES_DIR = os.path.join(PDF_DIR, "timeseries")
 STRUCTURE_DIR = os.path.join(PDF_DIR, "structure")
+VARIANCE_DIR = os.path.join(PDF_DIR, "variance")
 METRICS_DIR = os.path.join(PDF_DIR, "metrics")
 
-for directory in [OUTPUT_DIR, PDF_DIR, MAP_DIR, SPECTRUM_DIR, TIMESERIES_DIR, STRUCTURE_DIR, METRICS_DIR]:
+for directory in [OUTPUT_DIR, PDF_DIR, MAP_DIR, SPECTRUM_DIR, TIMESERIES_DIR, STRUCTURE_DIR, VARIANCE_DIR, METRICS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 
@@ -779,6 +794,19 @@ def _temporal_overlap(sim: xr.Dataset, obs: xr.Dataset) -> tuple[xr.Dataset, xr.
     return sim.sel(time=slice(start, end)), obs.sel(time=slice(start, end))
 
 
+def _common_time_window(*datasets: xr.Dataset | xr.DataArray) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Intersection of the time spans of all given datasets."""
+    starts, ends = [], []
+    for ds in datasets:
+        lo, hi = _time_bounds(ds)
+        starts.append(lo)
+        ends.append(hi)
+    start, end = max(starts), min(ends)
+    if start > end:
+        raise ValueError("No common time window across the provided datasets")
+    return start, end
+
+
 def _year_slice(ds: xr.Dataset | xr.DataArray, year: int) -> xr.Dataset | xr.DataArray:
     return ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
 
@@ -824,10 +852,12 @@ def _resolve_obs_climatology_period(
     argo_iap: xr.Dataset,
     start_date: str | None,
     end_date: str | None,
+    default_start: pd.Timestamp | None = None,
+    default_end: pd.Timestamp | None = None,
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
     obs_start, obs_end = _time_bounds(argo_iap)
-    start = _date_or_none(start_date) or obs_start
-    end = _date_or_none(end_date) or obs_end
+    start = _date_or_none(start_date) or default_start or obs_start
+    end = _date_or_none(end_date) or default_end or obs_end
     if start > end:
         raise ValueError(f"No ARGO-IAP climatology period for requested dates: start={start}, end={end}")
     return start, end
@@ -925,6 +955,28 @@ def _geostrophic_velocity_from_zos(
     return u_g, v_g
 
 
+def _mask_region_for_spectrum(
+    ssta: xr.DataArray,
+    lat_dim: str,
+    lon_dim: str,
+    min_size: int = 8,
+) -> xr.DataArray:
+    """Restrict a (time, lat, lon) anomaly field to a fully-observed rectangular block so the
+    2-D FFT never sees zero-filled land/missing cells (which would inject spurious power at the
+    land-ocean boundary). Cells finite at every time define the mask; latitude rows and
+    longitude columns that contain any missing cell are dropped. If a clean block at least
+    ``min_size`` on a side cannot be found, fall back to masking and filling residual gaps with
+    the wet-masked mean instead of zeros."""
+    valid_all_time = np.isfinite(ssta).all("time")
+    lat_keep = valid_all_time.all(lon_dim)
+    lon_keep = valid_all_time.all(lat_dim)
+    if int(lat_keep.sum()) >= min_size and int(lon_keep.sum()) >= min_size:
+        return ssta.isel({lat_dim: lat_keep.values, lon_dim: lon_keep.values})
+    masked = ssta.where(np.isfinite(ssta).any("time"))
+    filled = masked.fillna(masked.mean("time", skipna=True))
+    return filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
+
+
 def _compute_isotropic_spectrum_from_surface(
     field: xr.DataArray,
     dx_2d: xr.DataArray,
@@ -941,8 +993,7 @@ def _compute_isotropic_spectrum_from_surface(
     dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     ssta = _calendar_day_climatology_anomaly(data)
-    valid_space = np.isfinite(ssta).any("time")
-    ssta = ssta.where(valid_space)
+    ssta = _mask_region_for_spectrum(ssta, lat_dim, lon_dim)
     k_cent, spec = compute_isotropic_spectrum_torch(
         torch.as_tensor(ssta.fillna(0.0).values),
         dx=dx_mean,
@@ -1033,61 +1084,52 @@ def _find_depth_name(ds: xr.Dataset | xr.DataArray) -> str:
     return _find_coord_name(ds, ["lev", "depth", "depth_0", "depth_std", "DEPTH", "z_t", "zlev"])
 
 
-def _global_ohc_timeseries_from_temperature(
-    ds: xr.Dataset,
-    temp_var: str,
-    area_name: str = "area",
+def _ohc_timeseries_from_obs_grid_field(
+    field: xr.DataArray,
+    area: xr.DataArray,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
-    depth_name = _find_depth_name(ds)
-    depth_vals = ds[depth_name].values.astype(float)
-    dz = np.gradient(depth_vals)
-    thetao = ds[temp_var]
-    area = ds[area_name]
+    """Global OHC (J) per depth layer from a (time, lat, lon, depth) ARGO temperature field
+    (obs on its own grid, with edge-based layer thickness)."""
+    dz = xr.DataArray(
+        _depth_thickness_from_centers(field["depth"].values),
+        dims=["depth"],
+        coords={"depth": field["depth"]},
+    )
     out = {}
     for depth_slice in depth_slices:
-        mask = (depth_vals >= depth_slice["min"]) & (depth_vals < depth_slice["max"])
-        thetao_layer = thetao.isel({depth_name: mask})
-        dz_layer = xr.DataArray(dz[mask], dims=[depth_name], coords={depth_name: thetao_layer[depth_name]})
-        ohc = (thetao_layer * dz_layer * area * RHO * CP).sum([depth_name, "lat", "lon"])
+        field_layer = field.sel(depth=slice(depth_slice["min"], depth_slice["max"]))
+        dz_layer = dz.sel(depth=field_layer["depth"])
+        ohc = (field_layer * dz_layer * area * RHO * CP).sum(["depth", "lat", "lon"])
         out[depth_slice["title"]] = ohc
-    return xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
+    series = xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
+    return series.resample(time="MS").mean()
 
 
-def _global_ohc_timeseries_from_precomputed(
-    ds: xr.Dataset,
-    area_name: str = "area",
-    depth_slices: list[dict] = OHC_DEPTH_SLICES,
-) -> xr.DataArray:
-    candidate_sets = [
-        {
-            "Surface (0-700m)": ["ohc_upper", "ohc_700", "ohc0_700"],
-            "Intermediate (700-2000m)": ["ohc_middle", "ohc_700_2000", "ohc700_2000"],
-            "Deep (2000-7000m)": ["ohc_deep", "ohc_2000_bottom", "ohc2000_bottom"],
-        }
-    ]
-    for mapping in candidate_sets:
-        try:
-            arrays = {}
-            for title, aliases in mapping.items():
-                arrays[title] = ds[_find_var_name(ds, aliases)]
-            stacked = xr.Dataset(arrays).to_array("depth_slice").transpose("time", "depth_slice", ...)
-            if {"lat", "lon"}.issubset(stacked.dims):
-                stacked = (stacked * ds[area_name]).sum(["lat", "lon"])
-            titles = [depth_slice["title"] for depth_slice in depth_slices]
-            return stacked.sel(depth_slice=titles).transpose("time", "depth_slice")
-        except KeyError:
-            continue
-    raise KeyError("Could not find ARGO-IAP OHC variables or temperature field")
-
-
-def _compute_sim_ohc_timeseries(
-    ds_sim: xr.Dataset,
+def _obs_ohc_timeseries(
+    argo_iap: xr.Dataset,
     start: pd.Timestamp,
     end: pd.Timestamp,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
-    wet_mask: xr.DataArray | None = None,
 ) -> xr.DataArray:
+    if "area" not in argo_iap:
+        argo_iap = _infer_obs_grid_metrics(argo_iap)
+    obs_field = _reduce_obs_structure_field(
+        argo_iap, ARGO_STRUCTURE_VARIABLES[0], slice(start, end), _identity_reducer
+    )
+    if obs_field.sizes.get("time", 0) == 0:
+        raise ValueError(f"No ARGO-IAP OHC samples in requested period {start} to {end}")
+    return _ohc_timeseries_from_obs_grid_field(obs_field, argo_iap["area"], depth_slices)
+
+
+def _sim_ohc_timeseries(
+    ds_sim: xr.Dataset,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    wet_mask: xr.DataArray | None = None,
+    depth_slices: list[dict] = OHC_DEPTH_SLICES,
+) -> xr.DataArray:
+    """Global OHC (J) per depth layer on the model's own native grid."""
     ds_year = ds_sim.sel(time=slice(start, end))
     if ds_year.sizes.get("time", 0) == 0:
         raise ValueError(f"No model OHC samples in requested period {start} to {end}")
@@ -1096,35 +1138,15 @@ def _compute_sim_ohc_timeseries(
         dims=["y", "x"],
         coords={"y": ds_year["y"], "x": ds_year["x"]},
     )
-    wet = wet_mask if wet_mask is not None else np.isfinite(ds_year["thetao"].isel(time=0))
+    field = _apply_native_wet_mask(ds_year["thetao"], wet_mask)
     out = {}
     for depth_slice in depth_slices:
-        thetao_layer = ds_year["thetao"].sel(lev=slice(depth_slice["min"], depth_slice["max"]))
+        thetao_layer = field.sel(lev=slice(depth_slice["min"], depth_slice["max"]))
         dz_layer = ds_year["dz"].sel(lev=slice(depth_slice["min"], depth_slice["max"]))
-        wet_layer = wet.sel(lev=slice(depth_slice["min"], depth_slice["max"]))
-        ohc = (thetao_layer * dz_layer * wet_layer * area * RHO * CP).sum(["lev", "y", "x"])
-        monthly = ohc.resample(time="MS").mean()
-        out[depth_slice["title"]] = monthly
-    return xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
-
-
-def _compute_obs_ohc_timeseries(
-    ds_obs: xr.Dataset,
-    start: pd.Timestamp,
-    end: pd.Timestamp,
-    depth_slices: list[dict] = OHC_DEPTH_SLICES,
-) -> xr.DataArray:
-    ds_obs = ds_obs.sel(time=slice(start, end))
-    if ds_obs.sizes.get("time", 0) == 0:
-        raise ValueError(f"No ARGO-IAP OHC samples in requested period {start} to {end}")
-    if "area" not in ds_obs:
-        ds_obs = _infer_obs_grid_metrics(ds_obs)
-    try:
-        temp_var = _find_var_name(ds_obs, ["thetao", "temperature", "temp", "T"])
-        out = _global_ohc_timeseries_from_temperature(ds_obs, temp_var, depth_slices=depth_slices)
-    except KeyError:
-        out = _global_ohc_timeseries_from_precomputed(ds_obs, depth_slices=depth_slices)
-    return out.resample(time="MS").mean()
+        ohc = (thetao_layer * dz_layer * area * RHO * CP).sum(["lev", "y", "x"])
+        out[depth_slice["title"]] = ohc
+    series = xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
+    return series.resample(time="MS").mean()
 
 
 def _collect_ohc_timeseries(
@@ -1133,9 +1155,13 @@ def _collect_ohc_timeseries(
     start: pd.Timestamp,
     end: pd.Timestamp,
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
-    obs_ohc = _compute_obs_ohc_timeseries(argo_iap, start, end)
+    # Each product is reduced on its OWN native grid: a global integral/mean is grid-robust,
+    # so obs (ARGO) and the models (native 1/4-degree) keep their own area, layer thickness,
+    # and ocean mask. ARGO-IAP is a gap-filled global product, so the domains nearly coincide;
+    # the anomaly/deseasonalized RMSEs are the meaningful skill metrics.
+    obs_ohc = _obs_ohc_timeseries(argo_iap, start, end)
     sim_ohc = {
-        label: _compute_sim_ohc_timeseries(emu["ds"], start, end, wet_mask=emu.get("wet_mask"))
+        label: _sim_ohc_timeseries(emu["ds"], start, end, emu.get("wet_mask"))
         for label, emu in emulators.items()
     }
     return obs_ohc, sim_ohc
@@ -1161,71 +1187,59 @@ def _layer_weighted_mean_from_field(
     return xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
 
 
-def _compute_obs_layer_mean_timeseries(
-    ds_obs: xr.Dataset,
+def _layer_mean_timeseries_from_obs_grid_field(
+    field: xr.DataArray,
+    area: xr.DataArray,
+    depth_slices: list[dict] = OHC_DEPTH_SLICES,
+) -> xr.DataArray:
+    """Area- and thickness-weighted layer-mean timeseries from a (time, lat, lon, depth) ARGO
+    field (obs on its own grid)."""
+    dz = xr.DataArray(
+        _depth_thickness_from_centers(field["depth"].values),
+        dims=["depth"],
+        coords={"depth": field["depth"]},
+    )
+    out = _layer_weighted_mean_from_field(field, area, dz, "depth", ["lat", "lon"], depth_slices)
+    return out.resample(time="MS").mean()
+
+
+def _obs_layer_mean_timeseries(
+    argo_iap: xr.Dataset,
     spec: dict,
     start: pd.Timestamp,
     end: pd.Timestamp,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
-    ds_obs = ds_obs.sel(time=slice(start, end))
-    if ds_obs.sizes.get("time", 0) == 0:
+    if "area" not in argo_iap:
+        argo_iap = _infer_obs_grid_metrics(argo_iap)
+    obs_field = _reduce_obs_structure_field(argo_iap, spec, slice(start, end), _identity_reducer)
+    if obs_field.sizes.get("time", 0) == 0:
         raise ValueError(f"No ARGO-IAP samples in requested period {start} to {end}")
-    if "area" not in ds_obs:
-        ds_obs = _infer_obs_grid_metrics(ds_obs)
-
-    obs_var = _find_var_name(ds_obs, spec["obs_aliases"])
-    field = ds_obs[obs_var]
-    depth_name = _find_depth_name(field)
-    if depth_name != "depth":
-        field = field.rename({depth_name: "depth"})
-        depth_name = "depth"
-    field = field.transpose("time", "lat", "lon", depth_name)
-    dz = xr.DataArray(
-        _depth_thickness_from_centers(field[depth_name].values),
-        dims=[depth_name],
-        coords={depth_name: field[depth_name]},
-    )
-    out = _layer_weighted_mean_from_field(
-        field,
-        ds_obs["area"],
-        dz,
-        depth_name,
-        ["lat", "lon"],
-        depth_slices=depth_slices,
-    )
-    return out.resample(time="MS").mean()
+    return _layer_mean_timeseries_from_obs_grid_field(obs_field, argo_iap["area"], depth_slices)
 
 
-def _compute_sim_layer_mean_timeseries(
+def _sim_layer_mean_timeseries(
     ds_sim: xr.Dataset,
     spec: dict,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    depth_slices: list[dict] = OHC_DEPTH_SLICES,
     wet_mask: xr.DataArray | None = None,
+    depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
+    """Area- and thickness-weighted layer-mean timeseries on the model's own native grid."""
     ds_year = ds_sim.sel(time=slice(start, end))
     if ds_year.sizes.get("time", 0) == 0:
         raise ValueError(f"No model samples in requested period {start} to {end}")
     model_var = spec["model_var"]
     if model_var not in ds_year:
         raise KeyError(f"Model dataset does not contain required variable {model_var!r}")
-
     area = xr.DataArray(
         ds_year["areacello"].values,
         dims=["y", "x"],
         coords={"y": ds_year["y"], "x": ds_year["x"]},
     )
     field = _apply_native_wet_mask(ds_year[model_var], wet_mask)
-    out = _layer_weighted_mean_from_field(
-        field,
-        area,
-        ds_year["dz"],
-        "lev",
-        ["y", "x"],
-        depth_slices=depth_slices,
-    )
+    out = _layer_weighted_mean_from_field(field, area, ds_year["dz"], "lev", ["y", "x"], depth_slices)
     return out.resample(time="MS").mean()
 
 
@@ -1236,17 +1250,37 @@ def _collect_layer_mean_timeseries(
     start: pd.Timestamp,
     end: pd.Timestamp,
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
-    obs_series = _compute_obs_layer_mean_timeseries(argo_iap, spec, start, end)
+    # Each product is reduced on its OWN native grid (see _collect_ohc_timeseries): a global
+    # area-weighted mean is grid-robust, so obs (ARGO) and the models (native 1/4-degree) keep
+    # their own area, layer thickness, and ocean mask.
+    obs_series = _obs_layer_mean_timeseries(argo_iap, spec, start, end)
     sim_series = {
-        label: _compute_sim_layer_mean_timeseries(emu["ds"], spec, start, end, wet_mask=emu.get("wet_mask"))
+        label: _sim_layer_mean_timeseries(emu["ds"], spec, start, end, emu.get("wet_mask"))
         for label, emu in emulators.items()
     }
     return obs_series, sim_series
 
 
-def _annual_mean_obs_structure_field(ds_obs: xr.Dataset, spec: dict, year: int) -> xr.DataArray:
+def _time_mean_reducer(da: xr.DataArray) -> xr.DataArray:
+    return da.mean("time", skipna=True)
+
+
+def _time_var_reducer(da: xr.DataArray) -> xr.DataArray:
+    return da.var("time", skipna=True)
+
+
+def _identity_reducer(da: xr.DataArray) -> xr.DataArray:
+    return da
+
+
+def _reduce_obs_structure_field(
+    ds_obs: xr.Dataset,
+    spec: dict,
+    time_slice: slice,
+    reducer,
+) -> xr.DataArray:
     obs_var = _find_var_name(ds_obs, spec["obs_aliases"])
-    da = _year_slice(ds_obs[obs_var], year)
+    da = ds_obs[obs_var].sel(time=time_slice)
     depth_name = _find_depth_name(da)
     rename = {}
     if depth_name != "depth":
@@ -1254,21 +1288,28 @@ def _annual_mean_obs_structure_field(ds_obs: xr.Dataset, spec: dict, year: int) 
     if rename:
         da = da.rename(rename)
     da = da.transpose("time", "lat", "lon", "depth")
-    return da.mean("time", skipna=True).sortby("lat").sortby("lon").sortby("depth")
+    return reducer(da).sortby("lat").sortby("lon").sortby("depth")
 
 
-def _annual_mean_sim_on_obs_grid(
+def _annual_mean_obs_structure_field(ds_obs: xr.Dataset, spec: dict, year: int) -> xr.DataArray:
+    return _reduce_obs_structure_field(
+        ds_obs, spec, slice(f"{year}-01-01", f"{year}-12-31"), _time_mean_reducer
+    )
+
+
+def _reduce_sim_on_obs_grid(
     ds_sim: xr.Dataset,
     spec: dict,
     obs_field: xr.DataArray,
-    year: int,
+    time_slice: slice,
+    reducer,
     wet_mask: xr.DataArray | None = None,
 ) -> xr.DataArray:
     model_var = spec["model_var"]
     if model_var not in ds_sim:
         raise KeyError(f"Model dataset does not contain required variable {model_var!r}")
 
-    sim = _year_slice(ds_sim[model_var], year).mean("time", skipna=True)
+    sim = reducer(ds_sim[model_var].sel(time=time_slice))
     sim = _apply_native_wet_mask(sim, wet_mask)
     rename = {}
     if "y" in sim.dims:
@@ -1279,7 +1320,7 @@ def _annual_mean_sim_on_obs_grid(
         rename["lev"] = "depth"
     if rename:
         sim = sim.rename(rename)
-    sim = sim.transpose("lat", "lon", "depth")
+    sim = sim.transpose(..., "lat", "lon", "depth")
     sim = _normalize_lon(sim, "lon").sortby("lat").sortby("lon").sortby("depth")
 
     obs_depth = obs_field["depth"]
@@ -1297,6 +1338,23 @@ def _annual_mean_sim_on_obs_grid(
         lon=obs_field["lon"],
         depth=target_depth,
         kwargs={"fill_value": np.nan},
+    )
+
+
+def _annual_mean_sim_on_obs_grid(
+    ds_sim: xr.Dataset,
+    spec: dict,
+    obs_field: xr.DataArray,
+    year: int,
+    wet_mask: xr.DataArray | None = None,
+) -> xr.DataArray:
+    return _reduce_sim_on_obs_grid(
+        ds_sim,
+        spec,
+        obs_field,
+        slice(f"{year}-01-01", f"{year}-12-31"),
+        _time_mean_reducer,
+        wet_mask,
     )
 
 
@@ -1364,15 +1422,16 @@ def _argo_variable_cmap(spec: dict):
     return cmocean.cm.thermal
 
 
-def _common_annual_fields_on_argo_grid(
+def _common_temporal_fields_on_argo_grid(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
     spec: dict,
-    year: int,
+    time_slice: slice,
+    reducer,
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
-    obs_field = _annual_mean_obs_structure_field(argo_iap, spec, year)
+    obs_field = _reduce_obs_structure_field(argo_iap, spec, time_slice, reducer)
     sim_fields = {
-        label: _annual_mean_sim_on_obs_grid(emu["ds"], spec, obs_field, year, emu.get("wet_mask"))
+        label: _reduce_sim_on_obs_grid(emu["ds"], spec, obs_field, time_slice, reducer, emu.get("wet_mask"))
         for label, emu in emulators.items()
     }
 
@@ -1395,6 +1454,17 @@ def _common_annual_fields_on_argo_grid(
         for label, sim_field in sim_fields.items()
     }
     return obs_common, sim_common
+
+
+def _common_annual_fields_on_argo_grid(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    spec: dict,
+    year: int,
+) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
+    return _common_temporal_fields_on_argo_grid(
+        argo_iap, emulators, spec, slice(f"{year}-01-01", f"{year}-12-31"), _time_mean_reducer
+    )
 
 
 def _depth_weighted_layer_maps_from_field(
@@ -1537,12 +1607,91 @@ def _plot_layer_map_comparison(
     return pd.DataFrame(rows)
 
 
-def _plot_argo_variable_layer_maps(
+def _plot_layer_bias_map_comparison(
+    obs_maps: dict[str, xr.DataArray],
+    sim_maps: dict[str, dict[str, xr.DataArray]],
+    obs_area: xr.DataArray,
+    emulators: dict[str, dict],
+    title: str,
+    units: str,
+    metric_prefix: str,
+    year: int,
+) -> None:
+    """Point-wise bias maps (model - ARGO-IAP) with area-weighted RMSE annotated.
+
+    Mirrors the Samudra 2 paper bias panels (functions.plot_temperature_bias_comparison_together):
+    rows = emulators, cols = depth layers, diverging colormap, per-layer symmetric limits,
+    RMSE printed above each panel. RMSE values are already emitted to the metrics CSV by
+    _plot_layer_map_comparison, so this figure only visualizes them and returns no metrics.
+    """
+    layer_titles = [depth_slice["title"] for depth_slice in OHC_DEPTH_SLICES]
+    nrows = len(sim_maps)
+    ncols = len(layer_titles)
+    scientific = metric_prefix.startswith("annual_mean_ohc")
+
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(5.6 * ncols, 3.5 * nrows),
+        squeeze=False,
+        subplot_kw={"projection": ccrs.Robinson(central_longitude=210)},
+        gridspec_kw={"hspace": 0.28, "wspace": 0.05},
+    )
+
+    limits = {}
+    for layer_title in layer_titles:
+        chunks = []
+        for model_maps in sim_maps.values():
+            bias = (model_maps[layer_title] - obs_maps[layer_title]).values
+            chunks.append(bias[np.isfinite(bias)])
+        flat = np.concatenate(chunks) if chunks else np.array([1.0])
+        limit = float(np.nanpercentile(np.abs(flat), 99)) if flat.size else 1.0
+        if not np.isfinite(limit) or limit == 0.0:
+            limit = 1.0
+        limits[layer_title] = limit
+
+    for col_idx, layer_title in enumerate(layer_titles):
+        limit = limits[layer_title]
+        norm = colors.Normalize(vmin=-limit, vmax=limit)
+        mesh = None
+        for row_idx, (label, model_maps) in enumerate(sim_maps.items()):
+            ax = axes[row_idx, col_idx]
+            bias = model_maps[layer_title] - obs_maps[layer_title]
+            mesh = bias.plot.pcolormesh(
+                ax=ax,
+                transform=ccrs.PlateCarree(),
+                x="lon",
+                y="lat",
+                cmap=cmocean.cm.balance,
+                norm=norm,
+                add_colorbar=False,
+                rasterized=True,
+                add_labels=False,
+            )
+            _add_map_features(ax)
+            if row_idx == 0:
+                ax.set_title(layer_title, fontweight="bold", y=1.12)
+            rmse = _area_weighted_map_rmse(bias, obs_area)
+            ax.text(0.5, 1.02, f"RMSE: {rmse:.2e} {units}", transform=ax.transAxes,
+                    fontsize=12, ha="center", va="bottom")
+            if col_idx == 0:
+                ax.text(-0.07, 0.55, label, va="center", ha="right", rotation=90,
+                        transform=ax.transAxes, fontweight="bold")
+
+        cbar = fig.colorbar(mesh, ax=axes[:, col_idx], orientation="horizontal",
+                            shrink=0.7, pad=0.03, extend="both", label=f"Bias ({units})")
+        if scientific:
+            cbar.ax.ticklabel_format(style="scientific", scilimits=(0, 0), useMathText=True)
+
+    fig.suptitle(f"Annual-Mean {title} Bias vs ARGO-IAP (model − obs, {year})", y=0.99, fontsize=15)
+
+
+def _argo_variable_layer_maps_data(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
     year: int,
     spec: dict,
-) -> pd.DataFrame:
+) -> tuple[dict[str, xr.DataArray], dict[str, dict[str, xr.DataArray]], xr.DataArray]:
     if "area" not in argo_iap:
         argo_iap = _infer_obs_grid_metrics(argo_iap)
     obs_field, sim_fields = _common_annual_fields_on_argo_grid(argo_iap, emulators, spec, year)
@@ -1551,24 +1700,14 @@ def _plot_argo_variable_layer_maps(
         label: _depth_weighted_layer_maps_from_field(sim_field)
         for label, sim_field in sim_fields.items()
     }
-    return _plot_layer_map_comparison(
-        obs_maps,
-        sim_maps,
-        argo_iap["area"],
-        emulators,
-        f"Layer-Mean {spec['title']}",
-        spec["units"],
-        spec["metric_prefix"],
-        _argo_variable_cmap(spec),
-        year,
-    )
+    return obs_maps, sim_maps, argo_iap["area"]
 
 
-def _plot_argo_ohc_layer_maps(
+def _argo_ohc_layer_maps_data(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
     year: int,
-) -> pd.DataFrame:
+) -> tuple[dict[str, xr.DataArray], dict[str, dict[str, xr.DataArray]], xr.DataArray]:
     temp_spec = ARGO_STRUCTURE_VARIABLES[0]
     if "area" not in argo_iap:
         argo_iap = _infer_obs_grid_metrics(argo_iap)
@@ -1578,16 +1717,207 @@ def _plot_argo_ohc_layer_maps(
         label: _ohc_per_area_layer_maps_from_temperature_field(sim_temp)
         for label, sim_temp in sim_temps.items()
     }
+    return obs_maps, sim_maps, argo_iap["area"]
+
+
+def _plot_argo_variable_layer_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+    spec: dict,
+) -> pd.DataFrame:
+    obs_maps, sim_maps, obs_area = _argo_variable_layer_maps_data(argo_iap, emulators, year, spec)
     return _plot_layer_map_comparison(
         obs_maps,
         sim_maps,
-        argo_iap["area"],
+        obs_area,
+        emulators,
+        f"Layer-Mean {spec['title']}",
+        spec["units"],
+        spec["metric_prefix"],
+        _argo_variable_cmap(spec),
+        year,
+    )
+
+
+def _plot_argo_variable_layer_bias_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+    spec: dict,
+) -> None:
+    obs_maps, sim_maps, obs_area = _argo_variable_layer_maps_data(argo_iap, emulators, year, spec)
+    _plot_layer_bias_map_comparison(
+        obs_maps,
+        sim_maps,
+        obs_area,
+        emulators,
+        f"Layer-Mean {spec['title']}",
+        spec["units"],
+        spec["metric_prefix"],
+        year,
+    )
+
+
+def _plot_argo_ohc_layer_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+) -> pd.DataFrame:
+    obs_maps, sim_maps, obs_area = _argo_ohc_layer_maps_data(argo_iap, emulators, year)
+    return _plot_layer_map_comparison(
+        obs_maps,
+        sim_maps,
+        obs_area,
         emulators,
         "Layer-Integrated OHC per Unit Area",
         "J m$^{-2}$",
         "annual_mean_ohc_per_area",
         cmocean.cm.thermal,
         year,
+    )
+
+
+def _plot_argo_ohc_layer_bias_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+) -> None:
+    obs_maps, sim_maps, obs_area = _argo_ohc_layer_maps_data(argo_iap, emulators, year)
+    _plot_layer_bias_map_comparison(
+        obs_maps,
+        sim_maps,
+        obs_area,
+        emulators,
+        "Layer-Integrated OHC per Unit Area",
+        "J m$^{-2}$",
+        "annual_mean_ohc_per_area",
+        year,
+    )
+
+
+def _argo_variable_variance_layer_maps_data(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    spec: dict,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> tuple[dict[str, xr.DataArray], dict[str, dict[str, xr.DataArray]], xr.DataArray]:
+    if "area" not in argo_iap:
+        argo_iap = _infer_obs_grid_metrics(argo_iap)
+    obs_field, sim_fields = _common_temporal_fields_on_argo_grid(
+        argo_iap, emulators, spec, slice(start, end), _time_var_reducer
+    )
+    obs_maps = _depth_weighted_layer_maps_from_field(obs_field)
+    sim_maps = {
+        label: _depth_weighted_layer_maps_from_field(sim_field)
+        for label, sim_field in sim_fields.items()
+    }
+    return obs_maps, sim_maps, argo_iap["area"]
+
+
+def _plot_layer_variance_map_comparison(
+    obs_maps: dict[str, xr.DataArray],
+    sim_maps: dict[str, dict[str, xr.DataArray]],
+    obs_area: xr.DataArray,
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+) -> pd.DataFrame:
+    """Temporal-variance maps: ARGO-IAP row + one row per emulator, columns are depth layers.
+
+    Mirrors functions.plot_variance_comparison_together (thermal colormap, per-layer linear
+    scale to the 95th percentile). Each emulator panel is annotated with the global pattern
+    correlation and area-weighted RMSE of the variance field against ARGO-IAP.
+    """
+    layer_titles = [depth_slice["title"] for depth_slice in OHC_DEPTH_SLICES]
+    nrows = 1 + len(sim_maps)
+    ncols = len(layer_titles)
+
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(5.4 * ncols, 3.3 * nrows),
+        squeeze=False,
+        subplot_kw={"projection": ccrs.Robinson(central_longitude=210)},
+        gridspec_kw={"hspace": 0.12, "wspace": 0.05},
+    )
+
+    rows = []
+    for col_idx, layer_title in enumerate(layer_titles):
+        obs_map = obs_maps[layer_title]
+        col_fields = [obs_map] + [model_maps[layer_title] for model_maps in sim_maps.values()]
+        flat = np.concatenate([f.values[np.isfinite(f.values)] for f in col_fields])
+        vmax = float(np.nanpercentile(flat, 95)) if flat.size else 1.0
+        if not np.isfinite(vmax) or vmax <= 0.0:
+            vmax = 1.0
+        norm = colors.Normalize(vmin=0.0, vmax=vmax)
+
+        ax = axes[0, col_idx]
+        mesh = obs_map.plot.pcolormesh(
+            ax=ax, transform=ccrs.PlateCarree(), x="lon", y="lat",
+            cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True, add_labels=False,
+        )
+        _add_map_features(ax)
+        ax.set_title(layer_title, fontweight="bold", y=1.04)
+        if col_idx == 0:
+            ax.text(-0.07, 0.55, "ARGO-IAP", va="center", ha="right", rotation=90,
+                    transform=ax.transAxes, fontweight="bold")
+
+        obs_vals = obs_map.values.flatten()
+        for row_idx, (label, model_maps) in enumerate(sim_maps.items(), start=1):
+            ax = axes[row_idx, col_idx]
+            sim_map = model_maps[layer_title]
+            mesh = sim_map.plot.pcolormesh(
+                ax=ax, transform=ccrs.PlateCarree(), x="lon", y="lat",
+                cmap=cmocean.cm.thermal, norm=norm, add_colorbar=False, rasterized=True, add_labels=False,
+            )
+            _add_map_features(ax)
+            if col_idx == 0:
+                ax.text(-0.07, 0.55, label, va="center", ha="right", rotation=90,
+                        transform=ax.transAxes, fontweight="bold")
+
+            bias = sim_map - obs_map
+            rmse = _area_weighted_map_rmse(bias, obs_area)
+            sim_vals = sim_map.values.flatten()
+            valid = np.isfinite(sim_vals) & np.isfinite(obs_vals)
+            corr = float(np.corrcoef(sim_vals[valid], obs_vals[valid])[0, 1]) if valid.sum() > 1 else np.nan
+            ax.text(0.02, 0.95, f"Corr: {corr:.3f}\nRMSE: {rmse:.2e}", transform=ax.transAxes,
+                    fontsize=8.5, fontweight="bold", va="top",
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8), zorder=20)
+            rows.append({"model": label, "depth": layer_title,
+                         "metric": f"{metric_prefix}_temporal_variance_layer_map_rmse", "value": rmse})
+            rows.append({"model": label, "depth": layer_title,
+                         "metric": f"{metric_prefix}_temporal_variance_pattern_corr", "value": corr})
+
+        cbar = fig.colorbar(mesh, ax=axes[:, col_idx], orientation="horizontal",
+                            shrink=0.7, pad=0.03, extend="max", label=f"Variance ({units})")
+        cbar.ax.tick_params(labelsize=9)
+
+    fig.suptitle(f"Temporal Variance of {title} vs ARGO-IAP ({period_label})", y=0.99, fontsize=15)
+    return pd.DataFrame(rows)
+
+
+def _plot_argo_variable_variance_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    spec: dict,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    period_label: str,
+) -> pd.DataFrame:
+    obs_maps, sim_maps, obs_area = _argo_variable_variance_layer_maps_data(
+        argo_iap, emulators, spec, start, end
+    )
+    return _plot_layer_variance_map_comparison(
+        obs_maps,
+        sim_maps,
+        obs_area,
+        spec["title"],
+        f"({spec['units']})$^2$",
+        spec["metric_prefix"],
+        period_label,
     )
 
 
@@ -1600,6 +1930,12 @@ def _plot_eke_map_comparison(
     u_obs_name, v_obs_name = _duacs_velocity_names(duacs, velocity_kind)
     velocity_label = _duacs_velocity_label(velocity_kind)
     obs_year = _year_slice(duacs, year)
+    # Restrict obs (DUACS) and the models to their common overlap within the year so the
+    # eddy KE (time-mean of the squared velocity anomaly) is computed over the same period.
+    window_start, window_end = _common_time_window(
+        obs_year, *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    obs_year = obs_year.sel(time=slice(window_start, window_end))
     obs_u = _apply_equatorial_mask(obs_year[u_obs_name], lat_dim="lat")
     obs_v = _apply_equatorial_mask(obs_year[v_obs_name], lat_dim="lat")
     obs_eke = _surface_eke_from_uv(obs_u, obs_v)
@@ -1620,7 +1956,7 @@ def _plot_eke_map_comparison(
     rows = []
     panels = [("DUACS", obs_eke, obs_mean)]
     for label, emu in emulators.items():
-        sim_year, _ = _temporal_overlap(_year_slice(emu["ds"], year), obs_year)
+        sim_year = _year_slice(emu["ds"], year).sel(time=slice(window_start, window_end))
         sim_zos = _apply_native_wet_mask(sim_year["zos"], emu.get("wet_mask"))
         sim_ug, sim_vg = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
         sim_eke = _surface_eke_from_uv(sim_ug, sim_vg)
@@ -1732,6 +2068,11 @@ def _plot_eke_map_lowpass_comparison(
     u_obs_name, v_obs_name = _duacs_velocity_names(duacs, velocity_kind)
     velocity_label = _duacs_velocity_label(velocity_kind)
     obs_year = _year_slice(duacs, year)
+    # Restrict obs (DUACS) and the models to their common overlap within the year.
+    window_start, window_end = _common_time_window(
+        obs_year, *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    obs_year = obs_year.sel(time=slice(window_start, window_end))
     obs_u = _apply_equatorial_mask(obs_year[u_obs_name], lat_dim="lat")
     obs_v = _apply_equatorial_mask(obs_year[v_obs_name], lat_dim="lat")
     obs_u_lp = _gaussian_lowpass_field(obs_u, lat_dim="lat", lon_dim="lon", sigma_deg=sigma_deg)
@@ -1754,7 +2095,7 @@ def _plot_eke_map_lowpass_comparison(
     rows = []
     panels = [("DUACS", obs_eke, obs_mean)]
     for label, emu in emulators.items():
-        sim_year, _ = _temporal_overlap(_year_slice(emu["ds"], year), obs_year)
+        sim_year = _year_slice(emu["ds"], year).sel(time=slice(window_start, window_end))
         sim_zos = _apply_native_wet_mask(sim_year["zos"], emu.get("wet_mask"))
         sim_ug, sim_vg = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
         sim_ug_lp = _gaussian_lowpass_field(sim_ug, lat_dim="y", lon_dim="x", sigma_deg=sigma_deg)
@@ -2071,6 +2412,19 @@ def _plot_temperature_spectra(
         if oisst_daily is not None
         else None
     )
+    # Restrict OISST and the models to their common overlap so the SSTA calendar-day
+    # climatology and spectra are estimated over an identical period; the figure label is
+    # derived from this window rather than hardcoded.
+    window_start, window_end = _common_time_window(
+        oisst_5day, *[emu["ds"] for emu in emulators.values()]
+    )
+    period_label = _period_label(window_start, window_end)
+    oisst_5day = oisst_5day.sel(time=slice(window_start, window_end))
+    if oisst_daily is not None:
+        oisst_daily = oisst_daily.sel(time=slice(window_start, window_end))
+    sim_windows = {
+        label: emu["ds"].sel(time=slice(window_start, window_end)) for label, emu in emulators.items()
+    }
     rows = []
     n_regions = len(SPECTRUM_REGIONS)
     nrows = 2
@@ -2092,7 +2446,7 @@ def _plot_temperature_spectra(
             k_daily, spec_daily = None, None
         ax.loglog(k_5day, spec_5day, "--", color="black", linewidth=2, label="OISST 5-day avg")
         for label, emu in emulators.items():
-            sim, _ = _temporal_overlap(emu["ds"], oisst_5day)
+            sim = sim_windows[label]
             sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
             k_sim, spec_sim = _compute_isotropic_spectrum_from_surface(
                 sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice,
@@ -2137,7 +2491,7 @@ def _plot_temperature_spectra(
         fontsize=11,
     )
     fig.suptitle(
-        "Regional Surface Temperature SSTA Spectra vs OISST\n2014-2022 calendar-day climatology removed",
+        f"Regional Surface Temperature SSTA Spectra vs OISST\n{period_label} calendar-day climatology removed",
         y=0.975,
         fontsize=15,
         linespacing=1.15,
@@ -2472,11 +2826,7 @@ def _plot_ohc_deseasoned_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = (
-        f"climatologies: ARGO {climatology_label}; models {period_label}"
-        if climatology_label is not None
-        else f"climatologies: each series {period_label}"
-    )
+    extra = _climatology_extra(climatology_label, period_label)
     _finish_timeseries_figure(
         fig,
         axes,
@@ -2602,11 +2952,7 @@ def _plot_ohc_detrended_deseasonalized_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = (
-        f"climatologies: ARGO {climatology_label}; models {period_label}"
-        if climatology_label is not None
-        else f"climatologies: each series {period_label}"
-    )
+    extra = _climatology_extra(climatology_label, period_label)
     _finish_timeseries_figure(
         fig,
         axes,
@@ -2877,11 +3223,7 @@ def _plot_layer_mean_deseasoned_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = (
-        f"climatologies: ARGO {climatology_label}; models {period_label}"
-        if climatology_label is not None
-        else f"climatologies: each series {period_label}"
-    )
+    extra = _climatology_extra(climatology_label, period_label)
     _finish_timeseries_figure(
         fig,
         axes,
@@ -3022,11 +3364,7 @@ def _plot_layer_mean_detrended_deseasonalized_anomaly_timeseries(
             frameon=False,
             fontsize=12,
         )
-    extra = (
-        f"climatologies: ARGO {climatology_label}; models {period_label}"
-        if climatology_label is not None
-        else f"climatologies: each series {period_label}"
-    )
+    extra = _climatology_extra(climatology_label, period_label)
     _finish_timeseries_figure(
         fig,
         axes,
@@ -3107,9 +3445,17 @@ def main() -> None:
         argo_map_metrics.append(_plot_argo_variable_layer_maps(argo_iap, emulators, args.year, spec))
         save_current_fig(f"{spec['filename']}_layer_mean_maps_vs_argo_iap_{args.year}", MAP_DIR)
 
+        print(f"Evaluating annual-mean layer-map {spec['title']} point-wise bias/RMSE vs ARGO-IAP...")
+        _plot_argo_variable_layer_bias_maps(argo_iap, emulators, args.year, spec)
+        save_current_fig(f"{spec['filename']}_layer_mean_bias_maps_vs_argo_iap_{args.year}", MAP_DIR)
+
     print("Evaluating annual-mean layer-map OHC vs ARGO-IAP...")
     argo_map_metrics.append(_plot_argo_ohc_layer_maps(argo_iap, emulators, args.year))
     save_current_fig(f"ohc_layer_integrated_maps_vs_argo_iap_{args.year}", MAP_DIR)
+
+    print("Evaluating annual-mean layer-map OHC point-wise bias/RMSE vs ARGO-IAP...")
+    _plot_argo_ohc_layer_bias_maps(argo_iap, emulators, args.year)
+    save_current_fig(f"ohc_layer_integrated_bias_maps_vs_argo_iap_{args.year}", MAP_DIR)
 
     print("Evaluating isotropic temperature spectra vs OISST...")
     temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
@@ -3132,16 +3478,22 @@ def main() -> None:
     )
     ohc_label = _period_label(ohc_start, ohc_end)
     ohc_slug = _period_slug(ohc_start, ohc_end)
+    # Align the ARGO-IAP seasonal cycle to the same model/observation overlap window used for
+    # the emulators (default ~2014-2022) so that ARGO-IAP, Samudra 2, and OM4 monthly
+    # climatologies are all estimated over an identical period; otherwise the obs seasonal
+    # cycle would be built from the full ARGO record while the models use only the overlap.
     obs_clim_start, obs_clim_end = _resolve_obs_climatology_period(
         argo_iap,
         args.obs_climatology_start_date,
         args.obs_climatology_end_date,
+        default_start=ohc_start,
+        default_end=ohc_end,
     )
     obs_clim_label = _period_label(obs_clim_start, obs_clim_end)
     print(f"Using ARGO-IAP monthly climatologies over {obs_clim_label}.")
     print(f"Evaluating layered monthly OHC vs ARGO-IAP over {ohc_label}...")
     obs_ohc, sim_ohc = _collect_ohc_timeseries(argo_iap, emulators, ohc_start, ohc_end)
-    obs_ohc_climatology_source = _compute_obs_ohc_timeseries(argo_iap, obs_clim_start, obs_clim_end)
+    obs_ohc_climatology_source = _obs_ohc_timeseries(argo_iap, obs_clim_start, obs_clim_end)
     ohc_metrics = _plot_ohc_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
     save_current_fig(f"ohc_monthly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
@@ -3193,7 +3545,7 @@ def main() -> None:
     for spec in ARGO_STRUCTURE_VARIABLES:
         print(f"Evaluating monthly layer-mean {spec['title']} vs ARGO-IAP...")
         obs_layer_mean, sim_layer_mean = _collect_layer_mean_timeseries(argo_iap, emulators, spec, ohc_start, ohc_end)
-        obs_layer_mean_climatology_source = _compute_obs_layer_mean_timeseries(
+        obs_layer_mean_climatology_source = _obs_layer_mean_timeseries(
             argo_iap,
             spec,
             obs_clim_start,
@@ -3277,6 +3629,17 @@ def main() -> None:
     ohc_structure_metrics = _plot_argo_ohc_zonal_mean_bias(argo_iap, emulators, args.year)
     save_current_fig(f"argo_ohc_zonal_mean_bias_{args.year}", STRUCTURE_DIR)
 
+    # EKE temporal variance is already covered by the surface geostrophic EKE-vs-DUACS maps
+    # above (eddy KE = time-mean of squared velocity anomalies); here we add the missing
+    # temperature/salinity temporal-variance maps over the full ARGO/model overlap.
+    variance_metrics = []
+    for spec in ARGO_STRUCTURE_VARIABLES:
+        print(f"Evaluating temporal-variance maps of {spec['title']} vs ARGO-IAP over {ohc_label}...")
+        variance_metrics.append(
+            _plot_argo_variable_variance_maps(argo_iap, emulators, spec, ohc_start, ohc_end, ohc_label)
+        )
+        save_current_fig(f"{spec['filename']}_temporal_variance_maps_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
+
     metrics = pd.concat(
         [
             eke_metrics,
@@ -3293,6 +3656,7 @@ def main() -> None:
             *layer_mean_metrics,
             *structure_metrics,
             ohc_structure_metrics,
+            *variance_metrics,
         ],
         ignore_index=True,
     )
