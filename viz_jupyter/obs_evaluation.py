@@ -3421,8 +3421,6 @@ def main() -> None:
         f"{duacs_config['label']} from {duacs_config['ssh']} ({duacs_config['ssh_label']})."
     )
 
-    # >>> TEMP-DISABLED for partial (variance-only) re-run; RESTORE by removing this wrapper line and its closing ''' <<<
-    _DISABLED_SECTION_A = '''
     print("Evaluating EKE maps vs DUACS...")
     eke_metrics = _plot_eke_map_comparison(
         duacs,
@@ -3471,7 +3469,6 @@ def main() -> None:
         velocity_kind=args.duacs_velocity_kind,
     )
     save_current_fig("ke_temporal_spectra_vs_duacs", SPECTRUM_DIR)
-    '''  # <<< end TEMP-DISABLED SECTION A
 
     ohc_start, ohc_end = _resolve_ohc_period(
         argo_iap,
@@ -3494,8 +3491,6 @@ def main() -> None:
     )
     obs_clim_label = _period_label(obs_clim_start, obs_clim_end)
     print(f"Using ARGO-IAP monthly climatologies over {obs_clim_label}.")
-    # >>> TEMP-DISABLED for partial (variance-only) re-run; RESTORE by removing this wrapper line and its closing ''' <<<
-    _DISABLED_SECTION_B = '''
     print(f"Evaluating layered monthly OHC vs ARGO-IAP over {ohc_label}...")
     obs_ohc, sim_ohc = _collect_ohc_timeseries(argo_iap, emulators, ohc_start, ohc_end)
     obs_ohc_climatology_source = _obs_ohc_timeseries(argo_iap, obs_clim_start, obs_clim_end)
@@ -3633,7 +3628,6 @@ def main() -> None:
     print("Evaluating annual-mean OHC structure vs ARGO-IAP...")
     ohc_structure_metrics = _plot_argo_ohc_zonal_mean_bias(argo_iap, emulators, args.year)
     save_current_fig(f"argo_ohc_zonal_mean_bias_{args.year}", STRUCTURE_DIR)
-    '''  # <<< end TEMP-DISABLED SECTION B
 
     # EKE temporal variance is already covered by the surface geostrophic EKE-vs-DUACS maps
     # above (eddy KE = time-mean of squared velocity anomalies); here we add the missing
@@ -3646,14 +3640,6 @@ def main() -> None:
         )
         save_current_fig(f"{spec['filename']}_temporal_variance_maps_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
 
-    # >>> TEMP (partial variance-only run): write ONLY variance metrics to a separate CSV so the
-    # full observation_metrics_{year}.csv is not clobbered. RESTORE the original pd.concat below
-    # (with all sections) once SECTION A/B are re-enabled. <<<
-    metrics = pd.concat(variance_metrics, ignore_index=True) if variance_metrics else pd.DataFrame()
-    metrics_path = os.path.join(METRICS_DIR, f"observation_variance_metrics_{ohc_slug}.csv")
-    metrics.to_csv(metrics_path, index=False)
-    print(f"  -> Saved variance metrics: {metrics_path}")
-    _RESTORE_FULL_METRICS = '''
     metrics = pd.concat(
         [
             eke_metrics,
@@ -3677,7 +3663,6 @@ def main() -> None:
     metrics_path = os.path.join(METRICS_DIR, f"observation_metrics_{args.year}.csv")
     metrics.to_csv(metrics_path, index=False)
     print(f"  -> Saved metrics: {metrics_path}")
-    '''
 
 
 if __name__ == "__main__":

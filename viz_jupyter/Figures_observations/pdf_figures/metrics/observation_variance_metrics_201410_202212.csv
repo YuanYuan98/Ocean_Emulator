@@ -1,0 +1,17 @@
+model,depth,metric,value
+Samudra 2 (1/4$^\circ$),Surface (0-700m),annual_mean_temperature_temporal_variance_layer_map_rmse,1.5136259099220952
+Samudra 2 (1/4$^\circ$),Surface (0-700m),annual_mean_temperature_temporal_variance_pattern_corr,0.8554244671678726
+OM4 (1/4$^\circ$),Surface (0-700m),annual_mean_temperature_temporal_variance_layer_map_rmse,1.5950849618502685
+OM4 (1/4$^\circ$),Surface (0-700m),annual_mean_temperature_temporal_variance_pattern_corr,0.8607865513667914
+Samudra 2 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_temperature_temporal_variance_layer_map_rmse,0.9031165687756997
+Samudra 2 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_temperature_temporal_variance_pattern_corr,0.004598632616099281
+OM4 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_temperature_temporal_variance_layer_map_rmse,0.9035969132884879
+OM4 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_temperature_temporal_variance_pattern_corr,0.003381718746341413
+Samudra 2 (1/4$^\circ$),Surface (0-700m),annual_mean_salinity_temporal_variance_layer_map_rmse,0.8402100793393718
+Samudra 2 (1/4$^\circ$),Surface (0-700m),annual_mean_salinity_temporal_variance_pattern_corr,0.5138749933540909
+OM4 (1/4$^\circ$),Surface (0-700m),annual_mean_salinity_temporal_variance_layer_map_rmse,0.8529689521514859
+OM4 (1/4$^\circ$),Surface (0-700m),annual_mean_salinity_temporal_variance_pattern_corr,0.5102735616176746
+Samudra 2 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_salinity_temporal_variance_layer_map_rmse,0.07556528486038804
+Samudra 2 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_salinity_temporal_variance_pattern_corr,0.0010433020712218672
+OM4 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_salinity_temporal_variance_layer_map_rmse,0.07556696588819081
+OM4 (1/4$^\circ$),Intermediate (700-2000m),annual_mean_salinity_temporal_variance_pattern_corr,0.0007242746689527785
