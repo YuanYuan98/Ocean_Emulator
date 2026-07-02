@@ -1210,6 +1210,7 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
         ax.set_title(key, fontweight='bold')
 
         # Emulator rows
+        truth_vals = plot_data_truth[ref_tl][key].values.flatten()
         for i, ds_name in enumerate(datasets):
             ax = axes[n_truths + i, j]
             p_mesh = plot_data[ds_name][key].plot.pcolormesh(
@@ -1221,6 +1222,16 @@ def plot_variance_comparison_together(emulators_dict, variable_name, units, outp
             if j == 0: ax.text(-0.07, 0.55, row_label, va='center', ha='right', rotation=90,
                                transform=ax.transAxes, fontweight='bold', multialignment='center')
             ax.set_title("")
+
+            emu_vals = plot_data[ds_name][key].values.flatten()
+            valid = ~(np.isnan(emu_vals) | np.isnan(truth_vals))
+            if valid.sum() > 1:
+                corr = np.corrcoef(emu_vals[valid], truth_vals[valid])[0, 1]
+                rmse = np.sqrt(np.mean((emu_vals[valid] - truth_vals[valid]) ** 2))
+                ax.text(0.02, 0.95, f'Corr: {corr:.3f}\nRMSE: {rmse:.2e}',
+                        transform=ax.transAxes, fontsize=9, fontweight='bold', color='black',
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, zorder=20),
+                        verticalalignment='top', linespacing=1.2, zorder=20)
 
         _ext = 'both' if n_levels is not None else 'neither'
         cb = fig.colorbar(p_mesh, cax=cbar_axes[j], orientation='horizontal', label=f"Variance ({units})", extend=_ext)
@@ -1256,7 +1267,7 @@ def plot_ohc_zonal_bias_ocean_comparison_together(emulators_dict, masks_list, co
             t_prof = calculate_zonal_mean_2d(truth_2d, masks[basin], dx, wet).compute()
             e_prof = calculate_zonal_mean_2d(emu_2d, masks[basin], dx, wet).compute()
             bias = e_prof - t_prof
-            all_bias_profiles[label][basin] = bias.drop('time')
+            all_bias_profiles[label][basin] = bias.drop_vars('time', errors='ignore')
             all_biases_flat.append(bias.values.flatten())
             all_rmse_vals[label][basin] = np.sqrt(((bias**2)*weight).sum(['y','lev'])/weight.sum(['y','lev'])).item()
 

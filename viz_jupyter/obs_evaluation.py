@@ -6,11 +6,16 @@ compares emulator rollouts against observational products instead of OM4 truth.
 
 Implemented evaluations
 -----------------------
-1. Surface mean EKE map over 2022 vs DUACS geostrophic velocity.
-2. Regional surface isotropic temperature spectra vs OISST.
-3. Regional surface temporal KE spectra vs raw and 5-day-averaged DUACS.
-4. Annual-mean temperature and salinity structure vs ARGO-IAP.
-5. Global monthly OHC time series for upper / middle / deep ocean vs ARGO-IAP.
+1. 2022 total RMSE metrics and spatial RMSE maps for surface geostrophic velocity,
+   surface EKE, SST, and OHC.
+2. Velocity diagnostics: surface EKE maps, Gulf Stream / Agulhas EKE spatial spectra,
+   global EKE temporal spectra, and Gulf Stream / Agulhas temporal KE spectra.
+3. Temperature diagnostics: Gulf Stream / Agulhas SST spatial spectra, global SST temporal
+   spectra, regional SST spectra, and OHC totals for upper 700m and 700-2000m.
+4. Time-series anomaly diagnostics for SST, EKE, and upper-700m OHC: mean-removed anomalies,
+   linear trend comparison, detrended+deseasonalized anomalies, and residual anomaly variance
+   (SST/EKE retain 5-day cadence).
+5. Maps of detrended+deseasonalized anomaly variance for SST and upper-700m OHC.
 
 Notes
 -----
@@ -62,16 +67,16 @@ parser.add_argument(
     "--obs-climatology-start-date",
     default=None,
     help=(
-        "Optional start date for ARGO-IAP monthly climatologies. Defaults to the model/observation "
-        "overlap period so the ARGO-IAP seasonal cycle is aligned with the emulators."
+        "Legacy option retained for compatibility. The current main workflow estimates seasonal "
+        "cycles from each diagnostic overlap window."
     ),
 )
 parser.add_argument(
     "--obs-climatology-end-date",
     default=None,
     help=(
-        "Optional end date for ARGO-IAP monthly climatologies. Defaults to the model/observation "
-        "overlap period so the ARGO-IAP seasonal cycle is aligned with the emulators."
+        "Legacy option retained for compatibility. The current main workflow estimates seasonal "
+        "cycles from each diagnostic overlap window."
     ),
 )
 parser.add_argument(
@@ -110,8 +115,8 @@ parser.add_argument(
     action=argparse.BooleanOptionalAction,
     default=True,
     help=(
-        "Write monthly-climatology-removed anomaly time-series figures. "
-        "Enabled by default; pass --no-plot-deseasoned-anomaly to skip."
+        "Legacy option retained for compatibility. The current main workflow always writes "
+        "detrended+deseasonalized anomaly diagnostics."
     ),
 )
 args = parser.parse_args()
@@ -132,13 +137,13 @@ DEPTH_SLICES = [
 ]
 
 OHC_DEPTH_SLICES = DEPTH_SLICES[:2]
+OHC_UPPER_700_SLICE = DEPTH_SLICES[0]
 
 SPECTRUM_REGIONS = [
     ("Gulf Stream", slice(300, 320), slice(25, 45)),
-    ("Kuroshio", slice(150, 170), slice(25, 45)),
     ("Agulhas", slice(40, 60), slice(-50, -30)),
-    ("Malvinas", slice(311, 331), slice(-51, -31)),
 ]
+SPECTRUM_REGION_LABEL = "Gulf Stream and Agulhas"
 
 # Full calendar years used for the interannual (per-year mean +/- 1 std) spectra diagnostics.
 SPECTRA_INTERANNUAL_YEARS = list(range(2015, 2023))
@@ -416,13 +421,14 @@ def _climatology_extra(climatology_label: str | None, period_label: str) -> str:
 OUTPUT_DIR = "Figures_observations"
 PDF_DIR = os.path.join(OUTPUT_DIR, "pdf_figures")
 MAP_DIR = os.path.join(PDF_DIR, "maps")
+RMSE_DIR = os.path.join(PDF_DIR, "rmse")
 SPECTRUM_DIR = os.path.join(PDF_DIR, "spectrum")
 TIMESERIES_DIR = os.path.join(PDF_DIR, "timeseries")
 STRUCTURE_DIR = os.path.join(PDF_DIR, "structure")
 VARIANCE_DIR = os.path.join(PDF_DIR, "variance")
 METRICS_DIR = os.path.join(PDF_DIR, "metrics")
 
-for directory in [OUTPUT_DIR, PDF_DIR, MAP_DIR, SPECTRUM_DIR, TIMESERIES_DIR, STRUCTURE_DIR, VARIANCE_DIR, METRICS_DIR]:
+for directory in [OUTPUT_DIR, PDF_DIR, MAP_DIR, RMSE_DIR, SPECTRUM_DIR, TIMESERIES_DIR, STRUCTURE_DIR, VARIANCE_DIR, METRICS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 
@@ -615,7 +621,7 @@ def _coerce_time_coord(ds: xr.Dataset, time_name: str) -> xr.Dataset:
             )
             return ds.assign_coords({time_name: timestamps})
 
-    timestamps = pd.to_datetime(values)
+    timestamps = _coerce_datetime_values(values)
     return ds.assign_coords({time_name: timestamps})
 
 
@@ -904,9 +910,146 @@ def _series_without_linear_trend(series: pd.Series) -> pd.Series:
     return values - trend
 
 
+def _median_time_step_days(index: pd.DatetimeIndex) -> float:
+    if len(index) < 2:
+        return float("nan")
+    delta_days = np.diff(index.values).astype("timedelta64[s]").astype(float) / 86400.0
+    delta_days = delta_days[np.isfinite(delta_days) & (delta_days > 0)]
+    return float(np.median(delta_days)) if delta_days.size else float("nan")
+
+
+def _pentad_index(index: pd.DatetimeIndex) -> np.ndarray:
+    return ((index.dayofyear.to_numpy() - 1) // 5 + 1).astype(int)
+
+
+def _series_without_pentad_climatology(series: pd.Series) -> pd.Series:
+    values = series.astype(float)
+    pentad = pd.Series(_pentad_index(pd.DatetimeIndex(values.index)), index=values.index)
+    climatology = values.groupby(pentad).mean()
+    seasonal = pentad.map(climatology)
+    return values - seasonal
+
+
+def _series_without_seasonal_cycle(series: pd.Series) -> pd.Series:
+    values = series.astype(float)
+    index = pd.DatetimeIndex(values.index)
+    if _median_time_step_days(index) <= 10:
+        counts = pd.Series(_pentad_index(index)).value_counts()
+        if (counts >= 2).sum() >= 24:
+            return _series_without_pentad_climatology(values)
+    if _has_repeated_calendar_months(values):
+        return _series_without_monthly_climatology(values)
+    return values - values.mean()
+
+
+def _series_linear_trend_per_year(series: pd.Series) -> float:
+    values = series.astype(float)
+    finite = np.isfinite(values.values)
+    if finite.sum() < 2:
+        return float("nan")
+    index = pd.DatetimeIndex(values.index)
+    x = (index - index[0]).days.to_numpy(dtype=float) / 365.25
+    slope, _ = np.polyfit(x[finite], values.values[finite], 1)
+    return float(slope)
+
+
+def _series_detrended_deseasonalized_anomaly(series: pd.Series) -> pd.Series:
+    return _series_without_linear_trend(_series_without_seasonal_cycle(series))
+
+
+def _series_variance(series: pd.Series) -> float:
+    values = np.asarray(series.values, dtype=float)
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return float("nan")
+    return float(np.var(finite))
+
+
 def _has_repeated_calendar_months(series: pd.Series) -> bool:
     counts = series.groupby(series.index.month).size()
     return bool(len(counts) == 12 and (counts >= 2).all())
+
+
+def _area_weighted_timeseries(
+    field: xr.DataArray,
+    area: xr.DataArray,
+    spatial_dims: tuple[str, str],
+) -> xr.DataArray:
+    mask = np.isfinite(field)
+    weighted_sum = (field.where(mask) * area).sum(spatial_dims, skipna=True)
+    weight_sum = area.where(mask).sum(spatial_dims, skipna=True)
+    return weighted_sum / weight_sum
+
+
+def _resample_monthly_field(field: xr.DataArray, context: str = "field") -> xr.DataArray:
+    if field.sizes.get("time", 0) == 0:
+        raise ValueError(f"Cannot monthly-resample {context}: empty time coordinate")
+    return field.resample(time="MS").mean()
+
+
+def _detrend_linear_dataarray(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    if field.sizes.get(time_dim, 0) < 2:
+        return field - field.mean(time_dim, skipna=True)
+
+    x = xr.DataArray(
+        np.arange(field.sizes[time_dim], dtype=float),
+        dims=[time_dim],
+        coords={time_dim: field[time_dim]},
+    )
+    finite = np.isfinite(field)
+    x_mean = x.where(finite).mean(time_dim, skipna=True)
+    y_mean = field.mean(time_dim, skipna=True)
+    cov = ((x - x_mean) * (field - y_mean)).where(finite).sum(time_dim, skipna=True)
+    var = ((x - x_mean) ** 2).where(finite).sum(time_dim, skipna=True)
+    slope = xr.where(var > 0, cov / var, 0.0)
+    intercept = y_mean - slope * x_mean
+    return field - (slope * x + intercept)
+
+
+def _detrended_deseasonalized_dataarray(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    if field.sizes.get(time_dim, 0) == 0:
+        return field
+    time_index = pd.DatetimeIndex(field[time_dim].values)
+    if _median_time_step_days(time_index) <= 10:
+        pentad_values = _pentad_index(time_index)
+        counts = pd.Series(pentad_values).value_counts()
+        if (counts >= 2).sum() >= 24:
+            pentad = xr.DataArray(
+                pentad_values,
+                dims=[time_dim],
+                coords={time_dim: field[time_dim]},
+                name="pentad",
+            )
+            with_pentad = field.assign_coords(pentad=pentad)
+            deseasonalized = with_pentad.groupby("pentad") - with_pentad.groupby("pentad").mean(
+                time_dim, skipna=True
+            )
+            if "pentad" in deseasonalized.coords:
+                deseasonalized = deseasonalized.drop_vars("pentad")
+            return _detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
+    if _has_repeated_calendar_months(pd.Series(index=time_index, dtype=float)):
+        deseasonalized = field.groupby(f"{time_dim}.month") - field.groupby(f"{time_dim}.month").mean(
+            time_dim, skipna=True
+        )
+    else:
+        deseasonalized = field - field.mean(time_dim, skipna=True)
+    return _detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
+
+
+def _field_rmse_over_time(sim: xr.DataArray, obs: xr.DataArray, context: str = "field") -> xr.DataArray:
+    sim_aligned, obs_aligned = xr.align(sim, obs, join="inner")
+    if sim_aligned.sizes.get("time", 0) == 0:
+        raise ValueError(f"No common time samples for {context} RMSE")
+    return np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True))
+
+
+def _pattern_corr(a: xr.DataArray, b: xr.DataArray) -> float:
+    a_vals = np.asarray(a.values).ravel()
+    b_vals = np.asarray(b.values).ravel()
+    valid = np.isfinite(a_vals) & np.isfinite(b_vals)
+    if valid.sum() < 2:
+        return float("nan")
+    return float(np.corrcoef(a_vals[valid], b_vals[valid])[0, 1])
 
 
 def _surface_eke_from_uv(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
@@ -917,6 +1060,17 @@ def _surface_eke_from_uv(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
 
 def _time_mean_velocity_anomaly(u: xr.DataArray, v: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
     return u - u.mean("time"), v - v.mean("time")
+
+
+def _surface_eke_timeseries_from_uv(
+    u: xr.DataArray,
+    v: xr.DataArray,
+    area: xr.DataArray,
+    spatial_dims: tuple[str, str],
+) -> xr.DataArray:
+    u_anom, v_anom = _time_mean_velocity_anomaly(u, v)
+    eke = 0.5 * (u_anom ** 2 + v_anom ** 2)
+    return _area_weighted_timeseries(eke, area, spatial_dims)
 
 
 def _apply_equatorial_mask(
@@ -1007,6 +1161,55 @@ def _compute_isotropic_spectrum_from_surface(
         cutoff_before_bins=False,
     )
     return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec.cpu().numpy().mean(0)
+
+
+def _compute_isotropic_spectrum_from_map(
+    field: xr.DataArray,
+    dx_2d: xr.DataArray,
+    dy_2d: xr.DataArray,
+    lon_slice: slice,
+    lat_slice: slice,
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+) -> tuple[np.ndarray, np.ndarray]:
+    data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose(lat_dim, lon_dim)
+    dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
+    dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
+    filled = data.where(np.isfinite(data))
+    filled = filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
+    k_cent, spec = compute_isotropic_spectrum_torch(
+        torch.as_tensor(filled.values),
+        dx=dx_mean,
+        dy=dy_mean,
+        n_factor=2,
+        detrend="linear",
+        window="hann",
+        cutoff_before_bins=False,
+    )
+    return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec.cpu().numpy()
+
+
+def _compute_temporal_spectrum_from_series(series: pd.Series) -> tuple[np.ndarray, np.ndarray]:
+    values = series.astype(float).dropna()
+    if values.size < 4:
+        return np.array([]), np.array([])
+    index = pd.DatetimeIndex(values.index)
+    delta_days = np.diff(index.values).astype("timedelta64[s]").astype(float) / 86400.0
+    delta_days = delta_days[np.isfinite(delta_days) & (delta_days > 0)]
+    if delta_days.size == 0:
+        return np.array([]), np.array([])
+    fs = 365.25 / float(np.median(delta_days))
+    nperseg = min(256, values.size)
+    freqs, psd = signal.welch(
+        values.values,
+        fs=fs,
+        detrend="linear",
+        window="hann",
+        scaling="density",
+        nperseg=nperseg,
+    )
+    valid = freqs > 0
+    return freqs[valid], psd[valid]
 
 
 def _compute_temporal_ke_spectrum_from_surface(
@@ -1461,6 +1664,102 @@ def _argo_variable_cmap(spec: dict):
     return cmocean.cm.thermal
 
 
+def _surface_model_field_on_obs_grid(
+    ds_sim: xr.Dataset,
+    model_var: str,
+    obs_field: xr.DataArray,
+    wet_mask: xr.DataArray | None = None,
+) -> xr.DataArray:
+    if model_var not in ds_sim:
+        raise KeyError(f"Model dataset does not contain required variable {model_var!r}")
+    sim = ds_sim[model_var]
+    if "lev" in sim.dims:
+        sim = sim.isel(lev=0)
+    sim = _apply_native_wet_mask(sim, wet_mask)
+    rename = {}
+    if "y" in sim.dims:
+        rename["y"] = "lat"
+    if "x" in sim.dims:
+        rename["x"] = "lon"
+    if rename:
+        sim = sim.rename(rename)
+    sim = _normalize_lon(sim, "lon").sortby("lat").sortby("lon")
+
+    interp_kwargs = {"lat": obs_field["lat"], "lon": obs_field["lon"]}
+    if "time" in obs_field.dims and "time" in sim.dims:
+        interp_kwargs["time"] = obs_field["time"]
+    return sim.interp(**interp_kwargs, kwargs={"fill_value": np.nan})
+
+
+def _sim_geostrophic_velocity_on_obs_grid(
+    ds_sim: xr.Dataset,
+    obs_u: xr.DataArray,
+    obs_v: xr.DataArray,
+    wet_mask: xr.DataArray | None = None,
+) -> tuple[xr.DataArray, xr.DataArray]:
+    sim_zos = _apply_native_wet_mask(ds_sim["zos"], wet_mask)
+    sim_u, sim_v = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
+    sim_u = _apply_native_wet_mask(sim_u, wet_mask).rename({"y": "lat", "x": "lon"})
+    sim_v = _apply_native_wet_mask(sim_v, wet_mask).rename({"y": "lat", "x": "lon"})
+    sim_u = _normalize_lon(sim_u, "lon").sortby("lat").sortby("lon")
+    sim_v = _normalize_lon(sim_v, "lon").sortby("lat").sortby("lon")
+    target = {"time": obs_u["time"], "lat": obs_u["lat"], "lon": obs_u["lon"]}
+    sim_u = sim_u.interp(**target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_u))
+    sim_v = sim_v.interp(**target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_v))
+    return sim_u, sim_v
+
+
+def _global_sst_timeseries_from_field(
+    sst: xr.DataArray,
+    area: xr.DataArray,
+    spatial_dims: tuple[str, str],
+    resample_monthly: bool = False,
+) -> pd.Series:
+    series = _area_weighted_timeseries(sst, area, spatial_dims)
+    if resample_monthly:
+        series = _resample_monthly_field(series)
+    return series.to_series()
+
+
+def _collect_sst_timeseries(
+    oisst: xr.Dataset,
+    emulators: dict[str, dict],
+) -> tuple[pd.Series, dict[str, pd.Series], str]:
+    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
+    window_start, window_end = _common_time_window(oisst, *[emu["ds"] for emu in emulators.values()])
+    oisst_w = oisst.sel(time=slice(window_start, window_end))
+    obs_series = _global_sst_timeseries_from_field(oisst_w[sst_name], oisst_w["area"], ("lat", "lon"))
+    sim_series = {}
+    for label, emu in emulators.items():
+        sim = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
+        sim_series[label] = _global_sst_timeseries_from_field(sim_sst, sim["areacello"], ("y", "x"))
+    return obs_series, sim_series, _period_label(window_start, window_end)
+
+
+def _collect_eke_timeseries(
+    duacs: xr.Dataset,
+    emulators: dict[str, dict],
+    velocity_kind: str = "absolute",
+) -> tuple[pd.Series, dict[str, pd.Series], str]:
+    u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
+    window_start, window_end = _common_time_window(duacs, *[emu["ds"] for emu in emulators.values()])
+    duacs_w = duacs.sel(time=slice(window_start, window_end))
+    obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
+    obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
+    obs_series = _surface_eke_timeseries_from_uv(obs_u, obs_v, duacs_w["area"], ("lat", "lon")).to_series()
+
+    sim_series = {}
+    for label, emu in emulators.items():
+        sim = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_zos = _apply_native_wet_mask(sim["zos"], emu.get("wet_mask"))
+        sim_u, sim_v = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
+        sim_u = _apply_equatorial_mask(_apply_native_wet_mask(sim_u, emu.get("wet_mask")), lat_dim="y")
+        sim_v = _apply_equatorial_mask(_apply_native_wet_mask(sim_v, emu.get("wet_mask")), lat_dim="y")
+        sim_series[label] = _surface_eke_timeseries_from_uv(sim_u, sim_v, sim["areacello"], ("y", "x")).to_series()
+    return obs_series, sim_series, _period_label(window_start, window_end)
+
+
 def _common_temporal_fields_on_argo_grid(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
@@ -1488,10 +1787,16 @@ def _common_temporal_fields_on_argo_grid(
         raise ValueError(f"No common ARGO/model depth levels for {spec['title']}")
 
     obs_common = obs_field.sel(depth=common_depth)
-    sim_common = {
-        label: sim_field.interp(depth=common_depth, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_common))
-        for label, sim_field in sim_fields.items()
-    }
+    obs_valid_mask = np.isfinite(obs_common)
+    if "time" in obs_valid_mask.dims:
+        # ARGO structure fields are monthly, while model rollouts are commonly 5-day.
+        # Use a spatial/depth ocean-valid mask here; exact time alignment is handled
+        # by each metric after temporal aggregation or interpolation.
+        obs_valid_mask = obs_valid_mask.any("time")
+    sim_common = {}
+    for label, sim_field in sim_fields.items():
+        sim_interp = sim_field.interp(depth=common_depth, kwargs={"fill_value": np.nan})
+        sim_common[label] = sim_interp.where(obs_valid_mask)
     return obs_common, sim_common
 
 
@@ -1725,6 +2030,163 @@ def _plot_layer_bias_map_comparison(
     fig.suptitle(f"Annual-Mean {title} Bias vs ARGO-IAP (model − obs, {year})", y=0.99, fontsize=15)
 
 
+def _plot_rmse_map_comparison(
+    rmse_maps: dict[str, xr.DataArray],
+    obs_area: xr.DataArray,
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+) -> pd.DataFrame:
+    ncols = len(rmse_maps)
+    fig, axes = plt.subplots(
+        1,
+        ncols,
+        figsize=(5.8 * ncols, 4.8),
+        squeeze=False,
+        subplot_kw={"projection": ccrs.Robinson(central_longitude=210)},
+    )
+    axes = axes[0]
+
+    flat = np.concatenate(
+        [field.values[np.isfinite(field.values)] for field in rmse_maps.values()]
+    ) if rmse_maps else np.array([])
+    vmax = float(np.nanpercentile(flat, 98)) if flat.size else 1.0
+    if not np.isfinite(vmax) or vmax <= 0.0:
+        vmax = 1.0
+    norm = colors.Normalize(vmin=0.0, vmax=vmax)
+
+    rows = []
+    mesh = None
+    for ax, (label, rmse_map) in zip(axes, rmse_maps.items()):
+        total_rmse = _area_weighted_map_rmse(rmse_map, obs_area)
+        rows.append({"model": label, "metric": f"{metric_prefix}_total_rmse", "value": total_rmse})
+        mesh = rmse_map.plot.pcolormesh(
+            ax=ax,
+            transform=ccrs.PlateCarree(),
+            x="lon",
+            y="lat",
+            cmap=cmocean.cm.thermal,
+            norm=norm,
+            add_colorbar=False,
+            rasterized=True,
+            add_labels=False,
+        )
+        _add_map_features(ax)
+        ax.set_title(label, fontsize=12, fontweight="bold", y=1.14)
+        ax.text(
+            0.5,
+            1.035,
+            f"Total RMSE={total_rmse:.3g} {units}",
+            transform=ax.transAxes,
+            ha="center",
+            va="bottom",
+            fontsize=10.5,
+        )
+
+    fig.subplots_adjust(left=0.04, right=0.98, top=0.78, bottom=0.30, wspace=0.08)
+    cax = fig.add_axes([0.27, 0.14, 0.46, 0.035])
+    cbar = fig.colorbar(mesh, cax=cax, orientation="horizontal", extend="max")
+    cbar.set_label(f"RMSE ({units})", fontsize=12)
+    fig.suptitle(f"{title} Spatial RMSE vs Observations ({period_label})", y=0.97, fontsize=15)
+    return pd.DataFrame(rows)
+
+
+def _plot_layer_rmse_map_comparison(
+    rmse_maps: dict[str, dict[str, xr.DataArray]],
+    obs_area: xr.DataArray,
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    depth_slices: list[dict] = OHC_DEPTH_SLICES,
+) -> pd.DataFrame:
+    layer_titles = [depth_slice["title"] for depth_slice in depth_slices]
+    nrows = len(layer_titles)
+    ncols = len(rmse_maps)
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(5.8 * ncols, 4.2 * nrows),
+        squeeze=False,
+        subplot_kw={"projection": ccrs.Robinson(central_longitude=210)},
+        gridspec_kw={"hspace": 0.55, "wspace": 0.08},
+    )
+
+    rows = []
+    row_meshes = []
+    for row_idx, layer_title in enumerate(layer_titles):
+        fields = [model_maps[layer_title] for model_maps in rmse_maps.values()]
+        flat = np.concatenate([field.values[np.isfinite(field.values)] for field in fields])
+        vmax = float(np.nanpercentile(flat, 98)) if flat.size else 1.0
+        if not np.isfinite(vmax) or vmax <= 0.0:
+            vmax = 1.0
+        norm = colors.Normalize(vmin=0.0, vmax=vmax)
+        mesh = None
+        for col_idx, (label, model_maps) in enumerate(rmse_maps.items()):
+            ax = axes[row_idx, col_idx]
+            rmse_map = model_maps[layer_title]
+            total_rmse = _area_weighted_map_rmse(rmse_map, obs_area)
+            rows.append(
+                {
+                    "model": label,
+                    "depth": layer_title,
+                    "metric": f"{metric_prefix}_total_rmse",
+                    "value": total_rmse,
+                }
+            )
+            mesh = rmse_map.plot.pcolormesh(
+                ax=ax,
+                transform=ccrs.PlateCarree(),
+                x="lon",
+                y="lat",
+                cmap=cmocean.cm.thermal,
+                norm=norm,
+                add_colorbar=False,
+                rasterized=True,
+                add_labels=False,
+            )
+            _add_map_features(ax)
+            if row_idx == 0:
+                ax.set_title(label, fontweight="bold", y=1.18)
+            ax.text(
+                0.5,
+                1.045,
+                f"Total RMSE={total_rmse:.2e} {units}",
+                transform=ax.transAxes,
+                ha="center",
+                va="bottom",
+                fontsize=9.8,
+            )
+            if col_idx == 0:
+                ax.text(
+                    -0.08,
+                    0.5,
+                    layer_title,
+                    ha="right",
+                    va="center",
+                    rotation=90,
+                    transform=ax.transAxes,
+                    fontsize=11,
+                )
+
+        row_meshes.append(mesh)
+
+    fig.suptitle(f"{title} Spatial RMSE vs Observations ({period_label})", y=0.98, fontsize=15)
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.84, bottom=0.12, wspace=0.08, hspace=0.78)
+    for row_idx, mesh in enumerate(row_meshes):
+        row_axes = axes[row_idx, :]
+        positions = [ax.get_position() for ax in row_axes]
+        x0 = min(pos.x0 for pos in positions)
+        x1 = max(pos.x1 for pos in positions)
+        y0 = min(pos.y0 for pos in positions)
+        width = x1 - x0
+        cax = fig.add_axes([x0 + 0.18 * width, max(0.02, y0 - 0.055), 0.64 * width, 0.026])
+        cbar = fig.colorbar(mesh, cax=cax, orientation="horizontal", extend="max")
+        cbar.set_label(f"RMSE ({units})", fontsize=11)
+    return pd.DataFrame(rows)
+
+
 def _argo_variable_layer_maps_data(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
@@ -1835,6 +2297,165 @@ def _plot_argo_ohc_layer_bias_maps(
     )
 
 
+def _plot_surface_velocity_rmse_maps(
+    duacs: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+    velocity_kind: str = "absolute",
+) -> pd.DataFrame:
+    u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
+    window_start, window_end = _common_time_window(
+        _year_slice(duacs, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    period_label = _period_label(window_start, window_end)
+    duacs_w = duacs.sel(time=slice(window_start, window_end))
+    obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
+    obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
+
+    rmse_maps = {}
+    rows = []
+    for label, emu in emulators.items():
+        sim_w = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_u, sim_v = _sim_geostrophic_velocity_on_obs_grid(sim_w, obs_u, obs_v, emu.get("wet_mask"))
+        if velocity_kind == "anomaly":
+            sim_u, sim_v = _time_mean_velocity_anomaly(sim_u, sim_v)
+        du = sim_u - obs_u
+        dv = sim_v - obs_v
+        rmse_map = np.sqrt((du ** 2 + dv ** 2).mean("time", skipna=True))
+        rmse_maps[label] = rmse_map
+        rows.append(
+            {
+                "model": label,
+                "metric": "surface_geostrophic_velocity_vector_total_rmse",
+                "value": _area_weighted_map_rmse(rmse_map, duacs_w["area"]),
+            }
+        )
+
+    map_rows = _plot_rmse_map_comparison(
+        rmse_maps,
+        duacs_w["area"],
+        "Surface Geostrophic Velocity Vector",
+        "m s$^{-1}$",
+        "surface_geostrophic_velocity_vector",
+        period_label,
+    )
+    return pd.concat([pd.DataFrame(rows), map_rows], ignore_index=True).drop_duplicates(
+        subset=["model", "metric"], keep="first"
+    )
+
+
+def _plot_eke_rmse_maps(
+    duacs: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+    velocity_kind: str = "absolute",
+) -> pd.DataFrame:
+    u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
+    window_start, window_end = _common_time_window(
+        _year_slice(duacs, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    period_label = _period_label(window_start, window_end)
+    duacs_w = duacs.sel(time=slice(window_start, window_end))
+    obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
+    obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
+    obs_eke = _surface_eke_from_uv(obs_u, obs_v)
+
+    rmse_maps = {}
+    for label, emu in emulators.items():
+        sim_w = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_u, sim_v = _sim_geostrophic_velocity_on_obs_grid(sim_w, obs_u, obs_v, emu.get("wet_mask"))
+        if velocity_kind == "anomaly":
+            sim_u, sim_v = _time_mean_velocity_anomaly(sim_u, sim_v)
+        sim_eke = _surface_eke_from_uv(sim_u, sim_v)
+        rmse_maps[label] = np.abs(sim_eke - obs_eke)
+
+    return _plot_rmse_map_comparison(
+        rmse_maps,
+        duacs_w["area"],
+        "Surface EKE",
+        "m$^2$ s$^{-2}$",
+        "surface_eke",
+        period_label,
+    )
+
+
+def _plot_sst_rmse_maps(
+    oisst: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+) -> pd.DataFrame:
+    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
+    window_start, window_end = _common_time_window(
+        _year_slice(oisst, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    period_label = _period_label(window_start, window_end)
+    obs_sst = oisst[sst_name].sel(time=slice(window_start, window_end))
+
+    rmse_maps = {}
+    for label, emu in emulators.items():
+        sim_w = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_sst = _surface_model_field_on_obs_grid(sim_w, "thetao", obs_sst, emu.get("wet_mask"))
+        rmse_maps[label] = _field_rmse_over_time(sim_sst, obs_sst)
+
+    return _plot_rmse_map_comparison(
+        rmse_maps,
+        oisst["area"],
+        "SST",
+        "$^\\circ$C",
+        "surface_sst",
+        period_label,
+    )
+
+
+def _plot_ohc_rmse_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    year: int,
+    depth_slices: list[dict] = OHC_DEPTH_SLICES,
+) -> pd.DataFrame:
+    temp_spec = ARGO_STRUCTURE_VARIABLES[0]
+    if "area" not in argo_iap:
+        argo_iap = _infer_obs_grid_metrics(argo_iap)
+    window_start, window_end = _common_time_window(
+        _year_slice(argo_iap, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    )
+    period_label = _period_label(window_start, window_end)
+    obs_temp, sim_temps = _common_temporal_fields_on_argo_grid(
+        argo_iap, emulators, temp_spec, slice(window_start, window_end), _identity_reducer
+    )
+    obs_maps = {
+        title: _resample_monthly_field(field, f"observed OHC {title}")
+        for title, field in _ohc_per_area_layer_maps_from_temperature_field(obs_temp, depth_slices).items()
+    }
+
+    rmse_maps: dict[str, dict[str, xr.DataArray]] = {}
+    for label, sim_temp in sim_temps.items():
+        sim_maps = {
+            title: _resample_monthly_field(field, f"{label} OHC {title}")
+            for title, field in _ohc_per_area_layer_maps_from_temperature_field(sim_temp, depth_slices).items()
+        }
+        rmse_maps[label] = {}
+        for title in obs_maps:
+            sim_aligned, obs_aligned = xr.align(sim_maps[title], obs_maps[title], join="inner")
+            if sim_aligned.sizes.get("time", 0) == 0:
+                raise ValueError(f"No common monthly OHC samples for {label} {title} in {period_label}")
+            rmse_maps[label][title] = _field_rmse_over_time(
+                sim_aligned,
+                obs_aligned,
+                f"{label} OHC {title}",
+            )
+
+    return _plot_layer_rmse_map_comparison(
+        rmse_maps,
+        argo_iap["area"],
+        "OHC per Unit Area",
+        "J m$^{-2}$",
+        "ohc_per_area",
+        period_label,
+        depth_slices=depth_slices,
+    )
+
+
 def _argo_variable_variance_layer_maps_data(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
@@ -1936,6 +2557,184 @@ def _plot_layer_variance_map_comparison(
 
     fig.suptitle(f"Temporal Variance of {title} vs ARGO-IAP ({period_label})", y=0.99, fontsize=15)
     return pd.DataFrame(rows)
+
+
+def _plot_variance_map_comparison(
+    obs_map: xr.DataArray,
+    sim_maps: dict[str, xr.DataArray],
+    obs_area: xr.DataArray,
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    obs_label: str,
+) -> pd.DataFrame:
+    print(f"  Loading {obs_label} residual variance map for plotting/metrics...", flush=True)
+    obs_map = obs_map.load()
+    loaded_sim_maps = {}
+    for label, sim_map in sim_maps.items():
+        print(f"  Loading {label} residual variance map for plotting/metrics...", flush=True)
+        loaded_sim_maps[label] = sim_map.load()
+    sim_maps = loaded_sim_maps
+
+    ncols = 1 + len(sim_maps)
+    fig, axes = plt.subplots(
+        1,
+        ncols,
+        figsize=(5.4 * ncols, 4.9),
+        squeeze=False,
+        subplot_kw={"projection": ccrs.Robinson(central_longitude=210)},
+    )
+    axes = axes[0]
+    fields = [obs_map] + list(sim_maps.values())
+    flat = np.concatenate([field.values[np.isfinite(field.values)] for field in fields])
+    vmax = float(np.nanpercentile(flat, 95)) if flat.size else 1.0
+    if not np.isfinite(vmax) or vmax <= 0.0:
+        vmax = 1.0
+    norm = colors.Normalize(vmin=0.0, vmax=vmax)
+
+    mesh = obs_map.plot.pcolormesh(
+        ax=axes[0],
+        transform=ccrs.PlateCarree(),
+        x="lon",
+        y="lat",
+        cmap=cmocean.cm.thermal,
+        norm=norm,
+        add_colorbar=False,
+        rasterized=True,
+        add_labels=False,
+    )
+    _add_map_features(axes[0])
+    axes[0].set_title(obs_label, fontsize=12)
+
+    rows = []
+    for ax, (label, sim_map) in zip(axes[1:], sim_maps.items()):
+        mesh = sim_map.plot.pcolormesh(
+            ax=ax,
+            transform=ccrs.PlateCarree(),
+            x="lon",
+            y="lat",
+            cmap=cmocean.cm.thermal,
+            norm=norm,
+            add_colorbar=False,
+            rasterized=True,
+            add_labels=False,
+        )
+        _add_map_features(ax)
+        rmse = _area_weighted_map_rmse(sim_map - obs_map, obs_area)
+        corr = _pattern_corr(sim_map, obs_map)
+        rows.append({"model": label, "metric": f"{metric_prefix}_residual_variance_map_rmse", "value": rmse})
+        rows.append({"model": label, "metric": f"{metric_prefix}_residual_variance_pattern_corr", "value": corr})
+        ax.set_title(label, fontsize=12)
+        ax.text(
+            0.02,
+            0.95,
+            f"Corr: {corr:.3f}\nRMSE: {rmse:.2e}",
+            transform=ax.transAxes,
+            fontsize=8.5,
+            fontweight="bold",
+            va="top",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8),
+            zorder=20,
+        )
+
+    fig.subplots_adjust(left=0.04, right=0.98, top=0.76, bottom=0.30, wspace=0.08)
+    cax = fig.add_axes([0.28, 0.145, 0.44, 0.035])
+    cbar = fig.colorbar(mesh, cax=cax, orientation="horizontal", extend="max")
+    cbar.set_label(f"Variance ({units})", fontsize=12)
+    fig.suptitle(
+        f"{title}\nDetrended Deseasonalized Anomaly Variance vs {obs_label} ({period_label})",
+        y=0.98,
+        fontsize=15,
+        linespacing=1.15,
+    )
+    return pd.DataFrame(rows)
+
+
+def _plot_sst_residual_variance_maps(
+    oisst: xr.Dataset,
+    emulators: dict[str, dict],
+) -> pd.DataFrame:
+    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
+    window_start, window_end = _common_time_window(oisst, *[emu["ds"] for emu in emulators.values()])
+    period_label = _period_label(window_start, window_end)
+    obs_sst = oisst[sst_name].sel(time=slice(window_start, window_end))
+    variance_chunks = {
+        "time": -1,
+        "lat": min(90, obs_sst.sizes["lat"]),
+        "lon": min(180, obs_sst.sizes["lon"]),
+    }
+    obs_sst = obs_sst.chunk(variance_chunks)
+    print(f"  SST residual variance chunks: {variance_chunks}", flush=True)
+    obs_var = _detrended_deseasonalized_dataarray(obs_sst).var("time", skipna=True)
+
+    sim_vars = {}
+    for label, emu in emulators.items():
+        print(f"  Computing native-grid SST residual variance for {label}", flush=True)
+        sim_w = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_sst = _apply_native_wet_mask(sim_w["thetao"].isel(lev=0), emu.get("wet_mask"))
+        sim_sst = sim_sst.rename({"y": "lat", "x": "lon"})
+        sim_sst = _normalize_lon(sim_sst, "lon").sortby("lat").sortby("lon")
+        sim_sst = sim_sst.chunk(
+            {
+                "time": -1,
+                "lat": min(90, sim_sst.sizes["lat"]),
+                "lon": min(180, sim_sst.sizes["lon"]),
+            }
+        )
+        sim_var_native = _detrended_deseasonalized_dataarray(sim_sst).var("time", skipna=True)
+        sim_vars[label] = sim_var_native.interp(
+            lat=obs_var["lat"],
+            lon=obs_var["lon"],
+            kwargs={"fill_value": np.nan},
+        ).where(np.isfinite(obs_var))
+
+    return _plot_variance_map_comparison(
+        obs_var,
+        sim_vars,
+        oisst["area"],
+        "SST",
+        "($^\\circ$C)$^2$",
+        "surface_sst",
+        period_label,
+        "OISST",
+    )
+
+
+def _plot_ohc_upper700_residual_variance_maps(
+    argo_iap: xr.Dataset,
+    emulators: dict[str, dict],
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    period_label: str,
+) -> pd.DataFrame:
+    temp_spec = ARGO_STRUCTURE_VARIABLES[0]
+    if "area" not in argo_iap:
+        argo_iap = _infer_obs_grid_metrics(argo_iap)
+    obs_temp, sim_temps = _common_temporal_fields_on_argo_grid(
+        argo_iap, emulators, temp_spec, slice(start, end), _identity_reducer
+    )
+    depth_slices = [OHC_UPPER_700_SLICE]
+    obs_ohc = _ohc_per_area_layer_maps_from_temperature_field(obs_temp, depth_slices)[OHC_UPPER_700_SLICE["title"]]
+    obs_monthly = _resample_monthly_field(obs_ohc)
+    obs_var = _detrended_deseasonalized_dataarray(obs_monthly).var("time", skipna=True)
+
+    sim_vars = {}
+    for label, sim_temp in sim_temps.items():
+        sim_ohc = _ohc_per_area_layer_maps_from_temperature_field(sim_temp, depth_slices)[OHC_UPPER_700_SLICE["title"]]
+        sim_monthly = _resample_monthly_field(sim_ohc)
+        sim_vars[label] = _detrended_deseasonalized_dataarray(sim_monthly).var("time", skipna=True)
+
+    return _plot_variance_map_comparison(
+        obs_var,
+        sim_vars,
+        argo_iap["area"],
+        "Upper-700m OHC per Unit Area",
+        "(J m$^{-2}$)$^2$",
+        "ohc_upper700_per_area",
+        period_label,
+        "ARGO-IAP",
+    )
 
 
 def _plot_argo_variable_variance_maps(
@@ -2440,6 +3239,183 @@ def _plot_argo_ohc_zonal_mean_bias(argo_iap: xr.Dataset, emulators: dict[str, di
     return pd.DataFrame(rows)
 
 
+def _plot_global_eke_spectra(
+    duacs: xr.Dataset,
+    emulators: dict[str, dict],
+    velocity_kind: str = "absolute",
+) -> pd.DataFrame:
+    u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
+    velocity_label = _duacs_velocity_label(velocity_kind)
+    window_start, window_end = _common_time_window(duacs, *[emu["ds"] for emu in emulators.values()])
+    period_label = _period_label(window_start, window_end)
+    duacs_w = duacs.sel(time=slice(window_start, window_end))
+    obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
+    obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
+    obs_eke_map = _surface_eke_from_uv(obs_u, obs_v)
+    obs_eke_series = _surface_eke_timeseries_from_uv(obs_u, obs_v, duacs_w["area"], ("lat", "lon")).to_series()
+    freq_obs, psd_obs = _compute_temporal_spectrum_from_series(obs_eke_series)
+
+    rows = []
+    sim_eke_maps = {}
+    sim_temporal_spectra = {}
+    for label, emu in emulators.items():
+        sim = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_zos = _apply_native_wet_mask(sim["zos"], emu.get("wet_mask"))
+        sim_u, sim_v = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
+        sim_u = _apply_equatorial_mask(_apply_native_wet_mask(sim_u, emu.get("wet_mask")), lat_dim="y")
+        sim_v = _apply_equatorial_mask(_apply_native_wet_mask(sim_v, emu.get("wet_mask")), lat_dim="y")
+        sim_eke_maps[label] = (_surface_eke_from_uv(sim_u, sim_v), sim)
+        sim_eke_series = _surface_eke_timeseries_from_uv(sim_u, sim_v, sim["areacello"], ("y", "x")).to_series()
+        sim_temporal_spectra[label] = _compute_temporal_spectrum_from_series(sim_eke_series)
+
+    ncols = len(SPECTRUM_REGIONS) + 1
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
+    axes = np.atleast_1d(axes)
+
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+        ax = axes[idx]
+        k_obs, spec_obs = _compute_isotropic_spectrum_from_map(
+            obs_eke_map, duacs_w["dx"], duacs_w["dy"], lon_slice, lat_slice
+        )
+        ax.loglog(k_obs, spec_obs, "--", color="black", linewidth=2, label="DUACS")
+        for label, (sim_eke_map, sim) in sim_eke_maps.items():
+            k_sim, spec_sim = _compute_isotropic_spectrum_from_map(
+                sim_eke_map, sim["dx"], sim["dy"], lon_slice, lat_slice, lat_dim="y", lon_dim="x"
+            )
+            rows.append(
+                {
+                    "model": label,
+                    "region": region_name,
+                    "metric": "regional_surface_eke_spatial_spectrum_rmse_vs_duacs",
+                    "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
+                }
+            )
+            ax.loglog(k_sim, spec_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
+        ax.set_title(f"{region_name}\nspatial spectrum")
+        ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
+        ax.set_ylabel("PSD")
+        ax.grid(True, which="both", alpha=0.3)
+
+    ax = axes[-1]
+    ax.loglog(freq_obs, psd_obs, "--", color="black", linewidth=2, label="DUACS")
+    for label, (freq_sim, psd_sim) in sim_temporal_spectra.items():
+        rows.append(
+            {
+                "model": label,
+                "region": "Global",
+                "metric": "global_surface_eke_temporal_spectrum_rmse_vs_duacs",
+                "value": _rmse_between_curves(freq_obs, psd_obs, freq_sim, psd_sim),
+            }
+        )
+        ax.loglog(freq_sim, psd_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
+    ax.set_title("Global\ntemporal spectrum")
+    ax.set_xlabel("Frequency (cycles/year)")
+    ax.set_ylabel("PSD")
+    ax.grid(True, which="both", alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(*axes[0].get_legend_handles_labels(), truth_labels={"DUACS"})
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False)
+    fig.suptitle(
+        _figure_title_with_context(
+            "Surface EKE Spectra vs DUACS",
+            period_label,
+            f"{velocity_label}; spatial spectra over {SPECTRUM_REGION_LABEL}; temporal spectrum is global",
+        ),
+        y=0.98,
+        fontsize=15,
+        linespacing=1.15,
+    )
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.76, bottom=0.18, wspace=0.28)
+    return pd.DataFrame(rows)
+
+
+def _plot_global_sst_spectra(
+    oisst: xr.Dataset,
+    emulators: dict[str, dict],
+) -> pd.DataFrame:
+    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
+    window_start, window_end = _common_time_window(oisst, *[emu["ds"] for emu in emulators.values()])
+    period_label = _period_label(window_start, window_end)
+    oisst_w = oisst.sel(time=slice(window_start, window_end))
+    obs_sst = oisst_w[sst_name]
+    obs_ssta = _calendar_day_climatology_anomaly(obs_sst)
+    obs_series = _area_weighted_timeseries(obs_ssta, oisst_w["area"], ("lat", "lon")).to_series()
+    freq_obs, psd_obs = _compute_temporal_spectrum_from_series(obs_series)
+
+    rows = []
+    sim_ssts = {}
+    sim_temporal_spectra = {}
+    for label, emu in emulators.items():
+        sim = emu["ds"].sel(time=slice(window_start, window_end))
+        sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
+        sim_ssts[label] = (sim_sst, sim)
+        sim_ssta = _calendar_day_climatology_anomaly(sim_sst)
+        sim_series = _area_weighted_timeseries(sim_ssta, sim["areacello"], ("y", "x")).to_series()
+        sim_temporal_spectra[label] = _compute_temporal_spectrum_from_series(sim_series)
+
+    ncols = len(SPECTRUM_REGIONS) + 1
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
+    axes = np.atleast_1d(axes)
+
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+        ax = axes[idx]
+        k_obs, spec_obs = _compute_isotropic_spectrum_from_surface(
+            obs_sst, oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice
+        )
+        ax.loglog(k_obs, spec_obs, "--", color="black", linewidth=2, label="OISST 5-day avg")
+        for label, (sim_sst, sim) in sim_ssts.items():
+            k_sim, spec_sim = _compute_isotropic_spectrum_from_surface(
+                sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice, lat_dim="y", lon_dim="x"
+            )
+            rows.append(
+                {
+                    "model": label,
+                    "region": region_name,
+                    "metric": "regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg",
+                    "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
+                }
+            )
+            ax.loglog(k_sim, spec_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
+        ax.set_title(f"{region_name}\nspatial spectrum")
+        ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
+        ax.set_ylabel("PSD")
+        ax.grid(True, which="both", alpha=0.3)
+
+    ax = axes[-1]
+    ax.loglog(freq_obs, psd_obs, "--", color="black", linewidth=2, label="OISST 5-day avg")
+    for label, (freq_sim, psd_sim) in sim_temporal_spectra.items():
+        rows.append(
+            {
+                "model": label,
+                "region": "Global",
+                "metric": "global_surface_ssta_temporal_spectrum_rmse_vs_oisst_5day_avg",
+                "value": _rmse_between_curves(freq_obs, psd_obs, freq_sim, psd_sim),
+            }
+        )
+        ax.loglog(freq_sim, psd_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
+    ax.set_title("Global\ntemporal spectrum")
+    ax.set_xlabel("Frequency (cycles/year)")
+    ax.set_ylabel("PSD")
+    ax.grid(True, which="both", alpha=0.3)
+
+    handles, labels, ncol = _legend_truth_first(
+        *axes[0].get_legend_handles_labels(), truth_labels={"OISST 5-day avg"}
+    )
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False)
+    fig.suptitle(
+        _figure_title_with_context(
+            "Surface Temperature SSTA Spectra vs OISST",
+            period_label,
+            f"calendar-day climatology removed; spatial spectra over {SPECTRUM_REGION_LABEL}; temporal spectrum is global",
+        ),
+        y=0.98,
+        fontsize=15,
+        linespacing=1.15,
+    )
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.76, bottom=0.18, wspace=0.28)
+    return pd.DataFrame(rows)
+
+
 def _plot_temperature_spectra(
     oisst_5day: xr.Dataset,
     emulators: dict[str, dict],
@@ -2868,6 +3844,157 @@ def _rmse_between_series(ref: pd.Series, other: pd.Series) -> float:
     if diff.empty:
         return np.nan
     return float(np.sqrt(np.mean(diff**2)))
+
+
+def _plot_scalar_anomaly_timeseries(
+    obs_series: pd.Series,
+    sim_series: dict[str, pd.Series],
+    emulators: dict[str, dict],
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    obs_label: str,
+) -> pd.DataFrame:
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 4.2))
+    obs_anom = obs_series.astype(float) - obs_series.astype(float).mean()
+    ax.plot(obs_anom.index, obs_anom.values, "--", color="black", linewidth=2, label=obs_label)
+
+    rows = []
+    for label, series in sim_series.items():
+        sim_anom = series.astype(float) - series.astype(float).mean()
+        rmse = _rmse_between_series(obs_anom, sim_anom)
+        rows.append({"model": label, "metric": f"{metric_prefix}_mean_removed_anomaly_rmse", "value": rmse})
+        ax.plot(sim_anom.index, sim_anom.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+
+    ax.set_ylabel(f"Anomaly ({units})", fontsize=13)
+    ax.tick_params(axis="both", labelsize=12)
+    ax.grid(True, alpha=0.3)
+    handles, labels, ncol = _legend_truth_first(*ax.get_legend_handles_labels(), truth_labels={obs_label})
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, 0.02), frameon=False, fontsize=12)
+    _finish_timeseries_figure(fig, [ax], f"{title} Mean-Removed Anomaly vs {obs_label}", period_label, "Time")
+    return pd.DataFrame(rows)
+
+
+def _plot_scalar_trend_comparison(
+    obs_series: pd.Series,
+    sim_series: dict[str, pd.Series],
+    emulators: dict[str, dict],
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    obs_label: str,
+) -> pd.DataFrame:
+    obs_slope = _series_linear_trend_per_year(obs_series)
+    labels = [obs_label]
+    slopes = [obs_slope]
+    colors_list = ["black"]
+    rows = []
+    for label, series in sim_series.items():
+        slope = _series_linear_trend_per_year(series)
+        labels.append(label)
+        slopes.append(slope)
+        colors_list.append(emulators[label]["color"])
+        rows.append({"model": label, "metric": f"{metric_prefix}_linear_trend_per_year", "value": slope})
+        rows.append({"model": label, "metric": f"{metric_prefix}_linear_trend_bias_per_year", "value": slope - obs_slope})
+
+    fig, ax = plt.subplots(1, 1, figsize=(max(7.0, 1.8 * len(labels)), 4.2))
+    ax.bar(np.arange(len(labels)), slopes, color=colors_list)
+    ax.axhline(0.0, color="0.25", linewidth=1)
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, rotation=20, ha="right")
+    ax.set_ylabel(f"Trend ({units} yr$^{{-1}}$)", fontsize=13)
+    ax.tick_params(axis="both", labelsize=12)
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.suptitle(_figure_title_with_context(f"{title} Linear Trend Comparison", period_label), y=0.96, fontsize=15)
+    fig.tight_layout(rect=[0.03, 0.03, 0.99, 0.92])
+    return pd.DataFrame(rows)
+
+
+def _plot_scalar_detrended_deseasonalized_anomaly_timeseries(
+    obs_series: pd.Series,
+    sim_series: dict[str, pd.Series],
+    emulators: dict[str, dict],
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    obs_label: str,
+) -> pd.DataFrame:
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 4.2))
+    obs_resid = _series_detrended_deseasonalized_anomaly(obs_series)
+    ax.plot(obs_resid.index, obs_resid.values, "--", color="black", linewidth=2, label=obs_label)
+
+    rows = []
+    for label, series in sim_series.items():
+        sim_resid = _series_detrended_deseasonalized_anomaly(series)
+        rmse = _rmse_between_series(obs_resid, sim_resid)
+        rows.append(
+            {
+                "model": label,
+                "metric": f"{metric_prefix}_detrended_deseasonalized_anomaly_rmse",
+                "value": rmse,
+            }
+        )
+        ax.plot(sim_resid.index, sim_resid.values, "-", color=emulators[label]["color"], linewidth=2, label=label)
+
+    ax.set_ylabel(f"Residual anomaly ({units})", fontsize=13)
+    ax.tick_params(axis="both", labelsize=12)
+    ax.grid(True, alpha=0.3)
+    handles, labels, ncol = _legend_truth_first(*ax.get_legend_handles_labels(), truth_labels={obs_label})
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, 0.02), frameon=False, fontsize=12)
+    _finish_timeseries_figure(
+        fig,
+        [ax],
+        f"{title} Detrended Deseasonalized Anomaly vs {obs_label}",
+        period_label,
+        "Time",
+    )
+    return pd.DataFrame(rows)
+
+
+def _plot_scalar_residual_variance_comparison(
+    obs_series: pd.Series,
+    sim_series: dict[str, pd.Series],
+    emulators: dict[str, dict],
+    title: str,
+    units: str,
+    metric_prefix: str,
+    period_label: str,
+    obs_label: str,
+) -> pd.DataFrame:
+    obs_resid = _series_detrended_deseasonalized_anomaly(obs_series)
+    obs_var = _series_variance(obs_resid)
+    labels = [obs_label]
+    variances = [obs_var]
+    colors_list = ["black"]
+    rows = []
+
+    for label, series in sim_series.items():
+        sim_resid = _series_detrended_deseasonalized_anomaly(series)
+        sim_var = _series_variance(sim_resid)
+        labels.append(label)
+        variances.append(sim_var)
+        colors_list.append(emulators[label]["color"])
+        rows.append({"model": label, "metric": f"{metric_prefix}_detrended_deseasonalized_anomaly_variance", "value": sim_var})
+        rows.append({"model": label, "metric": f"{metric_prefix}_detrended_deseasonalized_anomaly_variance_bias", "value": sim_var - obs_var})
+        rows.append({"model": label, "metric": f"{metric_prefix}_detrended_deseasonalized_anomaly_variance_ratio", "value": sim_var / obs_var if obs_var != 0 else np.nan})
+
+    fig, ax = plt.subplots(1, 1, figsize=(max(7.0, 1.8 * len(labels)), 4.2))
+    ax.bar(np.arange(len(labels)), variances, color=colors_list)
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, rotation=20, ha="right")
+    ax.set_ylabel(f"Variance ({units}$^2$)", fontsize=13)
+    ax.tick_params(axis="both", labelsize=12)
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.suptitle(
+        _figure_title_with_context(f"{title} Detrended Deseasonalized Anomaly Variance", period_label),
+        y=0.96,
+        fontsize=15,
+    )
+    fig.tight_layout(rect=[0.03, 0.03, 0.99, 0.92])
+    return pd.DataFrame(rows)
 
 
 def _plot_ohc_timeseries(
@@ -3682,6 +4809,43 @@ def main() -> None:
         f"{duacs_config['label']} from {duacs_config['ssh']} ({duacs_config['ssh_label']})."
     )
 
+    ohc_start, ohc_end = _resolve_ohc_period(
+        argo_iap,
+        emulators,
+        args.ohc_start_date,
+        args.ohc_end_date,
+    )
+    ohc_label = _period_label(ohc_start, ohc_end)
+    ohc_slug = _period_slug(ohc_start, ohc_end)
+
+    print(f"\n[Total RMSE + spatial RMSE maps ({args.year})]")
+    print("Evaluating surface geostrophic velocity vector RMSE maps vs DUACS...")
+    velocity_rmse_metrics = _plot_surface_velocity_rmse_maps(
+        duacs,
+        emulators,
+        args.year,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig(f"surface_geostrophic_velocity_vector_rmse_vs_duacs_{args.year}", RMSE_DIR)
+
+    print("Evaluating surface EKE RMSE maps vs DUACS...")
+    eke_rmse_metrics = _plot_eke_rmse_maps(
+        duacs,
+        emulators,
+        args.year,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig(f"surface_eke_rmse_vs_duacs_{args.year}", RMSE_DIR)
+
+    print("Evaluating SST RMSE maps vs OISST...")
+    sst_rmse_metrics = _plot_sst_rmse_maps(oisst, emulators, args.year)
+    save_current_fig(f"sst_rmse_maps_vs_oisst_{args.year}", RMSE_DIR)
+
+    print(f"Evaluating OHC RMSE maps vs ARGO-IAP for {args.year}...")
+    ohc_rmse_metrics = _plot_ohc_rmse_maps(argo_iap, emulators, args.year)
+    save_current_fig(f"ohc_per_area_rmse_maps_vs_argo_iap_{args.year}", RMSE_DIR)
+
+    print("\n[Velocities]")
     print("Evaluating EKE maps vs DUACS...")
     eke_metrics = _plot_eke_map_comparison(
         duacs,
@@ -3691,42 +4855,15 @@ def main() -> None:
     )
     save_current_fig(f"eke_mean_vs_duacs_{args.year}", MAP_DIR)
 
-    print("Evaluating low-pass-filtered EKE maps vs DUACS...")
-    eke_lp_metrics = _plot_eke_map_lowpass_comparison(
+    print("Evaluating regional/oceanic EKE spatial spectra and global temporal spectra vs DUACS...")
+    global_eke_spec_metrics = _plot_global_eke_spectra(
         duacs,
         emulators,
-        args.year,
         velocity_kind=args.duacs_velocity_kind,
     )
-    save_current_fig(f"eke_mean_lowpass_vs_duacs_{args.year}", MAP_DIR)
+    save_current_fig("regional_eke_spatial_global_temporal_spectra_vs_duacs", SPECTRUM_DIR)
 
-    argo_map_metrics = []
-    for spec in ARGO_STRUCTURE_VARIABLES:
-        print(f"Evaluating annual-mean layer-map {spec['title']} vs ARGO-IAP...")
-        argo_map_metrics.append(_plot_argo_variable_layer_maps(argo_iap, emulators, args.year, spec))
-        save_current_fig(f"{spec['filename']}_layer_mean_maps_vs_argo_iap_{args.year}", MAP_DIR)
-
-        print(f"Evaluating annual-mean layer-map {spec['title']} point-wise bias/RMSE vs ARGO-IAP...")
-        _plot_argo_variable_layer_bias_maps(argo_iap, emulators, args.year, spec)
-        save_current_fig(f"{spec['filename']}_layer_mean_bias_maps_vs_argo_iap_{args.year}", MAP_DIR)
-
-    print("Evaluating annual-mean layer-map OHC vs ARGO-IAP...")
-    argo_map_metrics.append(_plot_argo_ohc_layer_maps(argo_iap, emulators, args.year))
-    save_current_fig(f"ohc_layer_integrated_maps_vs_argo_iap_{args.year}", MAP_DIR)
-
-    print("Evaluating annual-mean layer-map OHC point-wise bias/RMSE vs ARGO-IAP...")
-    _plot_argo_ohc_layer_bias_maps(argo_iap, emulators, args.year)
-    save_current_fig(f"ohc_layer_integrated_bias_maps_vs_argo_iap_{args.year}", MAP_DIR)
-
-    print("Evaluating isotropic temperature spectra vs OISST...")
-    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
-    save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
-
-    print("Evaluating interannual isotropic temperature spectra (mean +/- 1 std, 2015-2022) vs OISST...")
-    temp_spec_ia_metrics = _plot_temperature_spectra_interannual(oisst, emulators)
-    save_current_fig("temperature_isotropic_spectra_interannual_vs_oisst", SPECTRUM_DIR)
-
-    print("Evaluating temporal KE spectra vs raw and 5-day DUACS...")
+    print("Evaluating regional temporal KE spectra vs raw and 5-day DUACS (Gulf Stream, Agulhas)...")
     ke_spec_metrics = _plot_temporal_ke_spectra(
         duacs,
         duacs_raw,
@@ -3735,206 +4872,159 @@ def main() -> None:
     )
     save_current_fig("ke_temporal_spectra_vs_duacs", SPECTRUM_DIR)
 
-    print("Evaluating interannual temporal KE spectra (mean +/- 1 std, 2015-2022) vs DUACS...")
-    ke_spec_ia_metrics = _plot_temporal_ke_spectra_interannual(
-        duacs,
-        emulators,
-        velocity_kind=args.duacs_velocity_kind,
-    )
-    save_current_fig("ke_temporal_spectra_interannual_vs_duacs", SPECTRUM_DIR)
+    print("\n[Temperature]")
+    print("Evaluating regional/oceanic SST spatial spectra and global temporal spectra vs OISST...")
+    global_sst_spec_metrics = _plot_global_sst_spectra(oisst, emulators)
+    save_current_fig("regional_sst_spatial_global_temporal_spectra_vs_oisst", SPECTRUM_DIR)
 
-    ohc_start, ohc_end = _resolve_ohc_period(
-        argo_iap,
-        emulators,
-        args.ohc_start_date,
-        args.ohc_end_date,
-    )
-    ohc_label = _period_label(ohc_start, ohc_end)
-    ohc_slug = _period_slug(ohc_start, ohc_end)
-    # Align the ARGO-IAP seasonal cycle to the same model/observation overlap window used for
-    # the emulators (default ~2014-2022) so that ARGO-IAP, Samudra 2, and OM4 monthly
-    # climatologies are all estimated over an identical period; otherwise the obs seasonal
-    # cycle would be built from the full ARGO record while the models use only the overlap.
-    obs_clim_start, obs_clim_end = _resolve_obs_climatology_period(
-        argo_iap,
-        args.obs_climatology_start_date,
-        args.obs_climatology_end_date,
-        default_start=ohc_start,
-        default_end=ohc_end,
-    )
-    obs_clim_label = _period_label(obs_clim_start, obs_clim_end)
-    print(f"Using ARGO-IAP monthly climatologies over {obs_clim_label}.")
-    print(f"Evaluating layered monthly OHC vs ARGO-IAP over {ohc_label}...")
+    print("Evaluating regional isotropic SST spectra vs OISST (Gulf Stream, Agulhas)...")
+    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
+    save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
+
+    print(f"Evaluating monthly total OHC for upper 700m and 700-2000m vs ARGO-IAP over {ohc_label}...")
     obs_ohc, sim_ohc = _collect_ohc_timeseries(argo_iap, emulators, ohc_start, ohc_end)
-    obs_ohc_climatology_source = _obs_ohc_timeseries(argo_iap, obs_clim_start, obs_clim_end)
     ohc_metrics = _plot_ohc_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
     save_current_fig(f"ohc_monthly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
 
-    print("Evaluating monthly OHC mean-removed anomaly vs ARGO-IAP...")
-    ohc_anomaly_metrics = _plot_ohc_anomaly_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
-    save_current_fig(f"ohc_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+    print("Evaluating annual-mean OHC maps for upper 700m and 700-2000m vs ARGO-IAP...")
+    ohc_map_metrics = _plot_argo_ohc_layer_maps(argo_iap, emulators, args.year)
+    save_current_fig(f"ohc_layer_integrated_maps_vs_argo_iap_{args.year}", MAP_DIR)
 
-    print("Evaluating monthly OHC detrended anomaly vs ARGO-IAP...")
-    ohc_detrended_metrics = _plot_ohc_detrended_anomaly_timeseries(obs_ohc, sim_ohc, emulators, ohc_label)
-    save_current_fig(f"ohc_detrended_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+    print("Evaluating annual-mean OHC point-wise bias/RMSE maps vs ARGO-IAP...")
+    _plot_argo_ohc_layer_bias_maps(argo_iap, emulators, args.year)
+    save_current_fig(f"ohc_layer_integrated_bias_maps_vs_argo_iap_{args.year}", MAP_DIR)
 
-    print("Evaluating monthly OHC climatology vs ARGO-IAP...")
-    ohc_climatology_metrics = _plot_ohc_monthly_climatology(
-        obs_ohc,
-        sim_ohc,
-        emulators,
-        ohc_label,
-        obs_climatology_ohc=obs_ohc_climatology_source,
-        climatology_label=obs_clim_label,
+    print("\n[Anomalies]")
+    anomaly_metrics = []
+
+    print("Evaluating SST time-series anomalies, trends, and residual variance vs OISST...")
+    obs_sst_series, sim_sst_series, sst_label = _collect_sst_timeseries(oisst, emulators)
+    anomaly_metrics.append(
+        _plot_scalar_anomaly_timeseries(
+            obs_sst_series, sim_sst_series, emulators, "Global SST", "$^\\circ$C",
+            "global_sst", sst_label, "OISST"
+        )
     )
-    save_current_fig(f"ohc_monthly_climatology_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-    ohc_deseasoned_metrics = pd.DataFrame()
-    ohc_detrended_deseasonalized_metrics = pd.DataFrame()
-    if args.plot_deseasoned_anomaly:
-        print("Evaluating monthly OHC deseasoned anomaly vs ARGO-IAP...")
-        ohc_deseasoned_metrics = _plot_ohc_deseasoned_anomaly_timeseries(
-            obs_ohc,
-            sim_ohc,
-            emulators,
-            ohc_label,
-            obs_climatology_ohc=obs_ohc_climatology_source,
-            climatology_label=obs_clim_label,
+    save_current_fig("global_sst_mean_removed_anomaly_vs_oisst", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_trend_comparison(
+            obs_sst_series, sim_sst_series, emulators, "Global SST", "$^\\circ$C",
+            "global_sst", sst_label, "OISST"
         )
-        save_current_fig(f"ohc_deseasoned_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-        print("Evaluating monthly OHC detrended deseasonalized anomaly vs ARGO-IAP...")
-        ohc_detrended_deseasonalized_metrics = _plot_ohc_detrended_deseasonalized_anomaly_timeseries(
-            obs_ohc,
-            sim_ohc,
-            emulators,
-            ohc_label,
-            obs_climatology_ohc=obs_ohc_climatology_source,
-            climatology_label=obs_clim_label,
-        )
-        save_current_fig(f"ohc_detrended_deseasonalized_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-    layer_mean_metrics = []
-    for spec in ARGO_STRUCTURE_VARIABLES:
-        print(f"Evaluating monthly layer-mean {spec['title']} vs ARGO-IAP...")
-        obs_layer_mean, sim_layer_mean = _collect_layer_mean_timeseries(argo_iap, emulators, spec, ohc_start, ohc_end)
-        obs_layer_mean_climatology_source = _obs_layer_mean_timeseries(
-            argo_iap,
-            spec,
-            obs_clim_start,
-            obs_clim_end,
-        )
-        layer_mean_metrics.append(
-            _plot_layer_mean_timeseries(obs_layer_mean, sim_layer_mean, emulators, spec, ohc_label)
-        )
-        save_current_fig(f"{spec['filename']}_monthly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-        print(f"Evaluating monthly layer-mean {spec['title']} mean-removed anomaly vs ARGO-IAP...")
-        layer_mean_metrics.append(
-            _plot_layer_mean_anomaly_timeseries(obs_layer_mean, sim_layer_mean, emulators, spec, ohc_label)
-        )
-        save_current_fig(f"{spec['filename']}_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-        print(f"Evaluating monthly layer-mean {spec['title']} detrended anomaly vs ARGO-IAP...")
-        layer_mean_metrics.append(
-            _plot_layer_mean_detrended_anomaly_timeseries(obs_layer_mean, sim_layer_mean, emulators, spec, ohc_label)
-        )
-        save_current_fig(f"{spec['filename']}_detrended_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-        print(f"Evaluating monthly layer-mean {spec['title']} climatology vs ARGO-IAP...")
-        layer_mean_metrics.append(
-            _plot_layer_mean_monthly_climatology(
-                obs_layer_mean,
-                sim_layer_mean,
-                emulators,
-                spec,
-                ohc_label,
-                obs_climatology_by_layer=obs_layer_mean_climatology_source,
-                climatology_label=obs_clim_label,
-            )
-        )
-        save_current_fig(f"{spec['filename']}_monthly_climatology_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-        if args.plot_deseasoned_anomaly:
-            print(f"Evaluating monthly layer-mean {spec['title']} deseasoned anomaly vs ARGO-IAP...")
-            layer_mean_metrics.append(
-                _plot_layer_mean_deseasoned_anomaly_timeseries(
-                    obs_layer_mean,
-                    sim_layer_mean,
-                    emulators,
-                    spec,
-                    ohc_label,
-                    obs_climatology_by_layer=obs_layer_mean_climatology_source,
-                    climatology_label=obs_clim_label,
-                )
-            )
-            save_current_fig(f"{spec['filename']}_deseasoned_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-            print(f"Evaluating monthly layer-mean {spec['title']} detrended deseasonalized anomaly vs ARGO-IAP...")
-            layer_mean_metrics.append(
-                _plot_layer_mean_detrended_deseasonalized_anomaly_timeseries(
-                    obs_layer_mean,
-                    sim_layer_mean,
-                    emulators,
-                    spec,
-                    ohc_label,
-                    obs_climatology_by_layer=obs_layer_mean_climatology_source,
-                    climatology_label=obs_clim_label,
-                )
-            )
-            save_current_fig(f"{spec['filename']}_detrended_deseasonalized_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
-
-    structure_metrics = []
-    for spec in ARGO_STRUCTURE_VARIABLES:
-        print(f"Evaluating annual-mean {spec['title']} zonal mean vs ARGO-IAP...")
-        structure_metrics.append(_plot_argo_variable_zonal_mean(argo_iap, emulators, args.year, spec))
-        save_current_fig(f"argo_{spec['filename']}_zonal_mean_{args.year}", STRUCTURE_DIR)
-
-        print(f"Evaluating annual-mean {spec['title']} structure vs ARGO-IAP...")
-        structure_metrics.append(_plot_argo_variable_zonal_mean_bias(argo_iap, emulators, args.year, spec))
-        save_current_fig(f"argo_{spec['filename']}_zonal_mean_bias_{args.year}", STRUCTURE_DIR)
-
-    print("Evaluating annual-mean OHC zonal mean vs ARGO-IAP...")
-    structure_metrics.append(_plot_argo_ohc_zonal_mean(argo_iap, emulators, args.year))
-    save_current_fig(f"argo_ohc_zonal_mean_{args.year}", STRUCTURE_DIR)
-
-    print("Evaluating annual-mean OHC structure vs ARGO-IAP...")
-    ohc_structure_metrics = _plot_argo_ohc_zonal_mean_bias(argo_iap, emulators, args.year)
-    save_current_fig(f"argo_ohc_zonal_mean_bias_{args.year}", STRUCTURE_DIR)
-
-    # EKE temporal variance is already covered by the surface geostrophic EKE-vs-DUACS maps
-    # above (eddy KE = time-mean of squared velocity anomalies); here we add the missing
-    # temperature/salinity temporal-variance maps over the full ARGO/model overlap.
-    variance_metrics = []
-    for spec in ARGO_STRUCTURE_VARIABLES:
-        print(f"Evaluating temporal-variance maps of {spec['title']} vs ARGO-IAP over {ohc_label}...")
-        variance_metrics.append(
-            _plot_argo_variable_variance_maps(argo_iap, emulators, spec, ohc_start, ohc_end, ohc_label)
-        )
-        save_current_fig(f"{spec['filename']}_temporal_variance_maps_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
-
-    metrics = pd.concat(
-        [
-            eke_metrics,
-            eke_lp_metrics,
-            *argo_map_metrics,
-            temp_spec_metrics,
-            temp_spec_ia_metrics,
-            ke_spec_metrics,
-            ke_spec_ia_metrics,
-            ohc_metrics,
-            ohc_anomaly_metrics,
-            ohc_detrended_metrics,
-            ohc_climatology_metrics,
-            ohc_deseasoned_metrics,
-            ohc_detrended_deseasonalized_metrics,
-            *layer_mean_metrics,
-            *structure_metrics,
-            ohc_structure_metrics,
-            *variance_metrics,
-        ],
-        ignore_index=True,
     )
+    save_current_fig("global_sst_linear_trend_comparison_vs_oisst", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_detrended_deseasonalized_anomaly_timeseries(
+            obs_sst_series, sim_sst_series, emulators, "Global SST", "$^\\circ$C",
+            "global_sst", sst_label, "OISST"
+        )
+    )
+    save_current_fig("global_sst_detrended_deseasonalized_anomaly_vs_oisst", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_residual_variance_comparison(
+            obs_sst_series, sim_sst_series, emulators, "Global SST", "$^\\circ$C",
+            "global_sst", sst_label, "OISST"
+        )
+    )
+    save_current_fig("global_sst_residual_anomaly_variance_vs_oisst", VARIANCE_DIR)
+
+    print("Evaluating EKE time-series anomalies, trends, and residual variance vs DUACS...")
+    obs_eke_series, sim_eke_series, eke_label = _collect_eke_timeseries(
+        duacs, emulators, velocity_kind=args.duacs_velocity_kind
+    )
+    anomaly_metrics.append(
+        _plot_scalar_anomaly_timeseries(
+            obs_eke_series, sim_eke_series, emulators, "Global Surface EKE", "m$^2$ s$^{-2}$",
+            "global_surface_eke", eke_label, "DUACS"
+        )
+    )
+    save_current_fig("global_surface_eke_mean_removed_anomaly_vs_duacs", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_trend_comparison(
+            obs_eke_series, sim_eke_series, emulators, "Global Surface EKE", "m$^2$ s$^{-2}$",
+            "global_surface_eke", eke_label, "DUACS"
+        )
+    )
+    save_current_fig("global_surface_eke_linear_trend_comparison_vs_duacs", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_detrended_deseasonalized_anomaly_timeseries(
+            obs_eke_series, sim_eke_series, emulators, "Global Surface EKE", "m$^2$ s$^{-2}$",
+            "global_surface_eke", eke_label, "DUACS"
+        )
+    )
+    save_current_fig("global_surface_eke_detrended_deseasonalized_anomaly_vs_duacs", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_residual_variance_comparison(
+            obs_eke_series, sim_eke_series, emulators, "Global Surface EKE", "m$^2$ s$^{-2}$",
+            "global_surface_eke", eke_label, "DUACS"
+        )
+    )
+    save_current_fig("global_surface_eke_residual_anomaly_variance_vs_duacs", VARIANCE_DIR)
+
+    print("Evaluating upper-700m OHC time-series anomalies, trends, and residual variance vs ARGO-IAP...")
+    upper_title = OHC_UPPER_700_SLICE["title"]
+    obs_ohc_upper_series = obs_ohc.sel(depth_slice=upper_title).to_series()
+    sim_ohc_upper_series = {
+        label: sim.sel(depth_slice=upper_title).to_series()
+        for label, sim in sim_ohc.items()
+    }
+    anomaly_metrics.append(
+        _plot_scalar_anomaly_timeseries(
+            obs_ohc_upper_series, sim_ohc_upper_series, emulators, "Global Upper-700m OHC", "J",
+            "global_ohc_upper700", ohc_label, "ARGO-IAP"
+        )
+    )
+    save_current_fig(f"global_ohc_upper700_mean_removed_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_trend_comparison(
+            obs_ohc_upper_series, sim_ohc_upper_series, emulators, "Global Upper-700m OHC", "J",
+            "global_ohc_upper700", ohc_label, "ARGO-IAP"
+        )
+    )
+    save_current_fig(f"global_ohc_upper700_linear_trend_comparison_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_detrended_deseasonalized_anomaly_timeseries(
+            obs_ohc_upper_series, sim_ohc_upper_series, emulators, "Global Upper-700m OHC", "J",
+            "global_ohc_upper700", ohc_label, "ARGO-IAP"
+        )
+    )
+    save_current_fig(f"global_ohc_upper700_detrended_deseasonalized_anomaly_vs_argo_iap_{ohc_slug}", TIMESERIES_DIR)
+    anomaly_metrics.append(
+        _plot_scalar_residual_variance_comparison(
+            obs_ohc_upper_series, sim_ohc_upper_series, emulators, "Global Upper-700m OHC", "J",
+            "global_ohc_upper700", ohc_label, "ARGO-IAP"
+        )
+    )
+    save_current_fig(f"global_ohc_upper700_residual_anomaly_variance_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
+
+    print("Evaluating SST residual-anomaly variance maps vs OISST...")
+    sst_variance_map_metrics = _plot_sst_residual_variance_maps(oisst, emulators)
+    save_current_fig("sst_residual_anomaly_variance_maps_vs_oisst", VARIANCE_DIR)
+
+    print("Evaluating upper-700m OHC residual-anomaly variance maps vs ARGO-IAP...")
+    ohc_upper_variance_map_metrics = _plot_ohc_upper700_residual_variance_maps(
+        argo_iap, emulators, ohc_start, ohc_end, ohc_label
+    )
+    save_current_fig(f"ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
+
+    metric_frames = [
+        velocity_rmse_metrics,
+        eke_rmse_metrics,
+        sst_rmse_metrics,
+        ohc_rmse_metrics,
+        eke_metrics,
+        global_eke_spec_metrics,
+        ke_spec_metrics,
+        global_sst_spec_metrics,
+        temp_spec_metrics,
+        ohc_metrics,
+        ohc_map_metrics,
+        *anomaly_metrics,
+        sst_variance_map_metrics,
+        ohc_upper_variance_map_metrics,
+    ]
+    metric_frames = [frame for frame in metric_frames if frame is not None and not frame.empty]
+    metrics = pd.concat(metric_frames, ignore_index=True)
     metrics_path = os.path.join(METRICS_DIR, f"observation_metrics_{args.year}.csv")
     metrics.to_csv(metrics_path, index=False)
     print(f"  -> Saved metrics: {metrics_path}")

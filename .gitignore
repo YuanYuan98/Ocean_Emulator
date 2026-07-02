@@ -27,6 +27,7 @@ train
 train_3D
 token.txt
 profile-logs/
+viz_jupyter/slurm_logs/
 *.mp4
 *.gif
 output.log

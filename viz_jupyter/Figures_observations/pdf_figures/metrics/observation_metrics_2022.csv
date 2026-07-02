@@ -1,143 +1,105 @@
 model,metric,value,depth,region
-Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke,0.0036159219290937,,
-Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.0115436385978586,,
-OM4 (1/4$^\circ$),global_mean_geostrophic_eke,0.004023195247212,,
-OM4 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.0111363652797403,,
-Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass,0.0014665616007811,,
-Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass_bias,-0.0041476647411375,,
-OM4 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass,0.0017065714676686,,
-OM4 (1/4$^\circ$),global_mean_geostrophic_eke_lowpass_bias,-0.00390765487425,,
-Samudra 2 (1/4$^\circ$),annual_mean_temperature_layer_map_rmse,0.8980583338180131,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),annual_mean_temperature_layer_map_mean_bias,-0.0608648330442575,Surface (0-700m),
-OM4 (1/4$^\circ$),annual_mean_temperature_layer_map_rmse,0.93079113540301,Surface (0-700m),
-OM4 (1/4$^\circ$),annual_mean_temperature_layer_map_mean_bias,0.0825600931560279,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),annual_mean_temperature_layer_map_rmse,0.4075954697242405,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),annual_mean_temperature_layer_map_mean_bias,-0.0821101690507958,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),annual_mean_temperature_layer_map_rmse,0.4085319696081951,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),annual_mean_temperature_layer_map_mean_bias,-0.0723207356617744,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),annual_mean_salinity_layer_map_rmse,0.5668769861513461,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),annual_mean_salinity_layer_map_mean_bias,-0.1811589550921014,Surface (0-700m),
-OM4 (1/4$^\circ$),annual_mean_salinity_layer_map_rmse,0.5630285600958967,Surface (0-700m),
-OM4 (1/4$^\circ$),annual_mean_salinity_layer_map_mean_bias,-0.1711073029439888,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),annual_mean_salinity_layer_map_rmse,0.1872307422574727,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),annual_mean_salinity_layer_map_mean_bias,-0.1804070870475786,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),annual_mean_salinity_layer_map_rmse,0.1912442896548336,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),annual_mean_salinity_layer_map_mean_bias,-0.1850351414841101,Intermediate (700-2000m),
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21270830585711412,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21165312146558288,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.02594018836046146,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.025037603058806212,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9768043473841256,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7923211221963824,,
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2569049549.004016,Surface (0-700m),
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2608348127.6010447,Surface (0-700m),
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2262327786.7009926,Intermediate (700-2000m),
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2265179252.7004194,Intermediate (700-2000m),
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke,0.0036159219290937484,,
+Samudra 2 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.011543638597858685,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke,0.004023195247212075,,
+OM4 (1/4$^\circ$),global_mean_geostrophic_eke_bias,-0.011136365279740358,,
+Samudra 2 (1/4$^\circ$),regional_surface_eke_spatial_spectrum_rmse_vs_duacs,39.48267823636402,,Gulf Stream
+OM4 (1/4$^\circ$),regional_surface_eke_spatial_spectrum_rmse_vs_duacs,39.35182664459774,,Gulf Stream
+Samudra 2 (1/4$^\circ$),regional_surface_eke_spatial_spectrum_rmse_vs_duacs,68.24274584071966,,Agulhas
+OM4 (1/4$^\circ$),regional_surface_eke_spatial_spectrum_rmse_vs_duacs,67.49077367792998,,Agulhas
+Samudra 2 (1/4$^\circ$),global_surface_eke_temporal_spectrum_rmse_vs_duacs,3.6930500708459874e-08,,Global
+OM4 (1/4$^\circ$),global_surface_eke_temporal_spectrum_rmse_vs_duacs,3.66816878256506e-08,,Global
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00040439008580027376,,Gulf Stream
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00046173500894728455,,Gulf Stream
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00040045848887464,,Gulf Stream
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.0004565764196212114,,Gulf Stream
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00017793597464366558,,Agulhas
+Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.0002511655694159662,,Agulhas
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00017180597606538523,,Agulhas
+OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00024599766567759385,,Agulhas
+Samudra 2 (1/4$^\circ$),regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg,4401.943710187642,,Gulf Stream
+OM4 (1/4$^\circ$),regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg,3235.0447300692394,,Gulf Stream
+Samudra 2 (1/4$^\circ$),regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg,19733.830120639468,,Agulhas
+OM4 (1/4$^\circ$),regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg,18447.624043006435,,Agulhas
+Samudra 2 (1/4$^\circ$),global_surface_ssta_temporal_spectrum_rmse_vs_oisst_5day_avg,0.00021732934399840248,,Global
+OM4 (1/4$^\circ$),global_surface_ssta_temporal_spectrum_rmse_vs_oisst_5day_avg,0.0001326932309275959,,Global
+Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,4401.943710187642,,Gulf Stream
+Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,5645.242086189468,,Gulf Stream
+OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,3235.044855033932,,Gulf Stream
+OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,4382.594409120954,,Gulf Stream
+Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,19733.82981596197,,Agulhas
+Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,22901.07763968004,,Agulhas
+OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,18447.623579722484,,Agulhas
+OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,21591.177345004475,,Agulhas
+Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,5.571874992982947e+23,Surface (0-700m),
+OM4 (1/4$^\circ$),monthly_ohc_rmse,4.858667007907696e+23,Surface (0-700m),
+Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,2.4370570300177328e+22,Intermediate (700-2000m),
+OM4 (1/4$^\circ$),monthly_ohc_rmse,3.760613669559551e+22,Intermediate (700-2000m),
 Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_rmse,2464685038.227141,Surface (0-700m),
 Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-481350483.06335336,Surface (0-700m),
 OM4 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_rmse,2480102247.806858,Surface (0-700m),
 OM4 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-134351610.42162922,Surface (0-700m),
 Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_rmse,2183628142.82852,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-808246174.925296,Intermediate (700-2000m),
+Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-808246174.9252961,Intermediate (700-2000m),
 OM4 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_rmse,2172851712.063485,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-752984119.6043351,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,2.063180130068957e+23,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_rmse,1.3495176928690711e+23,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_rmse,6.007729267046739e+23,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_rmse,6.151333529753002e+23,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_anomaly_rmse,2.117494573505788e+22,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_anomaly_rmse,1.5171511965080504e+22,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_anomaly_rmse,8.389462345957601e+21,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_anomaly_rmse,6.772001925746748e+21,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_detrended_anomaly_rmse,9.99180781869614e+21,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_detrended_anomaly_rmse,1.0176366930548062e+22,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_detrended_anomaly_rmse,6.454320441990466e+21,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_detrended_anomaly_rmse,6.363915795734295e+21,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_climatology_rmse,1.0250226855542357e+23,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_climatology_rmse,3.2867625080026107e+22,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_climatology_rmse,6.422663909561664e+23,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_climatology_rmse,6.565746976194122e+23,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_deseasoned_anomaly_rmse,1.0495453188566896e+23,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_deseasoned_anomaly_rmse,1.0316531886657966e+23,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_deseasoned_anomaly_rmse,4.214335771491256e+22,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_deseasoned_anomaly_rmse,4.176715721074905e+22,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_detrended_deseasonalized_anomaly_rmse,7.286580366427987e+21,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_ohc_detrended_deseasonalized_anomaly_rmse,6.483488563675646e+21,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_ohc_detrended_deseasonalized_anomaly_rmse,4.806269378187998e+21,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_ohc_detrended_deseasonalized_anomaly_rmse,4.722783551364069e+21,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_rmse,0.3031807680344202,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_rmse,0.3834963375454875,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_rmse,0.1110361951929689,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_rmse,0.1032463996418958,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_anomaly_rmse,0.0231785761503054,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_anomaly_rmse,0.0167551984650687,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_anomaly_rmse,0.0055092300039583,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_anomaly_rmse,0.004704600010187,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_anomaly_rmse,0.0102312301920337,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_anomaly_rmse,0.0103129004849088,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_anomaly_rmse,0.0045126206245131,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_anomaly_rmse,0.0044529961586932,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_climatology_rmse,0.4139486128687824,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_climatology_rmse,0.494080910316664,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_climatology_rmse,0.0865755914519802,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_climatology_rmse,0.0788709953522448,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_deseasoned_anomaly_rmse,0.1138016566086947,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_deseasoned_anomaly_rmse,0.1118709754068398,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_deseasoned_anomaly_rmse,0.0248100116849653,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_deseasoned_anomaly_rmse,0.0245940369076803,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_deseasonalized_anomaly_rmse,0.007948328884692,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_deseasonalized_anomaly_rmse,0.0070084594277833,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_deseasonalized_anomaly_rmse,0.002919544425198,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_temperature_layer_mean_detrended_deseasonalized_anomaly_rmse,0.0028622606117571,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_rmse,0.1370448484234962,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_rmse,0.129876730373274,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_rmse,0.1806336774667776,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_rmse,0.1835407333139725,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_anomaly_rmse,0.0026704034082651,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_anomaly_rmse,0.0013686448258083,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_anomaly_rmse,0.000785875805365,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_anomaly_rmse,0.0010092379289958,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_anomaly_rmse,0.0013255942933214,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_anomaly_rmse,0.0012710659490665,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_anomaly_rmse,0.0007153446501175,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_anomaly_rmse,0.0006812608789999,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_climatology_rmse,0.1349512160851909,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_climatology_rmse,0.127869309269359,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_climatology_rmse,0.179759202060535,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_climatology_rmse,0.1826492283480099,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_deseasoned_anomaly_rmse,0.0033250102402399,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_deseasoned_anomaly_rmse,0.0022837730799683,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_deseasoned_anomaly_rmse,0.0011095113368718,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_deseasoned_anomaly_rmse,0.0013025074852015,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_deseasonalized_anomaly_rmse,0.0010516416635163,Surface (0-700m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_deseasonalized_anomaly_rmse,0.0009895362362177,Surface (0-700m),
-Samudra 2 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_deseasonalized_anomaly_rmse,0.0006096774000454,Intermediate (700-2000m),
-OM4 (1/4$^\circ$),monthly_salinity_layer_mean_detrended_deseasonalized_anomaly_rmse,0.000577691857744,Intermediate (700-2000m),
-Samudra 2 (1/4$^\circ$),annual_mean_temperature_spatial_vertical_rmse,0.6321640651500435,5-2000m,
-OM4 (1/4$^\circ$),annual_mean_temperature_spatial_vertical_rmse,0.6389005192038245,5-2000m,
-Samudra 2 (1/4$^\circ$),annual_mean_salinity_spatial_vertical_rmse,0.212262003787239,5-2000m,
-OM4 (1/4$^\circ$),annual_mean_salinity_spatial_vertical_rmse,0.2149128550109244,5-2000m,
-Samudra 2 (1/4$^\circ$),annual_mean_ohc_per_area_spatial_vertical_rmse,125842687.17148718,5-2000m,
-OM4 (1/4$^\circ$),annual_mean_ohc_per_area_spatial_vertical_rmse,128395754.85813776,5-2000m,
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,4401.943587722474,,Gulf Stream
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,5645.242036363877,,Gulf Stream
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,3235.0446410692634,,Gulf Stream
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,4382.594235514759,,Gulf Stream
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,9413.286025983483,,Kuroshio
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,10933.367218544796,,Kuroshio
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7232.939572595396,,Kuroshio
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,8804.309719423356,,Kuroshio
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,19733.830117297148,,Agulhas
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,22901.07763968004,,Agulhas
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,18447.624043006435,,Agulhas
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,21591.17752992224,,Agulhas
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7734.414444497935,,Malvinas
-Samudra 2 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,9817.472643687686,,Malvinas
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7033.099119727436,,Malvinas
-OM4 (1/4$^\circ$),surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily,9108.293671252844,,Malvinas
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00040439008580027376,,Gulf Stream
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.0004617350089472845,,Gulf Stream
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00040045848887464,,Gulf Stream
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00045657641962121135,,Gulf Stream
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00029198422050824883,,Kuroshio
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00037967040658934176,,Kuroshio
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.0002841832453793195,,Kuroshio
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00036543739620258775,,Kuroshio
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00017793597464366555,,Agulhas
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.0002511655694159662,,Agulhas
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00017180597606538523,,Agulhas
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00024599766567759385,,Agulhas
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00011177089569444034,,Malvinas
-Samudra 2 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00013146149294427766,,Malvinas
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,0.00010081213846205834,,Malvinas
-OM4 (1/4$^\circ$),surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,0.00011735334604211819,,Malvinas
+OM4 (1/4$^\circ$),annual_mean_ohc_per_area_layer_map_mean_bias,-752984119.6043353,Intermediate (700-2000m),
+Samudra 2 (1/4$^\circ$),global_sst_mean_removed_anomaly_rmse,0.08520731927306627,,
+OM4 (1/4$^\circ$),global_sst_mean_removed_anomaly_rmse,0.04309444426844055,,
+Samudra 2 (1/4$^\circ$),global_sst_linear_trend_per_year,-0.026513024393324106,,
+Samudra 2 (1/4$^\circ$),global_sst_linear_trend_bias_per_year,-0.0279639305771513,,
+OM4 (1/4$^\circ$),global_sst_linear_trend_per_year,-0.007250852014440803,,
+OM4 (1/4$^\circ$),global_sst_linear_trend_bias_per_year,-0.008701758198267998,,
+Samudra 2 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_rmse,0.04585878323037497,,
+OM4 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_rmse,0.03179590095390919,,
+Samudra 2 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance,0.002442101391122306,,
+Samudra 2 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance_bias,-0.0015386132793033412,,
+Samudra 2 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance_ratio,0.6134831539837993,,
+OM4 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance,0.0046162884436570465,,
+OM4 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance_bias,0.0006355737732313994,,
+OM4 (1/4$^\circ$),global_sst_detrended_deseasonalized_anomaly_variance_ratio,1.1596632328243308,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_mean_removed_anomaly_rmse,0.0005617866144195868,,
+OM4 (1/4$^\circ$),global_surface_eke_mean_removed_anomaly_rmse,0.0005329001740644571,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_linear_trend_per_year,-3.145430309806173e-05,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_linear_trend_bias_per_year,-0.00014220525761829138,,
+OM4 (1/4$^\circ$),global_surface_eke_linear_trend_per_year,-3.0786461752129886e-05,,
+OM4 (1/4$^\circ$),global_surface_eke_linear_trend_bias_per_year,-0.00014153741627235953,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_rmse,0.00036966319398148414,,
+OM4 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_rmse,0.0003200890878663997,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance,2.9729871045195128e-08,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance_bias,-1.180180050835389e-07,,
+Samudra 2 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance_ratio,0.20122029381519654,,
+OM4 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance,2.842085674132848e-08,,
+OM4 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance_bias,-1.1932701938740556e-07,,
+OM4 (1/4$^\circ$),global_surface_eke_detrended_deseasonalized_anomaly_variance_ratio,0.19236050957893389,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_mean_removed_anomaly_rmse,2.163923252027813e+22,,
+OM4 (1/4$^\circ$),global_ohc_upper700_mean_removed_anomaly_rmse,1.4972112968053047e+22,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_linear_trend_per_year,-4.117850408986034e+21,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_linear_trend_bias_per_year,-8.215996557676155e+21,,
+OM4 (1/4$^\circ$),global_ohc_upper700_linear_trend_per_year,8.74224007133232e+21,,
+OM4 (1/4$^\circ$),global_ohc_upper700_linear_trend_bias_per_year,4.6440939226422e+21,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_rmse,6.785270524539066e+21,,
+OM4 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_rmse,6.406539171802847e+21,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance,1.2037449371948142e+43,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance_bias,-3.306505740464537e+43,,
+Samudra 2 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance_ratio,0.26689091654202957,,
+OM4 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance,1.2859129039678352e+43,,
+OM4 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance_bias,-3.2243377736915157e+43,,
+OM4 (1/4$^\circ$),global_ohc_upper700_detrended_deseasonalized_anomaly_variance_ratio,0.2851089653037146,,
+Samudra 2 (1/4$^\circ$),surface_sst_residual_variance_map_rmse,0.4270399819745998,,
+Samudra 2 (1/4$^\circ$),surface_sst_residual_variance_pattern_corr,0.626837576924247,,
+OM4 (1/4$^\circ$),surface_sst_residual_variance_map_rmse,0.3336301942928352,,
+OM4 (1/4$^\circ$),surface_sst_residual_variance_pattern_corr,0.702717242245752,,
+Samudra 2 (1/4$^\circ$),ohc_upper700_per_area_residual_variance_map_rmse,1.1393007576482835e+18,,
+Samudra 2 (1/4$^\circ$),ohc_upper700_per_area_residual_variance_pattern_corr,0.6236449967590973,,
+OM4 (1/4$^\circ$),ohc_upper700_per_area_residual_variance_map_rmse,1.3141971307853704e+18,,
+OM4 (1/4$^\circ$),ohc_upper700_per_area_residual_variance_pattern_corr,0.6651369684147258,,

@@ -1,0 +1,679 @@
+{
+  "full_text": "Observation Evaluation Summary for obs_evaluation.py\nUpdated after the RMSE and variance-map layout fixes on 2026-06-26 UTC. The Google Doc has been rebuilt with native heading styles and refreshed images from the latest PDFs.\n1. Run Status\nSlurm job 55103820 regenerated the six layout-sensitive figures using account m4874, QOS shared_interactive, CPU constraint, and environment /pscratch/sd/y/yy6080/ocean_sim. The job completed with exit code 0 in 00:38:38.\n2. Scope\n- Total RMSE and spatial RMSE maps use the 2022 overlap window.\n- Time-series anomaly diagnostics and OHC monthly totals use 2014-10 to 2022-12.\n- Regional spectra are trimmed to Gulf Stream and Agulhas.\n- SST and EKE anomalies keep 5-day cadence; OHC diagnostics are monthly.\n3. Metric Definitions\nArea-weighted mean: mean_A[X(t)] = sum_i A_i X_i(t) / sum_i A_i over finite ocean cells.\nScalar RMSE map: RMSE_i = sqrt(mean_t((M_i(t)-O_i(t))^2)); Total RMSE = sqrt(sum_i A_i RMSE_i^2 / sum_i A_i).\nVelocity vector RMSE map: RMSE_i = sqrt(mean_t((u_M-u_O)^2 + (v_M-v_O)^2)); geostrophic velocity masks |lat| < 5 deg.\nEKE: u_prime = u - mean_t(u), v_prime = v - mean_t(v), EKE = 0.5 * mean_t(u_prime^2 + v_prime^2). The EKE RMSE map is the area-weighted RMS error of the 2022 EKE maps.\nOHC per unit area: OHC_A = rho * Cp * integral_z T dz. Global total OHC multiplies by cell area and sums horizontally. Layers are 0-700 m and 700-2000 m.\nResidual anomaly variance: remove seasonal cycle, then remove a linear trend. For <=10-day cadence with repeated pentads, the seasonal cycle is a 5-day pentad climatology; otherwise monthly climatology is used. Variance = var(residual over time).\n4. Key Metrics\nMetric | Samudra 2 | OM4\nVelocity vector total RMSE, 2022 (m s^-1) | 0.2127 | 0.2117\nSurface EKE map total RMSE, 2022 (m^2 s^-2) | 0.02594 | 0.02504\nSST total RMSE, 2022 (deg C) | 0.9768 | 0.7923\nOHC per-area total RMSE, 0-700 m, 2022 (J m^-2) | 2.569e+09 | 2.608e+09\nOHC per-area total RMSE, 700-2000 m, 2022 (J m^-2) | 2.262e+09 | 2.265e+09\nSST residual variance map RMSE ((deg C)^2) | 0.427 | 0.3336\nSST residual variance map pattern correlation | 0.6268 | 0.7027\nUpper-700m OHC residual variance map RMSE ((J m^-2)^2) | 1.139e+18 | 1.314e+18\nUpper-700m OHC residual variance map pattern correlation | 0.6236 | 0.6651\n5. Figures\n5.1. Total RMSE + Spatial RMSE Maps (2022)\nFigure 1.1. Surface geostrophic velocity vector RMSE vs DUACS\n[[FIGURE_001]]\nCaption: 2022 time-RMSE of the geostrophic velocity vector; panel annotation reports area-weighted total RMSE. Source PDF: Figures_observations/pdf_figures/rmse/surface_geostrophic_velocity_vector_rmse_vs_duacs_2022.pdf\nFigure 1.2. Surface EKE spatial error/RMSE vs DUACS\n[[FIGURE_002]]\nCaption: 2022 EKE map error; EKE is computed from time-mean velocity anomalies. Source PDF: Figures_observations/pdf_figures/rmse/surface_eke_rmse_vs_duacs_2022.pdf\nFigure 1.3. SST RMSE maps vs OISST\n[[FIGURE_003]]\nCaption: 2022 time-RMSE of SST after model SST is put on the OISST grid. Source PDF: Figures_observations/pdf_figures/rmse/sst_rmse_maps_vs_oisst_2022.pdf\nFigure 1.4. OHC per-area RMSE maps vs ARGO-IAP\n[[FIGURE_004]]\nCaption: 2022 monthly RMSE of layer-integrated OHC per unit area for 0-700 m and 700-2000 m. Source PDF: Figures_observations/pdf_figures/rmse/ohc_per_area_rmse_maps_vs_argo_iap_2022.pdf\n5.2. Velocities\nFigure 2.1. Mean surface EKE map vs DUACS\n[[FIGURE_005]]\nCaption: Annual-mean 2022 surface EKE fields and biases against DUACS. Source PDF: Figures_observations/pdf_figures/maps/eke_mean_vs_duacs_2022.pdf\nFigure 2.2. Regional EKE spatial spectra and global temporal spectrum\n[[FIGURE_006]]\nCaption: Spatial spectra are limited to Gulf Stream and Agulhas; temporal spectrum uses global area-weighted EKE. Source PDF: Figures_observations/pdf_figures/spectrum/regional_eke_spatial_global_temporal_spectra_vs_duacs.pdf\nFigure 2.3. Regional temporal KE spectra vs DUACS\n[[FIGURE_007]]\nCaption: Temporal KE spectra over Gulf Stream and Agulhas, compared with raw daily and 5-day DUACS. Source PDF: Figures_observations/pdf_figures/spectrum/ke_temporal_spectra_vs_duacs.pdf\n5.3. Temperature and OHC\nFigure 3.1. Regional SST spatial spectra and global temporal spectrum\n[[FIGURE_008]]\nCaption: SST anomaly spectra; regional panels are Gulf Stream and Agulhas and the temporal panel is global. Source PDF: Figures_observations/pdf_figures/spectrum/regional_sst_spatial_global_temporal_spectra_vs_oisst.pdf\nFigure 3.2. Regional isotropic SST spectra vs OISST\n[[FIGURE_009]]\nCaption: Isotropic SST anomaly spectra in Gulf Stream and Agulhas. Source PDF: Figures_observations/pdf_figures/spectrum/temperature_isotropic_spectra_vs_oisst.pdf\nFigure 3.3. Monthly total OHC vs ARGO-IAP\n[[FIGURE_010]]\nCaption: Global monthly OHC totals for 0-700 m and 700-2000 m over 2014-10 to 2022-12. Source PDF: Figures_observations/pdf_figures/timeseries/ohc_monthly_vs_argo_iap_201410_202212.pdf\nFigure 3.4. Annual OHC per-area maps vs ARGO-IAP\n[[FIGURE_011]]\nCaption: 2022 annual-mean layer-integrated OHC per unit area maps. Source PDF: Figures_observations/pdf_figures/maps/ohc_layer_integrated_maps_vs_argo_iap_2022.pdf\nFigure 3.5. Annual OHC per-area bias maps vs ARGO-IAP\n[[FIGURE_012]]\nCaption: 2022 point-wise OHC per-area bias maps and spatial RMS metrics. Source PDF: Figures_observations/pdf_figures/maps/ohc_layer_integrated_bias_maps_vs_argo_iap_2022.pdf\n5.4. Anomalies and Residual Variance\nFigure 4.1. Global SST mean-removed anomaly\n[[FIGURE_013]]\nCaption: Area-weighted global SST anomaly with each series mean removed; SST keeps the 5-day cadence. Source PDF: Figures_observations/pdf_figures/timeseries/global_sst_mean_removed_anomaly_vs_oisst.pdf\nFigure 4.2. Global SST linear trend comparison\n[[FIGURE_014]]\nCaption: OLS linear trend comparison over the common rollout period. Source PDF: Figures_observations/pdf_figures/timeseries/global_sst_linear_trend_comparison_vs_oisst.pdf\nFigure 4.3. Global SST detrended+deseasonalized anomaly\n[[FIGURE_015]]\nCaption: Residual SST anomaly after pentad seasonal-cycle removal and linear detrending. Source PDF: Figures_observations/pdf_figures/timeseries/global_sst_detrended_deseasonalized_anomaly_vs_oisst.pdf\nFigure 4.4. Global SST residual anomaly variance\n[[FIGURE_016]]\nCaption: Variance of the detrended+deseasonalized SST residual anomaly. Source PDF: Figures_observations/pdf_figures/variance/global_sst_residual_anomaly_variance_vs_oisst.pdf\nFigure 4.5. Global EKE mean-removed anomaly\n[[FIGURE_017]]\nCaption: Area-weighted global surface EKE anomaly; EKE keeps the 5-day cadence. Source PDF: Figures_observations/pdf_figures/timeseries/global_surface_eke_mean_removed_anomaly_vs_duacs.pdf\nFigure 4.6. Global EKE linear trend comparison\n[[FIGURE_018]]\nCaption: OLS linear trend comparison for global EKE. Source PDF: Figures_observations/pdf_figures/timeseries/global_surface_eke_linear_trend_comparison_vs_duacs.pdf\nFigure 4.7. Global EKE detrended+deseasonalized anomaly\n[[FIGURE_019]]\nCaption: Residual EKE anomaly after pentad seasonal-cycle removal and linear detrending. Source PDF: Figures_observations/pdf_figures/timeseries/global_surface_eke_detrended_deseasonalized_anomaly_vs_duacs.pdf\nFigure 4.8. Global EKE residual anomaly variance\n[[FIGURE_020]]\nCaption: Variance of the detrended+deseasonalized EKE residual anomaly. Source PDF: Figures_observations/pdf_figures/variance/global_surface_eke_residual_anomaly_variance_vs_duacs.pdf\nFigure 4.9. Global upper-700m OHC mean-removed anomaly\n[[FIGURE_021]]\nCaption: Monthly global upper-700m OHC anomaly with each series mean removed. Source PDF: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_mean_removed_anomaly_vs_argo_iap_201410_202212.pdf\nFigure 4.10. Global upper-700m OHC linear trend comparison\n[[FIGURE_022]]\nCaption: OLS linear trend comparison for global upper-700m OHC. Source PDF: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_linear_trend_comparison_vs_argo_iap_201410_202212.pdf\nFigure 4.11. Global upper-700m OHC detrended+deseasonalized anomaly\n[[FIGURE_023]]\nCaption: Monthly OHC residual anomaly after seasonal-cycle removal and linear detrending. Source PDF: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_detrended_deseasonalized_anomaly_vs_argo_iap_201410_202212.pdf\nFigure 4.12. Global upper-700m OHC residual anomaly variance\n[[FIGURE_024]]\nCaption: Variance of the detrended+deseasonalized upper-700m OHC residual anomaly. Source PDF: Figures_observations/pdf_figures/variance/global_ohc_upper700_residual_anomaly_variance_vs_argo_iap_201410_202212.pdf\nFigure 4.13. SST residual anomaly variance maps\n[[FIGURE_025]]\nCaption: Grid-point variance of detrended+deseasonalized SST residual anomalies; model variance maps are computed on native grids and interpolated to OISST for comparison. Source PDF: Figures_observations/pdf_figures/variance/sst_residual_anomaly_variance_maps_vs_oisst.pdf\nFigure 4.14. Upper-700m OHC residual anomaly variance maps\n[[FIGURE_026]]\nCaption: Grid-point variance of monthly upper-700m OHC residual anomalies against ARGO-IAP. Source PDF: Figures_observations/pdf_figures/variance/ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_201410_202212.pdf\n",
+  "styles": [
+    {
+      "start": 0,
+      "end": 53,
+      "style": "TITLE"
+    },
+    {
+      "start": 53,
+      "end": 227,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 227,
+      "end": 241,
+      "style": "HEADING_1"
+    },
+    {
+      "start": 241,
+      "end": 463,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 463,
+      "end": 472,
+      "style": "HEADING_1"
+    },
+    {
+      "start": 472,
+      "end": 749,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 749,
+      "end": 771,
+      "style": "HEADING_1"
+    },
+    {
+      "start": 771,
+      "end": 860,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 860,
+      "end": 970,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 970,
+      "end": 1088,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 1088,
+      "end": 1256,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 1256,
+      "end": 1410,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 1410,
+      "end": 1657,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 1657,
+      "end": 1672,
+      "style": "HEADING_1"
+    },
+    {
+      "start": 1672,
+      "end": 2293,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2293,
+      "end": 2304,
+      "style": "HEADING_1"
+    },
+    {
+      "start": 2304,
+      "end": 2347,
+      "style": "HEADING_2"
+    },
+    {
+      "start": 2347,
+      "end": 2409,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 2409,
+      "end": 2424,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2424,
+      "end": 2644,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2644,
+      "end": 2696,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 2696,
+      "end": 2711,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2711,
+      "end": 2876,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2876,
+      "end": 2911,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 2911,
+      "end": 2926,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 2926,
+      "end": 3081,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3081,
+      "end": 3128,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 3128,
+      "end": 3143,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3143,
+      "end": 3330,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3330,
+      "end": 3346,
+      "style": "HEADING_2"
+    },
+    {
+      "start": 3346,
+      "end": 3388,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 3388,
+      "end": 3403,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3403,
+      "end": 3551,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3551,
+      "end": 3621,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 3621,
+      "end": 3636,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3636,
+      "end": 3862,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3862,
+      "end": 3912,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 3912,
+      "end": 3927,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 3927,
+      "end": 4114,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4114,
+      "end": 4139,
+      "style": "HEADING_2"
+    },
+    {
+      "start": 4139,
+      "end": 4209,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 4209,
+      "end": 4224,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4224,
+      "end": 4444,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4444,
+      "end": 4496,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 4496,
+      "end": 4511,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4511,
+      "end": 4675,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4675,
+      "end": 4717,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 4717,
+      "end": 4732,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4732,
+      "end": 4917,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4917,
+      "end": 4966,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 4966,
+      "end": 4981,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 4981,
+      "end": 5145,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5145,
+      "end": 5199,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 5199,
+      "end": 5214,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5214,
+      "end": 5389,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5389,
+      "end": 5426,
+      "style": "HEADING_2"
+    },
+    {
+      "start": 5426,
+      "end": 5470,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 5470,
+      "end": 5485,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5485,
+      "end": 5688,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5688,
+      "end": 5735,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 5735,
+      "end": 5750,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5750,
+      "end": 5923,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5923,
+      "end": 5979,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 5979,
+      "end": 5994,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 5994,
+      "end": 6196,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6196,
+      "end": 6245,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 6245,
+      "end": 6260,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6260,
+      "end": 6436,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6436,
+      "end": 6480,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 6480,
+      "end": 6495,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6495,
+      "end": 6684,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6684,
+      "end": 6731,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 6731,
+      "end": 6746,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6746,
+      "end": 6911,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6911,
+      "end": 6967,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 6967,
+      "end": 6982,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 6982,
+      "end": 7192,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7192,
+      "end": 7241,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 7241,
+      "end": 7256,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7256,
+      "end": 7440,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7440,
+      "end": 7495,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 7495,
+      "end": 7510,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7510,
+      "end": 7715,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7715,
+      "end": 7774,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 7774,
+      "end": 7789,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7789,
+      "end": 7983,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 7983,
+      "end": 8051,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 8051,
+      "end": 8066,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8066,
+      "end": 8295,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8295,
+      "end": 8356,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 8356,
+      "end": 8371,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8371,
+      "end": 8584,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8584,
+      "end": 8632,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 8632,
+      "end": 8647,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8647,
+      "end": 8921,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8921,
+      "end": 8980,
+      "style": "HEADING_3"
+    },
+    {
+      "start": 8980,
+      "end": 8995,
+      "style": "NORMAL_TEXT"
+    },
+    {
+      "start": 8995,
+      "end": 9215,
+      "style": "NORMAL_TEXT"
+    }
+  ],
+  "images": [
+    {
+      "placeholder": "[[FIGURE_001]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_001_surface_geostrophic_velocity_vector_rmse_vs_duacs_2022.png",
+      "title": "Surface geostrophic velocity vector RMSE vs DUACS",
+      "caption": "2022 time-RMSE of the geostrophic velocity vector; panel annotation reports area-weighted total RMSE.",
+      "pdf": "Figures_observations/pdf_figures/rmse/surface_geostrophic_velocity_vector_rmse_vs_duacs_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_002]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_002_surface_eke_rmse_vs_duacs_2022.png",
+      "title": "Surface EKE spatial error/RMSE vs DUACS",
+      "caption": "2022 EKE map error; EKE is computed from time-mean velocity anomalies.",
+      "pdf": "Figures_observations/pdf_figures/rmse/surface_eke_rmse_vs_duacs_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_003]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_003_sst_rmse_maps_vs_oisst_2022.png",
+      "title": "SST RMSE maps vs OISST",
+      "caption": "2022 time-RMSE of SST after model SST is put on the OISST grid.",
+      "pdf": "Figures_observations/pdf_figures/rmse/sst_rmse_maps_vs_oisst_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_004]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_004_ohc_per_area_rmse_maps_vs_argo_iap_2022.png",
+      "title": "OHC per-area RMSE maps vs ARGO-IAP",
+      "caption": "2022 monthly RMSE of layer-integrated OHC per unit area for 0-700 m and 700-2000 m.",
+      "pdf": "Figures_observations/pdf_figures/rmse/ohc_per_area_rmse_maps_vs_argo_iap_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_005]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_005_eke_mean_vs_duacs_2022.png",
+      "title": "Mean surface EKE map vs DUACS",
+      "caption": "Annual-mean 2022 surface EKE fields and biases against DUACS.",
+      "pdf": "Figures_observations/pdf_figures/maps/eke_mean_vs_duacs_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_006]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_006_regional_eke_spatial_global_temporal_spectra_vs_duacs.png",
+      "title": "Regional EKE spatial spectra and global temporal spectrum",
+      "caption": "Spatial spectra are limited to Gulf Stream and Agulhas; temporal spectrum uses global area-weighted EKE.",
+      "pdf": "Figures_observations/pdf_figures/spectrum/regional_eke_spatial_global_temporal_spectra_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_007]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_007_ke_temporal_spectra_vs_duacs.png",
+      "title": "Regional temporal KE spectra vs DUACS",
+      "caption": "Temporal KE spectra over Gulf Stream and Agulhas, compared with raw daily and 5-day DUACS.",
+      "pdf": "Figures_observations/pdf_figures/spectrum/ke_temporal_spectra_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_008]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_008_regional_sst_spatial_global_temporal_spectra_vs_oisst.png",
+      "title": "Regional SST spatial spectra and global temporal spectrum",
+      "caption": "SST anomaly spectra; regional panels are Gulf Stream and Agulhas and the temporal panel is global.",
+      "pdf": "Figures_observations/pdf_figures/spectrum/regional_sst_spatial_global_temporal_spectra_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_009]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_009_temperature_isotropic_spectra_vs_oisst.png",
+      "title": "Regional isotropic SST spectra vs OISST",
+      "caption": "Isotropic SST anomaly spectra in Gulf Stream and Agulhas.",
+      "pdf": "Figures_observations/pdf_figures/spectrum/temperature_isotropic_spectra_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_010]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_010_ohc_monthly_vs_argo_iap_201410_202212.png",
+      "title": "Monthly total OHC vs ARGO-IAP",
+      "caption": "Global monthly OHC totals for 0-700 m and 700-2000 m over 2014-10 to 2022-12.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/ohc_monthly_vs_argo_iap_201410_202212.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_011]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_011_ohc_layer_integrated_maps_vs_argo_iap_2022.png",
+      "title": "Annual OHC per-area maps vs ARGO-IAP",
+      "caption": "2022 annual-mean layer-integrated OHC per unit area maps.",
+      "pdf": "Figures_observations/pdf_figures/maps/ohc_layer_integrated_maps_vs_argo_iap_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_012]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_012_ohc_layer_integrated_bias_maps_vs_argo_iap_2022.png",
+      "title": "Annual OHC per-area bias maps vs ARGO-IAP",
+      "caption": "2022 point-wise OHC per-area bias maps and spatial RMS metrics.",
+      "pdf": "Figures_observations/pdf_figures/maps/ohc_layer_integrated_bias_maps_vs_argo_iap_2022.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_013]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_013_global_sst_mean_removed_anomaly_vs_oisst.png",
+      "title": "Global SST mean-removed anomaly",
+      "caption": "Area-weighted global SST anomaly with each series mean removed; SST keeps the 5-day cadence.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_sst_mean_removed_anomaly_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_014]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_014_global_sst_linear_trend_comparison_vs_oisst.png",
+      "title": "Global SST linear trend comparison",
+      "caption": "OLS linear trend comparison over the common rollout period.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_sst_linear_trend_comparison_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_015]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_015_global_sst_detrended_deseasonalized_anomaly_vs_oisst.png",
+      "title": "Global SST detrended+deseasonalized anomaly",
+      "caption": "Residual SST anomaly after pentad seasonal-cycle removal and linear detrending.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_sst_detrended_deseasonalized_anomaly_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_016]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_016_global_sst_residual_anomaly_variance_vs_oisst.png",
+      "title": "Global SST residual anomaly variance",
+      "caption": "Variance of the detrended+deseasonalized SST residual anomaly.",
+      "pdf": "Figures_observations/pdf_figures/variance/global_sst_residual_anomaly_variance_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_017]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_017_global_surface_eke_mean_removed_anomaly_vs_duacs.png",
+      "title": "Global EKE mean-removed anomaly",
+      "caption": "Area-weighted global surface EKE anomaly; EKE keeps the 5-day cadence.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_surface_eke_mean_removed_anomaly_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_018]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_018_global_surface_eke_linear_trend_comparison_vs_duacs.png",
+      "title": "Global EKE linear trend comparison",
+      "caption": "OLS linear trend comparison for global EKE.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_surface_eke_linear_trend_comparison_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_019]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_019_global_surface_eke_detrended_deseasonalized_anomaly_vs_duacs.png",
+      "title": "Global EKE detrended+deseasonalized anomaly",
+      "caption": "Residual EKE anomaly after pentad seasonal-cycle removal and linear detrending.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_surface_eke_detrended_deseasonalized_anomaly_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_020]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_020_global_surface_eke_residual_anomaly_variance_vs_duacs.png",
+      "title": "Global EKE residual anomaly variance",
+      "caption": "Variance of the detrended+deseasonalized EKE residual anomaly.",
+      "pdf": "Figures_observations/pdf_figures/variance/global_surface_eke_residual_anomaly_variance_vs_duacs.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_021]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_021_global_ohc_upper700_mean_removed_anomaly_vs_argo_iap_201410_202212.png",
+      "title": "Global upper-700m OHC mean-removed anomaly",
+      "caption": "Monthly global upper-700m OHC anomaly with each series mean removed.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_ohc_upper700_mean_removed_anomaly_vs_argo_iap_201410_202212.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_022]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_022_global_ohc_upper700_linear_trend_comparison_vs_argo_iap_201410_202212.png",
+      "title": "Global upper-700m OHC linear trend comparison",
+      "caption": "OLS linear trend comparison for global upper-700m OHC.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_ohc_upper700_linear_trend_comparison_vs_argo_iap_201410_202212.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_023]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_023_global_ohc_upper700_detrended_deseasonalized_anomaly_vs_argo_iap_201410_202212.png",
+      "title": "Global upper-700m OHC detrended+deseasonalized anomaly",
+      "caption": "Monthly OHC residual anomaly after seasonal-cycle removal and linear detrending.",
+      "pdf": "Figures_observations/pdf_figures/timeseries/global_ohc_upper700_detrended_deseasonalized_anomaly_vs_argo_iap_201410_202212.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_024]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_024_global_ohc_upper700_residual_anomaly_variance_vs_argo_iap_201410_202212.png",
+      "title": "Global upper-700m OHC residual anomaly variance",
+      "caption": "Variance of the detrended+deseasonalized upper-700m OHC residual anomaly.",
+      "pdf": "Figures_observations/pdf_figures/variance/global_ohc_upper700_residual_anomaly_variance_vs_argo_iap_201410_202212.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_025]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_025_sst_residual_anomaly_variance_maps_vs_oisst.png",
+      "title": "SST residual anomaly variance maps",
+      "caption": "Grid-point variance of detrended+deseasonalized SST residual anomalies; model variance maps are computed on native grids and interpolated to OISST for comparison.",
+      "pdf": "Figures_observations/pdf_figures/variance/sst_residual_anomaly_variance_maps_vs_oisst.pdf"
+    },
+    {
+      "placeholder": "[[FIGURE_026]]",
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/Figures_observations/google_doc_summary/images_v2/img_026_ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_201410_202212.png",
+      "title": "Upper-700m OHC residual anomaly variance maps",
+      "caption": "Grid-point variance of monthly upper-700m OHC residual anomalies against ARGO-IAP.",
+      "pdf": "Figures_observations/pdf_figures/variance/ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_201410_202212.pdf"
+    }
+  ]
+}

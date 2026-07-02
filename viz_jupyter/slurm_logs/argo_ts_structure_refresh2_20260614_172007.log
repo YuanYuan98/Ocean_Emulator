@@ -1,4 +1,0 @@
-  File "<stdin>", line 27
-    print(f"Refreshing {spec[\"title\"]} time series...", flush=True)
-                                                        ^
-SyntaxError: f-string expression part cannot include a backslash
