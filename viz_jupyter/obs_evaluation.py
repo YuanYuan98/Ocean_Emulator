@@ -8,10 +8,10 @@ Implemented evaluations
 -----------------------
 1. 2022 total RMSE metrics and spatial RMSE maps for surface geostrophic velocity,
    surface EKE, SST, and OHC.
-2. Velocity diagnostics: surface EKE maps, Gulf Stream / Agulhas EKE spatial spectra,
-   global EKE temporal spectra, and Gulf Stream / Agulhas temporal KE spectra.
-3. Temperature diagnostics: Gulf Stream / Agulhas SST spatial spectra, global SST temporal
-   spectra, regional SST spectra, and OHC totals for upper 700m and 700-2000m.
+2. Velocity diagnostics: surface EKE maps, Global / Gulf Stream / Agulhas EKE spatial spectra,
+   and Global / Gulf Stream / Agulhas temporal KE spectra.
+3. Temperature diagnostics: Global / Gulf Stream / Agulhas SST spatial spectra and OHC totals
+   for upper 700m and 700-2000m.
 4. Time-series anomaly diagnostics for SST, EKE, and upper-700m OHC: mean-removed anomalies,
    linear trend comparison, detrended+deseasonalized anomalies, and residual anomaly variance
    (SST/EKE retain 5-day cadence).
@@ -35,6 +35,8 @@ from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 os.environ.setdefault("XDG_CACHE_HOME", "/tmp")
+os.environ.setdefault("OMP_NUM_THREADS", "32")
+os.environ.setdefault("MKL_NUM_THREADS", "32")
 
 import matplotlib
 matplotlib.use("Agg")
@@ -49,6 +51,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import cmocean
 from scipy import signal
+
+torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "32")))
 
 
 parser = argparse.ArgumentParser(description="Observation-based evaluation")
@@ -144,6 +148,12 @@ SPECTRUM_REGIONS = [
     ("Agulhas", slice(40, 60), slice(-50, -30)),
 ]
 SPECTRUM_REGION_LABEL = "Gulf Stream and Agulhas"
+SPECTRUM_PANELS = [
+    ("Global", slice(0, 360), slice(-90, 90)),
+    *SPECTRUM_REGIONS,
+]
+SPECTRUM_PANEL_LABEL = "Global, Gulf Stream, and Agulhas"
+SPECTRUM_TIME_BATCH = 32
 
 # Full calendar years used for the interannual (per-year mean +/- 1 std) spectra diagnostics.
 SPECTRA_INTERANNUAL_YEARS = list(range(2015, 2023))
@@ -942,14 +952,22 @@ def _series_without_seasonal_cycle(series: pd.Series) -> pd.Series:
     return values - values.mean()
 
 
-def _series_linear_trend_per_year(series: pd.Series) -> float:
+def _series_linear_trend_fit_per_year(series: pd.Series) -> tuple[pd.Series, float]:
     values = series.astype(float)
+    if values.empty:
+        return values, float("nan")
     finite = np.isfinite(values.values)
     if finite.sum() < 2:
-        return float("nan")
+        return pd.Series(np.nan, index=values.index), float("nan")
     index = pd.DatetimeIndex(values.index)
     x = (index - index[0]).days.to_numpy(dtype=float) / 365.25
-    slope, _ = np.polyfit(x[finite], values.values[finite], 1)
+    slope, intercept = np.polyfit(x[finite], values.values[finite], 1)
+    trend = pd.Series(slope * x + intercept, index=values.index)
+    return trend, float(slope)
+
+
+def _series_linear_trend_per_year(series: pd.Series) -> float:
+    _, slope = _series_linear_trend_fit_per_year(series)
     return float(slope)
 
 
@@ -1134,6 +1152,53 @@ def _mask_region_for_spectrum(
     return filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
 
 
+def _mean_isotropic_spectrum_over_time(
+    field: xr.DataArray,
+    dx: float,
+    dy: float,
+    batch_size: int = SPECTRUM_TIME_BATCH,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute isotropic spectra in time batches and average over time.
+
+    Global SST/SSTA spectra are too large to send to torch as one
+    (time, lat, lon) tensor on CPU nodes. This keeps the same per-time
+    spectrum definition while bounding peak memory.
+    """
+    ntime = int(field.sizes.get("time", 0))
+    if ntime == 0:
+        return np.array([]), np.array([])
+    k_ref = None
+    spec_sum = None
+    spec_count = None
+    for start in range(0, ntime, batch_size):
+        chunk = field.isel(time=slice(start, min(start + batch_size, ntime))).fillna(0.0)
+        values = np.asarray(chunk.values, dtype=np.float32)
+        if values.size == 0:
+            continue
+        k_cent, spec = compute_isotropic_spectrum_torch(
+            torch.as_tensor(values),
+            dx=dx,
+            dy=dy,
+            n_factor=2,
+            detrend="linear",
+            window="hann",
+            cutoff_before_bins=False,
+        )
+        spec_np = np.asarray(spec.cpu().numpy(), dtype=float)
+        if spec_np.ndim == 1:
+            spec_np = spec_np[None, :]
+        if k_ref is None:
+            k_ref = k_cent.cpu().numpy() * 1000 * 2 * np.pi
+            spec_sum = np.zeros(spec_np.shape[-1], dtype=float)
+            spec_count = np.zeros(spec_np.shape[-1], dtype=float)
+        finite = np.isfinite(spec_np)
+        spec_sum += np.where(finite, spec_np, 0.0).sum(axis=0)
+        spec_count += finite.sum(axis=0)
+    if k_ref is None or spec_sum is None or spec_count is None:
+        return np.array([]), np.array([])
+    return k_ref, spec_sum / np.maximum(spec_count, 1.0)
+
+
 def _compute_isotropic_spectrum_from_surface(
     field: xr.DataArray,
     dx_2d: xr.DataArray,
@@ -1151,16 +1216,7 @@ def _compute_isotropic_spectrum_from_surface(
     dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     ssta = _calendar_day_climatology_anomaly(data)
     ssta = _mask_region_for_spectrum(ssta, lat_dim, lon_dim)
-    k_cent, spec = compute_isotropic_spectrum_torch(
-        torch.as_tensor(ssta.fillna(0.0).values),
-        dx=dx_mean,
-        dy=dy_mean,
-        n_factor=2,
-        detrend="linear",
-        window="hann",
-        cutoff_before_bins=False,
-    )
-    return k_cent.cpu().numpy() * 1000 * 2 * np.pi, spec.cpu().numpy().mean(0)
+    return _mean_isotropic_spectrum_over_time(ssta, dx_mean, dy_mean)
 
 
 def _compute_isotropic_spectrum_from_map(
@@ -1178,7 +1234,7 @@ def _compute_isotropic_spectrum_from_map(
     filled = data.where(np.isfinite(data))
     filled = filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
     k_cent, spec = compute_isotropic_spectrum_torch(
-        torch.as_tensor(filled.values),
+        torch.as_tensor(np.asarray(filled.values, dtype=np.float32)),
         dx=dx_mean,
         dy=dy_mean,
         n_factor=2,
@@ -1212,6 +1268,63 @@ def _compute_temporal_spectrum_from_series(series: pd.Series) -> tuple[np.ndarra
     return freqs[valid], psd[valid]
 
 
+def _weighted_region_mean_series(
+    field: xr.DataArray,
+    lat_dim: str,
+    lon_dim: str,
+    lat_chunk: int = 128,
+    lon_chunk: int = 128,
+) -> pd.Series:
+    """Cos(latitude)-weighted regional mean time series computed in spatial blocks.
+
+    Very large global grids are regularly sampled before the block loop so the
+    temporal spectrum is practical on CPU interactive nodes. The Gulf Stream and
+    Agulhas regional panels are small enough to keep at native resolution.
+    """
+    data = field.transpose("time", lat_dim, lon_dim)
+    ntime = int(data.sizes["time"])
+    weighted_sum = np.zeros(ntime, dtype=np.float64)
+    weight_sum = np.zeros(ntime, dtype=np.float64)
+    lat_values = np.asarray(data[lat_dim].values, dtype=float)
+
+    for lat_start in range(0, data.sizes[lat_dim], lat_chunk):
+        lat_stop = min(lat_start + lat_chunk, data.sizes[lat_dim])
+        lat_weight = np.cos(np.deg2rad(lat_values[lat_start:lat_stop]))
+        lat_weight = np.clip(lat_weight, 0.0, None)
+        for lon_start in range(0, data.sizes[lon_dim], lon_chunk):
+            lon_stop = min(lon_start + lon_chunk, data.sizes[lon_dim])
+            block = data.isel(
+                {
+                    lat_dim: slice(lat_start, lat_stop),
+                    lon_dim: slice(lon_start, lon_stop),
+                }
+            )
+            values = np.asarray(block.values, dtype=np.float32)
+            weights_2d = np.broadcast_to(lat_weight[:, None], values.shape[1:])
+            finite = np.isfinite(values)
+            weighted_sum += np.where(finite, values * weights_2d[None, :, :], 0.0).sum(axis=(1, 2))
+            weight_sum += np.where(finite, weights_2d[None, :, :], 0.0).sum(axis=(1, 2))
+
+    mean_values = np.full(ntime, np.nan, dtype=np.float64)
+    valid = weight_sum > 0
+    mean_values[valid] = weighted_sum[valid] / weight_sum[valid]
+    return pd.Series(mean_values, index=pd.DatetimeIndex(data.time.values))
+
+
+def _temporal_spectrum_spatial_strides(
+    field: xr.DataArray,
+    lat_dim: str,
+    lon_dim: str,
+    max_native_points: int = 100_000,
+) -> tuple[int, int]:
+    if field.sizes[lat_dim] * field.sizes[lon_dim] <= max_native_points:
+        return 1, 1
+    return (
+        max(1, int(np.ceil(field.sizes[lat_dim] / 180))),
+        max(1, int(np.ceil(field.sizes[lon_dim] / 360))),
+    )
+
+
 def _compute_temporal_ke_spectrum_from_surface(
     u: xr.DataArray,
     v: xr.DataArray,
@@ -1222,30 +1335,14 @@ def _compute_temporal_ke_spectrum_from_surface(
 ) -> tuple[np.ndarray, np.ndarray]:
     u_reg = u.sel({lon_dim: lon_slice, lat_dim: lat_slice})
     v_reg = v.sel({lon_dim: lon_slice, lat_dim: lat_slice})
+    lat_stride, lon_stride = _temporal_spectrum_spatial_strides(u_reg, lat_dim, lon_dim)
+    if lat_stride > 1 or lon_stride > 1:
+        stride_sel = {lat_dim: slice(None, None, lat_stride), lon_dim: slice(None, None, lon_stride)}
+        u_reg = u_reg.isel(stride_sel)
+        v_reg = v_reg.isel(stride_sel)
     ke = 0.5 * (u_reg ** 2 + v_reg ** 2)
-    valid_space = np.isfinite(ke).any("time")
-    delta_days = float((pd.Timestamp(ke.time.values[1]) - pd.Timestamp(ke.time.values[0])).days)
-    dt_years = delta_days / 365.25
-    ke_values = ke.where(valid_space).transpose("time", lat_dim, lon_dim).values
-    valid_flat = np.asarray(valid_space.values).reshape(-1)
-    ke_values = ke_values.reshape(ke_values.shape[0], -1)[:, valid_flat]
-    if ke_values.shape[1] == 0:
-        return np.array([]), np.array([])
-    col_mean = np.nanmean(ke_values, axis=0)
-    ke_values = np.where(np.isfinite(ke_values), ke_values, col_mean[None, :])
-    nperseg = min(256, ke_values.shape[0])
-    freqs, psd = signal.welch(
-        ke_values,
-        fs=1.0 / dt_years,
-        axis=0,
-        detrend="linear",
-        window="hann",
-        scaling="density",
-        nperseg=nperseg,
-    )
-    psd_mean = np.nanmean(psd, axis=1)
-    valid = freqs > 0
-    return freqs[valid], psd_mean[valid]
+    ke_series = _weighted_region_mean_series(ke, lat_dim, lon_dim)
+    return _compute_temporal_spectrum_from_series(ke_series)
 
 
 def _calendar_day_climatology_anomaly(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
@@ -3252,12 +3349,9 @@ def _plot_global_eke_spectra(
     obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
     obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
     obs_eke_map = _surface_eke_from_uv(obs_u, obs_v)
-    obs_eke_series = _surface_eke_timeseries_from_uv(obs_u, obs_v, duacs_w["area"], ("lat", "lon")).to_series()
-    freq_obs, psd_obs = _compute_temporal_spectrum_from_series(obs_eke_series)
 
     rows = []
     sim_eke_maps = {}
-    sim_temporal_spectra = {}
     for label, emu in emulators.items():
         sim = emu["ds"].sel(time=slice(window_start, window_end))
         sim_zos = _apply_native_wet_mask(sim["zos"], emu.get("wet_mask"))
@@ -3265,14 +3359,12 @@ def _plot_global_eke_spectra(
         sim_u = _apply_equatorial_mask(_apply_native_wet_mask(sim_u, emu.get("wet_mask")), lat_dim="y")
         sim_v = _apply_equatorial_mask(_apply_native_wet_mask(sim_v, emu.get("wet_mask")), lat_dim="y")
         sim_eke_maps[label] = (_surface_eke_from_uv(sim_u, sim_v), sim)
-        sim_eke_series = _surface_eke_timeseries_from_uv(sim_u, sim_v, sim["areacello"], ("y", "x")).to_series()
-        sim_temporal_spectra[label] = _compute_temporal_spectrum_from_series(sim_eke_series)
 
-    ncols = len(SPECTRUM_REGIONS) + 1
+    ncols = len(SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.atleast_1d(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         k_obs, spec_obs = _compute_isotropic_spectrum_from_map(
             obs_eke_map, duacs_w["dx"], duacs_w["dy"], lon_slice, lat_slice
@@ -3286,7 +3378,7 @@ def _plot_global_eke_spectra(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "regional_surface_eke_spatial_spectrum_rmse_vs_duacs",
+                    "metric": "surface_eke_spatial_spectrum_rmse_vs_duacs",
                     "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
                 }
             )
@@ -3296,30 +3388,13 @@ def _plot_global_eke_spectra(
         ax.set_ylabel("PSD")
         ax.grid(True, which="both", alpha=0.3)
 
-    ax = axes[-1]
-    ax.loglog(freq_obs, psd_obs, "--", color="black", linewidth=2, label="DUACS")
-    for label, (freq_sim, psd_sim) in sim_temporal_spectra.items():
-        rows.append(
-            {
-                "model": label,
-                "region": "Global",
-                "metric": "global_surface_eke_temporal_spectrum_rmse_vs_duacs",
-                "value": _rmse_between_curves(freq_obs, psd_obs, freq_sim, psd_sim),
-            }
-        )
-        ax.loglog(freq_sim, psd_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
-    ax.set_title("Global\ntemporal spectrum")
-    ax.set_xlabel("Frequency (cycles/year)")
-    ax.set_ylabel("PSD")
-    ax.grid(True, which="both", alpha=0.3)
-
     handles, labels, ncol = _legend_truth_first(*axes[0].get_legend_handles_labels(), truth_labels={"DUACS"})
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False)
     fig.suptitle(
         _figure_title_with_context(
-            "Surface EKE Spectra vs DUACS",
+            "Surface EKE Spatial Spectra vs DUACS",
             period_label,
-            f"{velocity_label}; spatial spectra over {SPECTRUM_REGION_LABEL}; temporal spectrum is global",
+            f"{velocity_label}; spatial spectra over {SPECTRUM_PANEL_LABEL}",
         ),
         y=0.98,
         fontsize=15,
@@ -3338,26 +3413,19 @@ def _plot_global_sst_spectra(
     period_label = _period_label(window_start, window_end)
     oisst_w = oisst.sel(time=slice(window_start, window_end))
     obs_sst = oisst_w[sst_name]
-    obs_ssta = _calendar_day_climatology_anomaly(obs_sst)
-    obs_series = _area_weighted_timeseries(obs_ssta, oisst_w["area"], ("lat", "lon")).to_series()
-    freq_obs, psd_obs = _compute_temporal_spectrum_from_series(obs_series)
 
     rows = []
     sim_ssts = {}
-    sim_temporal_spectra = {}
     for label, emu in emulators.items():
         sim = emu["ds"].sel(time=slice(window_start, window_end))
         sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
         sim_ssts[label] = (sim_sst, sim)
-        sim_ssta = _calendar_day_climatology_anomaly(sim_sst)
-        sim_series = _area_weighted_timeseries(sim_ssta, sim["areacello"], ("y", "x")).to_series()
-        sim_temporal_spectra[label] = _compute_temporal_spectrum_from_series(sim_series)
 
-    ncols = len(SPECTRUM_REGIONS) + 1
+    ncols = len(SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.atleast_1d(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         k_obs, spec_obs = _compute_isotropic_spectrum_from_surface(
             obs_sst, oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice
@@ -3371,7 +3439,7 @@ def _plot_global_sst_spectra(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "regional_surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg",
+                    "metric": "surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg",
                     "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
                 }
             )
@@ -3381,32 +3449,15 @@ def _plot_global_sst_spectra(
         ax.set_ylabel("PSD")
         ax.grid(True, which="both", alpha=0.3)
 
-    ax = axes[-1]
-    ax.loglog(freq_obs, psd_obs, "--", color="black", linewidth=2, label="OISST 5-day avg")
-    for label, (freq_sim, psd_sim) in sim_temporal_spectra.items():
-        rows.append(
-            {
-                "model": label,
-                "region": "Global",
-                "metric": "global_surface_ssta_temporal_spectrum_rmse_vs_oisst_5day_avg",
-                "value": _rmse_between_curves(freq_obs, psd_obs, freq_sim, psd_sim),
-            }
-        )
-        ax.loglog(freq_sim, psd_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
-    ax.set_title("Global\ntemporal spectrum")
-    ax.set_xlabel("Frequency (cycles/year)")
-    ax.set_ylabel("PSD")
-    ax.grid(True, which="both", alpha=0.3)
-
     handles, labels, ncol = _legend_truth_first(
         *axes[0].get_legend_handles_labels(), truth_labels={"OISST 5-day avg"}
     )
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False)
     fig.suptitle(
         _figure_title_with_context(
-            "Surface Temperature SSTA Spectra vs OISST",
+            "Surface Temperature SSTA Spatial Spectra vs OISST",
             period_label,
-            f"calendar-day climatology removed; spatial spectra over {SPECTRUM_REGION_LABEL}; temporal spectrum is global",
+            f"calendar-day climatology removed; spatial spectra over {SPECTRUM_PANEL_LABEL}",
         ),
         y=0.98,
         fontsize=15,
@@ -3441,13 +3492,11 @@ def _plot_temperature_spectra(
         label: emu["ds"].sel(time=slice(window_start, window_end)) for label, emu in emulators.items()
     }
     rows = []
-    n_regions = len(SPECTRUM_REGIONS)
-    nrows = 2
-    ncols = (n_regions + 1) // 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    ncols = len(SPECTRUM_PANELS)
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         k_5day, spec_5day = _compute_isotropic_spectrum_from_surface(
             oisst_5day[sst_5day_name], oisst_5day["dx"], oisst_5day["dy"], lon_slice, lat_slice
@@ -3506,12 +3555,12 @@ def _plot_temperature_spectra(
         fontsize=11,
     )
     fig.suptitle(
-        f"Regional Surface Temperature SSTA Spectra vs OISST\n{period_label} calendar-day climatology removed",
+        f"Global and Regional Surface Temperature SSTA Spectra vs OISST\n{period_label} calendar-day climatology removed",
         y=0.975,
         fontsize=15,
         linespacing=1.15,
     )
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.83, bottom=0.15, wspace=0.25, hspace=0.34)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.80, bottom=0.18, wspace=0.28)
     return pd.DataFrame(rows)
 
 
@@ -3575,13 +3624,11 @@ def _plot_temperature_spectra_interannual(
     sim_w = {label: emu["ds"].sel(time=window) for label, emu in emulators.items()}
 
     rows = []
-    n_regions = len(SPECTRUM_REGIONS)
-    nrows = 2
-    ncols = (n_regions + 1) // 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    ncols = len(SPECTRUM_PANELS)
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         k_obs, obs_by_year = _yearly_isotropic_spectra(
             oisst_w[sst_name], oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice, years
@@ -3623,13 +3670,13 @@ def _plot_temperature_spectra_interannual(
     )
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
     fig.suptitle(
-        "Regional Surface Temperature SSTA Spectra vs OISST\n"
+        "Global and Regional Surface Temperature SSTA Spectra vs OISST\n"
         f"interannual mean $\\pm$1 std over {y0}–{y1} (per-year spectra)",
         y=0.975,
         fontsize=14,
         linespacing=1.15,
     )
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.83, bottom=0.15, wspace=0.25, hspace=0.34)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.80, bottom=0.18, wspace=0.28)
     return pd.DataFrame(rows)
 
 
@@ -3660,13 +3707,11 @@ def _plot_temporal_ke_spectra(
         )
 
     rows = []
-    n_regions = len(SPECTRUM_REGIONS)
-    nrows = 2
-    ncols = (n_regions + 1) // 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    ncols = len(SPECTRUM_PANELS)
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         freq_raw, psd_raw = _compute_temporal_ke_spectrum_from_surface(
             duacs_raw[u_raw_name], duacs_raw[v_raw_name], lon_slice, lat_slice
@@ -3720,14 +3765,14 @@ def _plot_temporal_ke_spectra(
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
     fig.suptitle(
         _figure_title_with_context(
-            "Regional Surface Geostrophic KE Temporal Spectra vs DUACS",
+            "Global and Regional Surface Geostrophic KE Temporal Spectra vs DUACS",
             extra=f"{velocity_label}; {_period_label(span_start, span_end)}; raw daily and 5-day averaged DUACS",
         ),
         y=0.975,
         fontsize=14,
         linespacing=1.15,
     )
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.15, wspace=0.25, hspace=0.34)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.80, bottom=0.18, wspace=0.28)
     return pd.DataFrame(rows)
 
 
@@ -3773,13 +3818,11 @@ def _plot_temporal_ke_spectra_interannual(
     duacs_w = duacs_5day.sel(time=window)
 
     rows = []
-    n_regions = len(SPECTRUM_REGIONS)
-    nrows = 2
-    ncols = (n_regions + 1) // 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 3.6 * nrows))
+    ncols = len(SPECTRUM_PANELS)
+    fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_REGIONS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
         ax = axes[idx]
         obs_by_year = _yearly_temporal_ke_spectra(duacs_w[u_name], duacs_w[v_name], lon_slice, lat_slice, years)
         if obs_by_year:
@@ -3825,13 +3868,13 @@ def _plot_temporal_ke_spectra_interannual(
     )
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
     fig.suptitle(
-        "Regional Surface Geostrophic KE Temporal Spectra vs DUACS\n"
+        "Global and Regional Surface Geostrophic KE Temporal Spectra vs DUACS\n"
         f"interannual mean $\\pm$1 std over {y0}–{y1} ({velocity_label}, per-year Welch)",
         y=0.975,
         fontsize=13,
         linespacing=1.15,
     )
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.15, wspace=0.25, hspace=0.34)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.80, bottom=0.18, wspace=0.28)
     return pd.DataFrame(rows)
 
 
@@ -3886,29 +3929,70 @@ def _plot_scalar_trend_comparison(
     period_label: str,
     obs_label: str,
 ) -> pd.DataFrame:
-    obs_slope = _series_linear_trend_per_year(obs_series)
-    labels = [obs_label]
-    slopes = [obs_slope]
-    colors_list = ["black"]
+    def centered_trend(trend: pd.Series) -> pd.Series:
+        values = trend.astype(float)
+        finite = np.isfinite(values.values)
+        if not finite.any():
+            return values
+        return values - values.values[finite][0]
+
+    def legend_label(label: str, slope: float) -> str:
+        if not np.isfinite(slope):
+            return f"{label}: slope=nan {units} yr$^{{-1}}$"
+        return f"{label}: slope={slope:.3g} {units} yr$^{{-1}}$"
+
+    obs_trend, obs_slope = _series_linear_trend_fit_per_year(obs_series)
+    obs_plot_label = legend_label(obs_label, obs_slope)
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 4.8))
+    ax.plot(
+        obs_trend.index,
+        centered_trend(obs_trend).values,
+        "--",
+        color="black",
+        linewidth=2.5,
+        label=obs_plot_label,
+    )
+
     rows = []
     for label, series in sim_series.items():
-        slope = _series_linear_trend_per_year(series)
-        labels.append(label)
-        slopes.append(slope)
-        colors_list.append(emulators[label]["color"])
+        trend, slope = _series_linear_trend_fit_per_year(series)
         rows.append({"model": label, "metric": f"{metric_prefix}_linear_trend_per_year", "value": slope})
         rows.append({"model": label, "metric": f"{metric_prefix}_linear_trend_bias_per_year", "value": slope - obs_slope})
+        ax.plot(
+            trend.index,
+            centered_trend(trend).values,
+            "-",
+            color=emulators[label]["color"],
+            linewidth=2.5,
+            label=legend_label(label, slope),
+        )
 
-    fig, ax = plt.subplots(1, 1, figsize=(max(7.0, 1.8 * len(labels)), 4.2))
-    ax.bar(np.arange(len(labels)), slopes, color=colors_list)
     ax.axhline(0.0, color="0.25", linewidth=1)
-    ax.set_xticks(np.arange(len(labels)))
-    ax.set_xticklabels(labels, rotation=20, ha="right")
-    ax.set_ylabel(f"Trend ({units} yr$^{{-1}}$)", fontsize=13)
+    ax.set_ylabel(f"OLS fitted trend change ({units})", fontsize=13)
     ax.tick_params(axis="both", labelsize=12)
-    ax.grid(True, axis="y", alpha=0.3)
-    fig.suptitle(_figure_title_with_context(f"{title} Linear Trend Comparison", period_label), y=0.96, fontsize=15)
-    fig.tight_layout(rect=[0.03, 0.03, 0.99, 0.92])
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel("Time", fontsize=13)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=1,
+        bbox_to_anchor=(0.5, 0.01),
+        frameon=False,
+        fontsize=11,
+    )
+    fig.suptitle(
+        _figure_title_with_context(
+            f"{title} OLS Linear Trend Fit Comparison",
+            period_label,
+            "fitted lines only; each line centered at its first fitted value",
+        ),
+        y=0.955,
+        fontsize=15,
+        linespacing=1.15,
+    )
+    fig.tight_layout(rect=[0.025, 0.25, 0.99, 0.90])
     return pd.DataFrame(rows)
 
 
@@ -4781,15 +4865,10 @@ def main() -> None:
             _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["oisst"]))
         )
     )
-    if OBS_CONFIG["oisst_daily"].exists():
-        oisst_daily = _infer_obs_grid_metrics(
-            _drop_singleton_nonspatial_dims(
-                _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["oisst_daily"]))
-            )
-        )
-    else:
-        print(f"  WARNING: daily OISST path not found, skipping raw-daily SST spectra: {OBS_CONFIG['oisst_daily']}")
-        oisst_daily = None
+    # The requested SST spectra compare rollouts with the 5-day OISST product.
+    # Raw daily OISST spectra are intentionally skipped here because the global
+    # multi-year daily FFT is much slower and not part of the current metric set.
+    oisst_daily = None
     argo_iap = _drop_singleton_nonspatial_dims(
         _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["argo_iap"]))
     )
@@ -4855,7 +4934,7 @@ def main() -> None:
     )
     save_current_fig(f"eke_mean_vs_duacs_{args.year}", MAP_DIR)
 
-    print("Evaluating regional/oceanic EKE spatial spectra and global temporal spectra vs DUACS...")
+    print("Evaluating EKE spatial spectra vs DUACS (Global, Gulf Stream, Agulhas)...")
     global_eke_spec_metrics = _plot_global_eke_spectra(
         duacs,
         emulators,
@@ -4863,7 +4942,7 @@ def main() -> None:
     )
     save_current_fig("regional_eke_spatial_global_temporal_spectra_vs_duacs", SPECTRUM_DIR)
 
-    print("Evaluating regional temporal KE spectra vs raw and 5-day DUACS (Gulf Stream, Agulhas)...")
+    print("Evaluating temporal KE spectra vs raw and 5-day DUACS (Global, Gulf Stream, Agulhas)...")
     ke_spec_metrics = _plot_temporal_ke_spectra(
         duacs,
         duacs_raw,
@@ -4873,11 +4952,11 @@ def main() -> None:
     save_current_fig("ke_temporal_spectra_vs_duacs", SPECTRUM_DIR)
 
     print("\n[Temperature]")
-    print("Evaluating regional/oceanic SST spatial spectra and global temporal spectra vs OISST...")
+    print("Evaluating SST spatial spectra vs OISST (Global, Gulf Stream, Agulhas)...")
     global_sst_spec_metrics = _plot_global_sst_spectra(oisst, emulators)
     save_current_fig("regional_sst_spatial_global_temporal_spectra_vs_oisst", SPECTRUM_DIR)
 
-    print("Evaluating regional isotropic SST spectra vs OISST (Gulf Stream, Agulhas)...")
+    print("Evaluating isotropic SST spectra vs 5-day OISST (Global, Gulf Stream, Agulhas)...")
     temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
     save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
 

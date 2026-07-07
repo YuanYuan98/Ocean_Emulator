@@ -1,0 +1,7 @@
+model,region,metric,value
+Samudra 2 (1/4$^\circ$),Global,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,7175.830621683281
+OM4 (1/4$^\circ$),Global,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,2239.353112861078
+Samudra 2 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,4401.944845015876
+OM4 (1/4$^\circ$),Gulf Stream,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,3235.0448148072314
+Samudra 2 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,19733.82446029571
+OM4 (1/4$^\circ$),Agulhas,surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg,18447.619906998996

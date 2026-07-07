@@ -1,0 +1,13 @@
+model,region,metric,value
+Samudra 2 (1/4$^\circ$),Global,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,6.756212288307718e-08
+Samudra 2 (1/4$^\circ$),Global,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,2.7648578685062174e-07
+OM4 (1/4$^\circ$),Global,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,6.697125615257815e-08
+OM4 (1/4$^\circ$),Global,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,2.804217090885503e-07
+Samudra 2 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,7.637679661304946e-07
+Samudra 2 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,3.7322547966766016e-06
+OM4 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,7.524378754903864e-07
+OM4 (1/4$^\circ$),Gulf Stream,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,3.687399672548502e-06
+Samudra 2 (1/4$^\circ$),Agulhas,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,4.166164417338199e-07
+Samudra 2 (1/4$^\circ$),Agulhas,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,9.037711759581621e-07
+OM4 (1/4$^\circ$),Agulhas,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily,4.1593907487056726e-07
+OM4 (1/4$^\circ$),Agulhas,surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg,9.852062879541762e-07

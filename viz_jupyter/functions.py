@@ -4160,7 +4160,7 @@ def plot_ke_temporal_spectrum_comparison_together(
     # Format axes
     ax.set_xlabel('Frequency (cycles/year)')
     ax.set_ylabel('EKE Power Spectral Density')
-    ax.set_xlim(right=10)
+    ax.set_xlim(right=100)
 
     first_label = list(emulators_dict.keys())[0]
     depth_value = emulators_dict[first_label]['truth'].lev.values[lev_idx]
@@ -4479,7 +4479,7 @@ def plot_ke_temporal_spectrum_with_ratio(
             ax_ratio.semilogx(freq_truth[1:], ratio, '-', linewidth=2, color=color, label=f'{label}')
 
         ax_spec.set_ylabel('EKE Power Spectral Density')
-        ax_spec.set_xlim(right=10)
+        ax_spec.set_xlim(right=100)
         ax_spec.grid(True, which='both', linestyle='--', linewidth=0.5)
         ax_spec.set_title(f'{region_name} [{lon_slice.start}°–{lon_slice.stop}°E, {lat_slice.start}°–{lat_slice.stop}°N]')
         ax_spec.tick_params(axis='both', labelsize=14)
@@ -4487,7 +4487,7 @@ def plot_ke_temporal_spectrum_with_ratio(
         ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1.5)
         ax_ratio.axhspan(0.9, 1.1, color='gray', alpha=0.15)
         ax_ratio.set_ylim(ratio_ylim)
-        ax_ratio.set_xlim(right=10)
+        ax_ratio.set_xlim(right=100)
         ax_ratio.set_ylabel('Emulator / OM4')
         ax_ratio.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
         ax_ratio.set_title(f'{region_name} — Ratio')

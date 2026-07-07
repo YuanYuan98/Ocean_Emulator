@@ -3,7 +3,7 @@
 #SBATCH -A m4874
 #SBATCH -C cpu
 #SBATCH -q shared
-#SBATCH -t 02:00:00
+#SBATCH -t 04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
