@@ -121,10 +121,17 @@ for d in [SPECTRUM_DIR, TIMESERIES_DIR, VARIANCE_DIR, RMSE_DIR, MAP_DIR, METRICS
 # ============================================================
 # Four-part evaluation helpers
 # ============================================================
-EVAL_SPECTRUM_PANELS = [
-    ("Global", slice(0, 360), slice(-90, 90)),
+EVAL_SPECTRUM_REGIONS = [
     ("Gulf Stream", slice(300, 320), slice(25, 45)),
     ("Agulhas", slice(40, 60), slice(-50, -30)),
+]
+EVAL_SPATIAL_SPECTRUM_PANELS = [
+    ("North Pacific", slice(170, 200), slice(25, 45)),
+    *EVAL_SPECTRUM_REGIONS,
+]
+EVAL_TEMPORAL_SPECTRUM_PANELS = [
+    ("Global", slice(0, 360), slice(-90, 90)),
+    *EVAL_SPECTRUM_REGIONS,
 ]
 EVAL_OHC_DEPTH_SLICES = DEPTH_SLICES[:2]
 EVAL_OHC_UPPER_700_SLICE = EVAL_OHC_DEPTH_SLICES[0]
@@ -525,6 +532,22 @@ def _curve_rmse(x_ref, y_ref, x_other, y_other):
     return float(np.sqrt(np.mean((y_ref[domain][valid] - interp[valid]) ** 2))) if valid.sum() else float("nan")
 
 
+def _fully_observed_spectrum_box(field, min_size=8):
+    if "y" not in field.dims or "x" not in field.dims:
+        raise ValueError("Spectrum field must contain 'y' and 'x' dimensions")
+    if field.sizes["y"] < min_size or field.sizes["x"] < min_size:
+        raise ValueError(
+            f"Spatial-spectrum box has only {field.sizes['y']} x {field.sizes['x']} points "
+            f"(minimum {min_size} x {min_size})."
+        )
+    if not bool(np.isfinite(field).all().compute().item()):
+        raise ValueError(
+            "Spatial spectrum requires a fully observed open-ocean rectangle; "
+            "the selected box contains land or missing values."
+        )
+    return field
+
+
 def _mean_isotropic_spectrum(field, dx, dy, batch_size=32):
     ntime = int(field.sizes.get("time", 0))
     if ntime == 0:
@@ -533,8 +556,10 @@ def _mean_isotropic_spectrum(field, dx, dy, batch_size=32):
     spec_sum = None
     spec_count = None
     for start in range(0, ntime, batch_size):
-        chunk = field.isel(time=slice(start, min(start + batch_size, ntime))).fillna(0.0)
+        chunk = field.isel(time=slice(start, min(start + batch_size, ntime)))
         values = np.asarray(chunk.values, dtype=np.float32)
+        if not np.isfinite(values).all():
+            raise ValueError("Spatial spectrum received non-finite values after open-ocean validation")
         k_cent, spec = compute_isotropic_spectrum_torch(
             torch.as_tensor(values),
             dx=dx,
@@ -560,19 +585,22 @@ def _mean_isotropic_spectrum(field, dx, dy, batch_size=32):
 def _spectrum_from_surface_field(field, ds, lon_slice, lat_slice):
     data = field.sel(x=lon_slice, y=lat_slice).transpose("time", "y", "x")
     data = _calendar_day_anomaly(data)
-    data = data.fillna(data.mean("time", skipna=True)).fillna(data.mean(("y", "x"), skipna=True)).fillna(0.0)
-    dx = float(ds["dx"].sel(x=lon_slice, y=lat_slice).mean().values)
-    dy = float(ds["dy"].sel(x=lon_slice, y=lat_slice).mean().values)
+    data = _fully_observed_spectrum_box(data)
+    dx = float(ds["dx"].sel(x=data["x"], y=data["y"]).mean().values)
+    dy = float(ds["dy"].sel(x=data["x"], y=data["y"]).mean().values)
     return _mean_isotropic_spectrum(data, dx, dy)
 
 
 def _spectrum_from_map(field, ds, lon_slice, lat_slice):
     data = field.sel(x=lon_slice, y=lat_slice).transpose("y", "x")
-    data = data.fillna(data.mean(("y", "x"), skipna=True)).fillna(0.0)
-    dx = float(ds["dx"].sel(x=lon_slice, y=lat_slice).mean().values)
-    dy = float(ds["dy"].sel(x=lon_slice, y=lat_slice).mean().values)
+    data = _fully_observed_spectrum_box(data)
+    dx = float(ds["dx"].sel(x=data["x"], y=data["y"]).mean().values)
+    dy = float(ds["dy"].sel(x=data["x"], y=data["y"]).mean().values)
+    values = np.asarray(data.values, dtype=np.float32)
+    if not np.isfinite(values).all():
+        raise ValueError("Spatial spectrum received non-finite map values after open-ocean validation")
     k_cent, spec = compute_isotropic_spectrum_torch(
-        torch.as_tensor(np.asarray(data.values, dtype=np.float32)),
+        torch.as_tensor(values),
         dx=dx,
         dy=dy,
         n_factor=2,
@@ -994,7 +1022,7 @@ def _run_velocity_evaluation(emulators_dict, eval_year):
     save_current_fig(f"surface_eke_mean_map_vs_om4_{eval_year}", MAP_DIR)
 
     fig, axes = plt.subplots(1, 3, figsize=(16.5, 4.6), sharey=False)
-    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_SPECTRUM_PANELS):
+    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_SPATIAL_SPECTRUM_PANELS):
         for idx, (label, emu_data) in enumerate(emulators_dict.items()):
             truth_u, truth_v, model_u, model_v = _align_time(
                 _surface(emu_data["truth"], "uo"),
@@ -1025,7 +1053,7 @@ def _run_velocity_evaluation(emulators_dict, eval_year):
     save_current_fig("surface_eke_spatial_spectra_vs_om4", SPECTRUM_DIR)
 
     fig, axes = plt.subplots(1, 3, figsize=(16.5, 4.6), sharey=False)
-    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_SPECTRUM_PANELS):
+    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_TEMPORAL_SPECTRUM_PANELS):
         for idx, (label, emu_data) in enumerate(emulators_dict.items()):
             truth_freq, truth_psd = _ke_temporal_spectrum(emu_data["truth"], lon_slice, lat_slice)
             model_freq, model_psd = _ke_temporal_spectrum(emu_data["ds"], lon_slice, lat_slice)
@@ -1054,7 +1082,7 @@ def _run_temperature_evaluation(emulators_dict, eval_year):
     rows = []
 
     fig, axes = plt.subplots(1, 3, figsize=(16.5, 4.6), sharey=False)
-    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_SPECTRUM_PANELS):
+    for ax, (region, lon_slice, lat_slice) in zip(axes, EVAL_SPATIAL_SPECTRUM_PANELS):
         for idx, (label, emu_data) in enumerate(emulators_dict.items()):
             truth_sst, model_sst = _align_time(_surface(emu_data["truth"], "thetao"), _surface(emu_data["ds"], "thetao"))
             truth_k, truth_spec = _spectrum_from_surface_field(truth_sst, emu_data["truth"], lon_slice, lat_slice)

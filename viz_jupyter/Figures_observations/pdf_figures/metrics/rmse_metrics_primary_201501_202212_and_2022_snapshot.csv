@@ -1,0 +1,101 @@
+model,metric,value,period_kind,period_start,period_end,n_time_samples,year,is_primary,annual_std,ci_low,ci_high,n_years,n_bootstrap,uncertainty_method,block_aggregate_rmse,primary_aggregation_method,depth,ohc_density_kg_m3,ohc_heat_capacity_j_kg_k,ohc_volumetric_heat_capacity_j_m3_k,ohc_reference
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21021948613042565,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.001721591023370879,0.20905509200950814,0.21125814446311705,8.0,10000.0,calendar_year_block_bootstrap,0.21021948613042565,root_mean_annual_mse_equal_calendar_years,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.209024629915009,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.0014203345304291128,0.20813453058981435,0.2099641535724598,8.0,10000.0,calendar_year_block_bootstrap,0.209024629915009,root_mean_annual_mse_equal_calendar_years,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21020093967943618,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.2069074463403387,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20892091219235165,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21044245656518268,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21141961954942884,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21025020633629413,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21085665544717222,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21270830585711412,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20780636029547425,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20703363084868637,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20895811497232533,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.2087552404130396,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21008527540545674,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20841297338295042,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.20945854279995807,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21165312146558288,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04444205709479474,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.0014083708466536243,0.04356051756025024,0.04539585151992867,8.0,10000.0,calendar_year_block_bootstrap,0.04444205709479474,root_mean_annual_mse_equal_calendar_years,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.043993766797795174,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.0014254647862735439,0.04309645146814313,0.04495575447415306,8.0,10000.0,calendar_year_block_bootstrap,0.043993766797795174,root_mean_annual_mse_equal_calendar_years,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04280578394531036,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.043838914031635215,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04372623451159139,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04286680364361585,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.045362993830564385,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04472593097571939,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04505177908953599,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04700177271825263,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04238755856771639,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04343443874665177,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.0432490459148008,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04234823474285069,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04490013019508911,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04424464850255888,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.044625091165910395,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04659929412887242,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9357052203528862,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.020211911159319387,0.9235785971777941,0.9494917948443535,8.0,10000.0,calendar_year_block_bootstrap,0.9357052203528862,root_mean_annual_mse_equal_calendar_years,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.8051856706224204,primary_complete_years,2015-01-03,2022-12-24,583,,True,0.01387496252922103,0.7964663046445194,0.814205996329157,8.0,10000.0,calendar_year_block_bootstrap,0.8051856706224204,root_mean_annual_mse_equal_calendar_years,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9224114899477815,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9300081245470888,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9194388362431548,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9121735309980097,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.941073148620853,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9464039900596118,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9358000670868715,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9768043475500147,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.8152715283259498,annual,2015-01-03,2015-12-29,73,2015.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.8241082920756058,annual,2016-01-03,2016-12-28,73,2016.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7997018246144776,annual,2017-01-03,2017-12-29,73,2017.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7915720216580475,annual,2018-01-03,2018-12-29,73,2018.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.8172000052079521,annual,2019-01-03,2019-12-29,73,2019.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.8127602810528884,annual,2020-01-03,2020-12-28,73,2020.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7877134082711159,annual,2021-01-03,2021-12-29,73,2021.0,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7923211224850908,annual,2022-01-03,2022-12-24,72,2022.0,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2989005788.237582,primary_complete_years,2015-01-01,2022-12-01,96,,True,20915586.819584325,2975647083.201653,3002886444.421759,8.0,10000.0,calendar_year_block_bootstrap,2989005788.237582,root_mean_annual_mse_equal_calendar_years,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3009744952.537904,primary_complete_years,2015-01-01,2022-12-01,96,,True,10611325.495273056,3003233095.569832,3016724020.692134,8.0,10000.0,calendar_year_block_bootstrap,3009744952.537904,root_mean_annual_mse_equal_calendar_years,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2204036201.1180983,primary_complete_years,2015-01-01,2022-12-01,96,,True,7096713.072186883,2199328059.1286116,2208439714.4406576,8.0,10000.0,calendar_year_block_bootstrap,2204036201.1180983,root_mean_annual_mse_equal_calendar_years,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2187285835.4554405,primary_complete_years,2015-01-01,2022-12-01,96,,True,5233194.793317014,2183866042.243757,2190654305.188894,8.0,10000.0,calendar_year_block_bootstrap,2187285835.4554405,root_mean_annual_mse_equal_calendar_years,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2971956495.4484787,annual,2015-01-01,2015-12-01,12,2015.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2958585123.643938,annual,2016-01-01,2016-12-01,12,2016.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,3011332909.0708933,annual,2017-01-01,2017-12-01,12,2017.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,3021243383.407794,annual,2018-01-01,2018-12-01,12,2018.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2988274123.7684345,annual,2019-01-01,2019-12-01,12,2019.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2992814130.4198956,annual,2020-01-01,2020-12-01,12,2020.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2972794313.2464213,annual,2021-01-01,2021-12-01,12,2021.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2994533572.0813913,annual,2022-01-01,2022-12-01,12,2022.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2197720817.230717,annual,2015-01-01,2015-12-01,12,2015.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2203507012.847837,annual,2016-01-01,2016-12-01,12,2016.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2215005249.2011824,annual,2017-01-01,2017-12-01,12,2017.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2205011782.660038,annual,2018-01-01,2018-12-01,12,2018.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2208948599.455536,annual,2019-01-01,2019-12-01,12,2019.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2205181493.7329764,annual,2020-01-01,2020-12-01,12,2020.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2205577005.9296675,annual,2021-01-01,2021-12-01,12,2021.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2191257670.943994,annual,2022-01-01,2022-12-01,12,2022.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3005360096.691451,annual,2015-01-01,2015-12-01,12,2015.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2994527601.52853,annual,2016-01-01,2016-12-01,12,2016.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3010122024.047625,annual,2017-01-01,2017-12-01,12,2017.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3005529302.905671,annual,2018-01-01,2018-12-01,12,2018.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3003480414.532341,annual,2019-01-01,2019-12-01,12,2019.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3023086017.3466725,annual,2020-01-01,2020-12-01,12,2020.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3008628344.629927,annual,2021-01-01,2021-12-01,12,2021.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3027094876.6712766,annual,2022-01-01,2022-12-01,12,2022.0,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2188839504.6889353,annual,2015-01-01,2015-12-01,12,2015.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2186238514.860117,annual,2016-01-01,2016-12-01,12,2016.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2195121507.0135155,annual,2017-01-01,2017-12-01,12,2017.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2179757929.0992427,annual,2018-01-01,2018-12-01,12,2018.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2181695045.2659245,annual,2019-01-01,2019-12-01,12,2019.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2184377279.791308,annual,2020-01-01,2020-12-01,12,2020.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2190327296.3725348,annual,2021-01-01,2021-12-01,12,2021.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2191885784.0822997,annual,2022-01-01,2022-12-01,12,2022.0,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21270830585711412,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_geostrophic_velocity_vector_total_rmse,0.21165312146558288,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_eke_total_rmse,0.04268009610129147,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_eke_total_rmse,0.04221308302175676,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),surface_sst_total_rmse,0.9768043473365955,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+OM4 (1/4$^\circ$),surface_sst_total_rmse,0.7923211224372713,snapshot,2022-01-03,2022-12-24,72,,False,,,,,,,,,,,,,
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2994533572.0813913,snapshot,2022-01-01,2022-12-01,12,,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,3027094876.6712766,snapshot,2022-01-01,2022-12-01,12,,False,,,,,,,,,Surface (0-700m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+Samudra 2 (1/4$^\circ$),ohc_per_area_total_rmse,2191257670.943994,snapshot,2022-01-01,2022-12-01,12,,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC
+OM4 (1/4$^\circ$),ohc_per_area_total_rmse,2191885784.0822997,snapshot,2022-01-01,2022-12-01,12,,False,,,,,,,,,Intermediate (700-2000m),1035.0,3850.0,3984750.0,temperature_integral_relative_to_0_degC

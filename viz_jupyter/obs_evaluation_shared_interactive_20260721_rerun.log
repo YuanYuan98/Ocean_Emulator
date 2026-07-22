@@ -1,0 +1,116 @@
+Loading observations...
+Loading emulator rollouts...
+ - Samudra 2 (1/4$^\circ$): /global/homes/y/yy6080/workspace/Ocean_Emulator_Workspace/checkpoints/2025-02-08-samudra_om4_quarterdeg_cap_20_eval_fix/predictions.zarr
+ - OM4 (1/4$^\circ$): /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/quarterdeg/OM4.zarr
+Using OM4 (1/4$^\circ$) finite ocean mask for model-native diagnostics.
+Using DUACS absolute geostrophic velocity from adt (absolute dynamic topography).
+
+[Total RMSE + spatial RMSE maps (2015–2022 complete years)]
+Evaluating primary surface geostrophic velocity vector RMSE vs DUACS...
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 23
+  result = blockwise(
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 23
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/surface_geostrophic_velocity_vector_rmse_vs_duacs_201501_202212.pdf
+Evaluating primary instantaneous surface EKE RMSE vs DUACS...
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 23
+  result = blockwise(
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 23
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/surface_eke_rmse_vs_duacs_201501_202212.pdf
+Evaluating primary SST RMSE vs OISST...
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 16
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/sst_rmse_maps_vs_oisst_201501_202212.pdf
+Evaluating primary OHC RMSE vs ARGO-IAP...
+  -> Saved: Figures_observations/pdf_figures/rmse/ohc_per_area_rmse_maps_vs_argo_iap_201501_202212.pdf
+
+[Retained RMSE snapshot (2022)]
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 18
+  result = blockwise(
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 18
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/surface_geostrophic_velocity_vector_rmse_vs_duacs_2022.pdf
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 18
+  result = blockwise(
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 18
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/surface_eke_rmse_vs_duacs_2022.pdf
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/core.py:5201: PerformanceWarning: Increasing number of chunks by factor of 16
+  result = blockwise(
+  -> Saved: Figures_observations/pdf_figures/rmse/sst_rmse_maps_vs_oisst_2022.pdf
+  -> Saved: Figures_observations/pdf_figures/rmse/ohc_per_area_rmse_maps_vs_argo_iap_2022.pdf
+  -> Saved: Figures_observations/pdf_figures/rmse/annual_total_rmse_timeseries_vs_observations.pdf
+
+[Velocities]
+Evaluating EKE maps vs DUACS...
+  -> Saved: Figures_observations/pdf_figures/maps/eke_mean_vs_duacs_2022.pdf
+Evaluating EKE spatial spectra vs DUACS (North Pacific, Gulf Stream, Agulhas)...
+  -> Saved: Figures_observations/pdf_figures/spectrum/eke_spatial_spectra_open_ocean_boxes_vs_duacs.pdf
+Evaluating interannual EKE spatial spectra and log-standard-deviation bands...
+  -> Saved: Figures_observations/pdf_figures/spectrum/eke_spatial_spectra_interannual_vs_duacs.pdf
+Evaluating temporal KE spectra vs raw and 5-day DUACS (Global, Gulf Stream, Agulhas)...
+  -> Saved: Figures_observations/pdf_figures/spectrum/ke_temporal_spectra_vs_duacs.pdf
+Evaluating interannual temporal KE spectra and log-standard-deviation bands...
+  -> Saved: Figures_observations/pdf_figures/spectrum/ke_temporal_spectra_interannual_vs_duacs.pdf
+
+[Temperature]
+Evaluating isotropic SST spectra vs 5-day OISST (North Pacific, Gulf Stream, Agulhas)...
+  -> Saved: Figures_observations/pdf_figures/spectrum/temperature_isotropic_spectra_vs_oisst.pdf
+Evaluating interannual SST spatial spectra and log-standard-deviation bands...
+  -> Saved: Figures_observations/pdf_figures/spectrum/temperature_isotropic_spectra_interannual_vs_oisst.pdf
+Evaluating monthly total OHC for upper 700m and 700-2000m vs ARGO-IAP over 2014-10 to 2022-12...
+  -> Saved: Figures_observations/pdf_figures/timeseries/ohc_monthly_vs_argo_iap_201410_202212.pdf
+Evaluating annual-mean OHC maps for upper 700m and 700-2000m vs ARGO-IAP...
+  -> Saved: Figures_observations/pdf_figures/maps/ohc_layer_integrated_maps_vs_argo_iap_2022.pdf
+Evaluating annual-mean OHC point-wise bias/RMSE maps vs ARGO-IAP...
+  -> Saved: Figures_observations/pdf_figures/maps/ohc_layer_integrated_bias_maps_vs_argo_iap_2022.pdf
+
+[Anomalies]
+Evaluating SST time-series anomalies, trends, and residual variance vs OISST...
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_sst_mean_removed_anomaly_vs_oisst.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_sst_linear_trend_comparison_vs_oisst.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_sst_detrended_deseasonalized_anomaly_vs_oisst.pdf
+  -> Saved: Figures_observations/pdf_figures/variance/global_sst_residual_anomaly_variance_vs_oisst.pdf
+Evaluating EKE time-series anomalies, trends, and residual variance vs DUACS...
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_surface_eke_mean_removed_anomaly_vs_duacs.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_surface_eke_linear_trend_comparison_vs_duacs.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_surface_eke_detrended_deseasonalized_anomaly_vs_duacs.pdf
+  -> Saved: Figures_observations/pdf_figures/variance/global_surface_eke_residual_anomaly_variance_vs_duacs.pdf
+Evaluating upper-700m OHC time-series anomalies, trends, and residual variance vs ARGO-IAP...
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_mean_removed_anomaly_vs_argo_iap_201410_202212.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_linear_trend_comparison_vs_argo_iap_201410_202212.pdf
+  -> Saved: Figures_observations/pdf_figures/timeseries/global_ohc_upper700_detrended_deseasonalized_anomaly_vs_argo_iap_201410_202212.pdf
+  -> Saved: Figures_observations/pdf_figures/variance/global_ohc_upper700_residual_anomaly_variance_vs_argo_iap_201410_202212.pdf
+Evaluating SST residual-anomaly variance maps vs OISST...
+  SST residual variance chunks: {'time': -1, 'lat': 90, 'lon': 180}
+  Computing native-grid SST residual variance for Samudra 2 (1/4$^\circ$)
+  Computing native-grid SST residual variance for OM4 (1/4$^\circ$)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/_task_spec.py:768: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/numpy_compat.py:61: RuntimeWarning: invalid value encountered in divide
+  x = np.divide(x1, x2, out)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/_task_spec.py:768: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/numpy_compat.py:61: RuntimeWarning: invalid value encountered in divide
+  x = np.divide(x1, x2, out)
+  Loading OISST residual variance map for plotting/metrics...
+  Loading Samudra 2 (1/4$^\circ$) residual variance map for plotting/metrics...
+  Loading OM4 (1/4$^\circ$) residual variance map for plotting/metrics...
+  -> Saved: Figures_observations/pdf_figures/variance/sst_residual_anomaly_variance_maps_vs_oisst.pdf
+Evaluating upper-700m OHC residual-anomaly variance maps vs ARGO-IAP...
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/_task_spec.py:768: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/numpy_compat.py:61: RuntimeWarning: invalid value encountered in divide
+  x = np.divide(x1, x2, out)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/_task_spec.py:768: RuntimeWarning: invalid value encountered in divide
+  return self.func(*new_argspec)
+/pscratch/sd/y/yy6080/ocean_figures_xesmf/lib/python3.10/site-packages/dask/array/numpy_compat.py:61: RuntimeWarning: invalid value encountered in divide
+  x = np.divide(x1, x2, out)
+  Loading ARGO-IAP residual variance map for plotting/metrics...
+  Loading Samudra 2 (1/4$^\circ$) residual variance map for plotting/metrics...
+  Loading OM4 (1/4$^\circ$) residual variance map for plotting/metrics...
+  -> Saved: Figures_observations/pdf_figures/variance/ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_201410_202212.pdf
+  -> Saved: Figures_observations/pdf_figures/variance/annual_residual_variance_map_rmse_timeseries.pdf
+  -> Saved RMSE metrics and uncertainty: Figures_observations/pdf_figures/metrics/rmse_metrics_primary_201501_202212_and_2022_snapshot.csv
+  -> Saved metrics: Figures_observations/pdf_figures/metrics/observation_metrics_2022.csv

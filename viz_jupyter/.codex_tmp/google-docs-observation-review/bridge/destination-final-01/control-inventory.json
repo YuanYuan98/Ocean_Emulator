@@ -1,0 +1,822 @@
+{
+  "version": 1,
+  "kind": "google-docs-trusted-read-context",
+  "target": {
+    "documentId": "1rf7-BlilpIvkqdiSmXIRVhckPmukkwf2awMaRVKo4ZQ",
+    "title": "Observation Evaluation Summary - Updated Result Figures (2026-07-22)",
+    "revisionId": "ALtnJHw_xDFAnBTK6kYmyhJ5L8v9IgmwZcm9M8AsNTUcu0crC9PqommgDU5jnqE2Nh7F7jhNYjvzfyScbpoA7eFADfnjB5c7aNB6LYk9TBc",
+    "documentUrl": "https://docs.google.com/document/d/1rf7-BlilpIvkqdiSmXIRVhckPmukkwf2awMaRVKo4ZQ",
+    "selectedTabId": null
+  },
+  "dropdownMetadata": {
+    "status": "unavailable",
+    "resolvedTool": null,
+    "authoritative": false,
+    "count": 0
+  },
+  "derivedControlInventory": {
+    "hasProtectedControls": false,
+    "authoritativeDropdownCount": 0,
+    "opaqueControlCount": 0,
+    "nativeElementCounts": {
+      "inlineObjectElement": 31
+    },
+    "tabsScanned": [
+      "t.0"
+    ],
+    "controls": [],
+    "nativeElements": [
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 900,
+        "endIndex": 901,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[24]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 900,
+          "endIndex": 902,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.1dofdldwxo00",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 1112,
+        "endIndex": 1113,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[28]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 1112,
+          "endIndex": 1114,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.99ce4iu88cv8",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 1338,
+        "endIndex": 1339,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[32]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 1338,
+          "endIndex": 1340,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.aa2buw5zkjf7",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 1568,
+        "endIndex": 1569,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[36]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 1568,
+          "endIndex": 1570,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.dby45f16sj4e",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 1870,
+        "endIndex": 1871,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[40]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 1870,
+          "endIndex": 1872,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.u3vjoqa2px11",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 2149,
+        "endIndex": 2150,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[44]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 2149,
+          "endIndex": 2151,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.gdaxt8k1q6e8",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 2151,
+        "endIndex": 2152,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[45]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 2151,
+          "endIndex": 2153,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.a6cx8uftkl6",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 2565,
+        "endIndex": 2566,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[49]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 2565,
+          "endIndex": 2567,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.cearnnhm4165",
+          "textStyle": {
+            "fontSize": {
+              "magnitude": 11,
+              "unit": "PT"
+            },
+            "weightedFontFamily": {
+              "fontFamily": "Arial",
+              "weight": 400
+            }
+          }
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4567,
+        "endIndex": 4568,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[70]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4567,
+          "endIndex": 4569,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.6a9nvq51bfrn",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4618,
+        "endIndex": 4619,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[73]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4618,
+          "endIndex": 4620,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.6b3xe4gh2kbx",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4657,
+        "endIndex": 4658,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[75]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4657,
+          "endIndex": 4659,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.8x9t28dwzsmw",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4708,
+        "endIndex": 4709,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[77]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4708,
+          "endIndex": 4710,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.5k726gbytmub",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4857,
+        "endIndex": 4858,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[82]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4857,
+          "endIndex": 4859,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.4otnnoxrv3w0",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 4932,
+        "endIndex": 4933,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[84]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 4932,
+          "endIndex": 4934,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.sycz8ymfs1df",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5019,
+        "endIndex": 5020,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[86]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5019,
+          "endIndex": 5021,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.dzcn80mautas",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5175,
+        "endIndex": 5176,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[92]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5175,
+          "endIndex": 5177,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.jnnm8negzv74",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5244,
+        "endIndex": 5245,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[94]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5244,
+          "endIndex": 5246,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.j6ro8x3clr5k",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5290,
+        "endIndex": 5291,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[96]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5290,
+          "endIndex": 5292,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.si64u3fw423z",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5343,
+        "endIndex": 5344,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[98]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5343,
+          "endIndex": 5345,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.ujhikijn9enx",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5401,
+        "endIndex": 5402,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[100]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5401,
+          "endIndex": 5403,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.smdwlbat56v7",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5723,
+        "endIndex": 5724,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[107]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5723,
+          "endIndex": 5725,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.t3m3m26ojqnp",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5787,
+        "endIndex": 5788,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[109]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5787,
+          "endIndex": 5789,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.j14q9lfnm8f0",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5840,
+        "endIndex": 5841,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[111]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5840,
+          "endIndex": 5842,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.k7zks8q6udvj",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5891,
+        "endIndex": 5892,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[113]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5891,
+          "endIndex": 5893,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.53zdnbm6j3k7",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 5955,
+        "endIndex": 5956,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[115]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 5955,
+          "endIndex": 5957,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.1eyvm0yrexo5",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6008,
+        "endIndex": 6009,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[117]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6008,
+          "endIndex": 6010,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.k09f2vw7cmrg",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6071,
+        "endIndex": 6072,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[120]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6071,
+          "endIndex": 6073,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.94t950ftidoe",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6146,
+        "endIndex": 6147,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[122]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6146,
+          "endIndex": 6148,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.o3vhwfcn1jv1",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6210,
+        "endIndex": 6211,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[124]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6210,
+          "endIndex": 6212,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.wyzlpipq7xdi",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6262,
+        "endIndex": 6263,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[126]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6262,
+          "endIndex": 6264,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.ci1y3onokfok",
+          "textStyle": {}
+        }
+      },
+      {
+        "type": "inlineObjectElement",
+        "startIndex": 6325,
+        "endIndex": 6326,
+        "tabId": "t.0",
+        "segmentId": null,
+        "container": {
+          "kind": "paragraph",
+          "path": "root.tabs[0].body.content[128]",
+          "tabId": "t.0",
+          "segmentId": null,
+          "startIndex": 6325,
+          "endIndex": 6327,
+          "namedStyleType": "NORMAL_TEXT",
+          "listId": null,
+          "nestingLevel": null,
+          "table": null
+        },
+        "properties": {
+          "inlineObjectId": "kix.rpxfw4432jjv",
+          "textStyle": {}
+        }
+      }
+    ]
+  },
+  "editGuidance": {
+    "advisoryOnly": true,
+    "requiresTargetedPreservation": false,
+    "recommendedBehavior": "No protected controls were detected in the scanned scope.",
+    "warnings": []
+  }
+}

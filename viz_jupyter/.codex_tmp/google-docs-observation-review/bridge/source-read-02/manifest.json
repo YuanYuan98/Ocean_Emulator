@@ -1,0 +1,59 @@
+{
+  "bridgeVersion": "3.6",
+  "kind": "google-docs-trusted-read",
+  "status": "complete",
+  "outputDir": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02",
+  "target": {
+    "documentId": "1cWzIrcajfW-gvoMzV3PU0JDAouVt5xerRmEiBIUbV1s",
+    "title": "Observation Evaluation Summary",
+    "revisionId": "ALtnJHxT3Jr9pWvxZm_qWvG8fOUCsAQiw0Tj45OIBSqdGj4RbruFB70Mq1GVQyWPb4ZHmLN1lwB7BMd1a6yehB6Ie6blXhoBszkyzFGZq7Q",
+    "documentUrl": "https://docs.google.com/document/d/1cWzIrcajfW-gvoMzV3PU0JDAouVt5xerRmEiBIUbV1s",
+    "selectedTabId": null
+  },
+  "dropdownMetadata": {
+    "status": "unavailable",
+    "resolvedTool": null,
+    "authoritative": false,
+    "count": 0
+  },
+  "controlAwareness": {
+    "hasProtectedControls": false,
+    "authoritativeDropdownCount": 0,
+    "opaqueControlCount": 0,
+    "affectedParagraphCount": 0,
+    "nativeElementCounts": {
+      "inlineObjectElement": 31
+    },
+    "preservationRequired": false,
+    "recommendedBehavior": "No protected controls were detected in the scanned scope."
+  },
+  "warnings": [],
+  "files": {
+    "document_result": {
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02/document-result.json",
+      "bytes": 412396,
+      "sha256": "8554ebb35c30f557e2627049b642e5cc7e1fbd158f1b64474813639381aca2ca"
+    },
+    "control_inventory": {
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02/control-inventory.json",
+      "bytes": 22195,
+      "sha256": "ca05d29469ad916ffaf8f640078c00210ed7a558df2a467b0eabd26d2c2ac828"
+    },
+    "document_outline": {
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02/document-outline.json",
+      "bytes": 74051,
+      "sha256": "63367b61d5677db75da31a0e392310ec3382bf7f4640c84f133f1f341e956aa6"
+    },
+    "document_text": {
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02/document-text.md",
+      "bytes": 15022,
+      "sha256": "d451e50e927f8d45c40d95f0d5e202c9977febffd7ff91ae20c785c6a86af171"
+    },
+    "receipt": {
+      "path": "/global/u2/y/yy6080/workspace/Ocean_Emulator_Workspace/Ocean_Emulator/viz_jupyter/.codex_tmp/google-docs-observation-review/bridge/source-read-02/receipt.json",
+      "bytes": 1003,
+      "sha256": "2013af6ab5fba55165a44bbfa7b33dfeaa28e6cf0bd1ac6e836d0697bd887abf"
+    }
+  },
+  "error": null
+}

@@ -1,0 +1,31 @@
+{
+  "bridgeVersion": "3.6",
+  "kind": "google-docs-trusted-read-receipt",
+  "status": "complete",
+  "target": {
+    "documentId": "1cWzIrcajfW-gvoMzV3PU0JDAouVt5xerRmEiBIUbV1s",
+    "title": "Observation Evaluation Summary",
+    "revisionId": "ALtnJHxT3Jr9pWvxZm_qWvG8fOUCsAQiw0Tj45OIBSqdGj4RbruFB70Mq1GVQyWPb4ZHmLN1lwB7BMd1a6yehB6Ie6blXhoBszkyzFGZq7Q",
+    "documentUrl": "https://docs.google.com/document/d/1cWzIrcajfW-gvoMzV3PU0JDAouVt5xerRmEiBIUbV1s",
+    "selectedTabId": null
+  },
+  "dropdownMetadata": {
+    "status": "unavailable",
+    "resolvedTool": null,
+    "authoritative": false,
+    "count": 0
+  },
+  "controlAwareness": {
+    "hasProtectedControls": false,
+    "authoritativeDropdownCount": 0,
+    "opaqueControlCount": 0,
+    "affectedParagraphCount": 0,
+    "nativeElementCounts": {
+      "inlineObjectElement": 31
+    },
+    "preservationRequired": false,
+    "recommendedBehavior": "No protected controls were detected in the scanned scope."
+  },
+  "warnings": [],
+  "error": null
+}

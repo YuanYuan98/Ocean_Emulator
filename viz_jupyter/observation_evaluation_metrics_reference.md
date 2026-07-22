@@ -49,17 +49,18 @@ Time-series RMSE on the common timestamps:
 RMSE_t = \sqrt{\frac{1}{N}\sum_{t \in common} (M(t)-O(t))^2}
 \]
 
-Curve RMSE for spectra:
+Log10 curve RMSE for spectra:
 
-1. Interpolate the model curve onto the observation curve's x-axis over the common x-domain.
-2. Compute RMS difference in linear PSD space:
+1. Keep only finite, strictly positive x and PSD values over the common x-domain.
+2. Interpolate the model log10 PSD onto the observation x-axis in log10-x space.
+3. Compute the RMS log10 PSD difference:
 
 \[
-RMSE_{curve} =
-\sqrt{\frac{1}{N}\sum_k (P_M(k)-P_O(k))^2}
+RMSE_{\log_{10}} =
+\sqrt{\frac{1}{N}\sum_k \left(\log_{10}P_M(k)-\log_{10}P_O(k)\right)^2}
 \]
 
-The code uses linear PSD differences, not log-space differences.
+The result is in dex and measures multiplicative rather than absolute PSD error.
 
 ## Region Definitions For Spectra
 
@@ -183,9 +184,14 @@ OHC_{area}(x,y,t) =
 
 The script uses:
 
-- \(\rho_0\): constant seawater density in `obs_evaluation.py`
-- \(C_p\): constant heat capacity in `obs_evaluation.py`
+- \(\rho_0=1035\) kg m\(^{-3}\)
+- \(C_p=3850\) J kg\(^{-1}\) K\(^{-1}\)
+- \(\rho_0 C_p=3{,}984{,}750\) J m\(^{-3}\) K\(^{-1}\)
+- OHC reference: temperature integral relative to 0 °C, not a published IAP anomaly baseline
 - `0-700 m` (`Surface`) and `700-2000 m` (`Intermediate`) layers
+
+These values and the reference convention are written into the OHC metric rows. Published IAP
+OHC values require conversion when their volumetric heat capacity or anomaly reference differs.
 
 OHC fields are monthly averaged before RMSE. For each grid cell and layer:
 
@@ -250,13 +256,13 @@ Spectrum method:
 PSD_{2D} = |\hat{X}|^2 \, L_x L_y / C_{window}
 \]
 
-7. Bin by radial wavenumber and multiply by bin-center wavenumber to obtain the isotropic
-   radial spectrum.
-8. Report curve RMSE versus DUACS on the overlapping wavenumber domain.
+7. Exclude Fourier modes beyond the final retained bin edge, then bin by radial wavenumber and
+   multiply by bin-center wavenumber to obtain the isotropic radial spectrum.
+8. Report log10 curve RMSE versus DUACS on the overlapping positive wavenumber domain.
 
 Metric key:
 
-- `surface_eke_spatial_spectrum_rmse_vs_duacs`, with `region` in `Global`, `Gulf Stream`, `Agulhas`
+- `surface_eke_spatial_spectrum_log10_rmse_vs_duacs`, with `region` in `Global`, `Gulf Stream`, `Agulhas`
 
 Figure:
 
@@ -297,8 +303,8 @@ native resolution.
 
 Metrics:
 
-- `surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily`
-- `surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg`
+- `surface_geostrophic_ke_temporal_spectrum_log10_rmse_vs_duacs_raw_daily`
+- `surface_geostrophic_ke_temporal_spectrum_log10_rmse_vs_duacs_5day_avg`
 
 Both have `region` in `Global`, `Gulf Stream`, `Agulhas`.
 
@@ -333,12 +339,12 @@ For each region:
 3. Compute per-time isotropic spectra using the same 2-D detrend + Hann + FFT + radial binning
    method described above.
 4. Average spectra over time in batches.
-5. Compute curve RMSE versus OISST.
+5. Compute log10 curve RMSE versus OISST.
 
 Metrics:
 
-- `surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg`
-- `surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg`
+- `surface_ssta_spatial_spectrum_log10_rmse_vs_oisst_5day_avg`
+- `surface_ssta_isotropic_spectrum_log10_rmse_vs_oisst_5day_avg`
 
 Both have `region` in `Global`, `Gulf Stream`, `Agulhas`.
 
@@ -502,7 +508,9 @@ The residual anomaly calculation is:
 
 Seasonal-cycle rule:
 
-- If median cadence is <= 10 days and enough repeated pentads exist, use pentad climatology.
+- If median cadence is <= 10 days and enough repeated pentads exist, use a 365-day no-leap
+  pentad climatology; dates after February are aligned across leap years and February 29 is
+  assigned to the February 28 pentad.
 - Otherwise, if all calendar months repeat, use monthly climatology.
 - Otherwise, remove only the mean.
 
@@ -585,16 +593,20 @@ Map metric:
 RMSE_{varmap}=\sqrt{\langle (Var_M(x,y)-Var_O(x,y))^2\rangle_A}
 \]
 
-Pattern correlation:
+Area-weighted centered pattern correlation, using only cells where both fields and area are
+finite and area is positive:
 
 \[
-Corr = corr(Var_M(x,y), Var_O(x,y))
+Corr_A =
+\frac{\sum_i A_i(Var_{M,i}-\overline{Var_M}_A)(Var_{O,i}-\overline{Var_O}_A)}
+{\sqrt{\sum_i A_i(Var_{M,i}-\overline{Var_M}_A)^2
+\sum_i A_i(Var_{O,i}-\overline{Var_O}_A)^2}}
 \]
 
 Metric keys:
 
 - `surface_sst_residual_variance_map_rmse`
-- `surface_sst_residual_variance_pattern_corr`
+- `surface_sst_residual_variance_area_weighted_pattern_corr`
 
 Figure:
 
@@ -613,12 +625,13 @@ OHC_{area}(x,y,t)=\rho_0 C_p \sum_{0}^{700m} T(x,y,z,t)\Delta z
 2. Monthly-average the OHC per-area field.
 3. Remove seasonal cycle and trend at each grid cell.
 4. Compute residual variance at each grid cell.
-5. Compare model and observation variance maps with area-weighted RMSE and pattern correlation.
+5. Compare model and observation variance maps with area-weighted RMSE and area-weighted
+   centered pattern correlation.
 
 Metric keys:
 
 - `ohc_upper700_per_area_residual_variance_map_rmse`
-- `ohc_upper700_per_area_residual_variance_pattern_corr`
+- `ohc_upper700_per_area_residual_variance_area_weighted_pattern_corr`
 
 Figure:
 

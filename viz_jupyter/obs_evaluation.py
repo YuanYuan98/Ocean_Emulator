@@ -6,12 +6,14 @@ compares emulator rollouts against observational products instead of OM4 truth.
 
 Implemented evaluations
 -----------------------
-1. 2022 total RMSE metrics and spatial RMSE maps for surface geostrophic velocity,
-   surface EKE, SST, and OHC.
-2. Velocity diagnostics: surface EKE maps, Global / Gulf Stream / Agulhas EKE spatial spectra,
-   and Global / Gulf Stream / Agulhas temporal KE spectra.
-3. Temperature diagnostics: Global / Gulf Stream / Agulhas SST spatial spectra and OHC totals
-   for upper 700m and 700-2000m.
+1. Complete-year 2015-2022 total RMSE metrics and spatial RMSE maps for surface geostrophic
+   velocity, instantaneous surface EKE, SST, and OHC, with annual uncertainty diagnostics and
+   a retained target-year snapshot.
+2. Velocity diagnostics: surface EKE maps, open-ocean North Pacific / Gulf Stream / Agulhas EKE
+   spatial spectra, and Global / Gulf Stream / Agulhas temporal KE spectra, including per-year
+   geometric-mean and log-standard-deviation diagnostics.
+3. Temperature diagnostics: open-ocean North Pacific / Gulf Stream / Agulhas SST spatial spectra
+   and OHC totals for upper 700m and 700-2000m.
 4. Time-series anomaly diagnostics for SST, EKE, and upper-700m OHC: mean-removed anomalies,
    linear trend comparison, detrended+deseasonalized anomalies, and residual anomaly variance
    (SST/EKE retain 5-day cadence).
@@ -57,6 +59,16 @@ torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "32")))
 
 parser = argparse.ArgumentParser(description="Observation-based evaluation")
 parser.add_argument("--year", type=int, default=2022, help="Target evaluation year for map/time-series products")
+parser.add_argument(
+    "--rmse-start-date",
+    default=None,
+    help="Optional start date for primary RMSE diagnostics. Defaults to 2015-01-01.",
+)
+parser.add_argument(
+    "--rmse-end-date",
+    default=None,
+    help="Optional end date for primary RMSE diagnostics. Defaults to 2022-12-31.",
+)
 parser.add_argument(
     "--ohc-start-date",
     default=None,
@@ -147,16 +159,24 @@ SPECTRUM_REGIONS = [
     ("Gulf Stream", slice(300, 320), slice(25, 45)),
     ("Agulhas", slice(40, 60), slice(-50, -30)),
 ]
-SPECTRUM_REGION_LABEL = "Gulf Stream and Agulhas"
-SPECTRUM_PANELS = [
+SPATIAL_SPECTRUM_PANELS = [
+    ("North Pacific", slice(170, 200), slice(25, 45)),
+    *SPECTRUM_REGIONS,
+]
+SPATIAL_SPECTRUM_PANEL_LABEL = "North Pacific, Gulf Stream, and Agulhas open-ocean boxes"
+TEMPORAL_SPECTRUM_PANELS = [
     ("Global", slice(0, 360), slice(-90, 90)),
     *SPECTRUM_REGIONS,
 ]
-SPECTRUM_PANEL_LABEL = "Global, Gulf Stream, and Agulhas"
 SPECTRUM_TIME_BATCH = 32
+RMSE_BOOTSTRAP_SAMPLES = 10_000
 
-# Full calendar years used for the interannual (per-year mean +/- 1 std) spectra diagnostics.
-SPECTRA_INTERANNUAL_YEARS = list(range(2015, 2023))
+# Use the same complete calendar years for primary RMSE and interannual spectra so the
+# point estimates, annual variability, and calendar-year block bootstrap share one period.
+PRIMARY_EVALUATION_YEARS = list(range(2015, 2023))
+PRIMARY_RMSE_START = pd.Timestamp(f"{PRIMARY_EVALUATION_YEARS[0]}-01-01")
+PRIMARY_RMSE_END = pd.Timestamp(f"{PRIMARY_EVALUATION_YEARS[-1]}-12-31")
+SPECTRA_INTERANNUAL_YEARS = PRIMARY_EVALUATION_YEARS
 
 DUACS_RAW_ZARR = (
     "duacs/"
@@ -212,8 +232,22 @@ ARGO_STRUCTURE_VARIABLES = [
     },
 ]
 
-RHO = 1035
-CP = 3850
+RHO = 1035.0  # kg m^-3
+CP = 3850.0  # J kg^-1 K^-1
+OHC_REFERENCE = "temperature_integral_relative_to_0_degC"
+
+
+def _attach_ohc_convention_metadata(metrics: pd.DataFrame) -> pd.DataFrame:
+    """Record the OHC convention on OHC metric rows for reproducible external comparisons."""
+    metrics = metrics.copy()
+    ohc_rows = metrics.get("metric", pd.Series(index=metrics.index, dtype=str)).str.contains(
+        "ohc", case=False, na=False
+    )
+    metrics["ohc_density_kg_m3"] = np.where(ohc_rows, RHO, np.nan)
+    metrics["ohc_heat_capacity_j_kg_k"] = np.where(ohc_rows, CP, np.nan)
+    metrics["ohc_volumetric_heat_capacity_j_m3_k"] = np.where(ohc_rows, RHO * CP, np.nan)
+    metrics["ohc_reference"] = np.where(ohc_rows, OHC_REFERENCE, None)
+    return metrics
 
 
 def concat_levels(ds: xr.Dataset, prefix: str) -> xr.DataArray:
@@ -310,8 +344,12 @@ def compute_isotropic_spectrum_torch(
     k_centers = (k_bins[:-1] + k_bins[1:]) / 2
 
     k_mag_flat = k_mag.flatten()
-    bin_indices = torch.bucketize(k_mag_flat, k_bins[1:-1], right=True)
-    psd_flat = psd_2d.reshape(merged, k_mag_flat.shape[0])
+    # bucketize maps values above the final edge to the final bin. Exclude those Fourier-corner
+    # modes explicitly so they cannot contaminate the highest retained isotropic bin.
+    retained_modes = k_mag_flat <= k_bins[-1]
+    k_mag_binned = k_mag_flat[retained_modes]
+    bin_indices = torch.bucketize(k_mag_binned, k_bins[1:-1], right=True)
+    psd_flat = psd_2d.reshape(merged, k_mag_flat.shape[0])[:, retained_modes]
     binned_sum = torch.zeros(merged, num_bins, device=data.device, dtype=data.dtype)
     binned_sum.scatter_add_(dim=1, index=bin_indices.expand(merged, -1), src=psd_flat)
     binned_counts = torch.bincount(bin_indices, minlength=num_bins).to(data.dtype)
@@ -783,15 +821,56 @@ def _estimate_area(lon_vals: np.ndarray, lat_vals: np.ndarray) -> np.ndarray:
     return _estimate_dx(lon_vals, lat_vals) * _estimate_dy(lat_vals, lon_vals)
 
 
-def _depth_thickness_from_centers(depth_vals: np.ndarray) -> np.ndarray:
+def _depth_edges_from_centers(depth_vals: np.ndarray) -> np.ndarray:
     depth = np.asarray(depth_vals, dtype=float)
     if depth.ndim != 1 or depth.size < 2:
         raise ValueError("Expected at least two 1D depth centers")
+    if not np.all(np.isfinite(depth)) or np.any(np.diff(depth) <= 0):
+        raise ValueError("Depth centers must be finite and strictly increasing")
     edges = np.empty(depth.size + 1, dtype=float)
     edges[1:-1] = 0.5 * (depth[:-1] + depth[1:])
     edges[0] = max(0.0, depth[0] - 0.5 * (depth[1] - depth[0]))
     edges[-1] = depth[-1] + 0.5 * (depth[-1] - depth[-2])
-    return np.diff(edges)
+    return edges
+
+
+def _depth_thickness_from_centers(depth_vals: np.ndarray) -> np.ndarray:
+    return np.diff(_depth_edges_from_centers(depth_vals))
+
+
+def _layer_overlap_thickness(
+    depth: xr.DataArray,
+    min_depth: float,
+    max_depth: float,
+    native_dz: xr.DataArray | None = None,
+) -> xr.DataArray:
+    """Thickness of each native cell inside the half-open interval [min_depth, max_depth).
+
+    Observation products provide depth centers, so their cell edges are reconstructed from
+    adjacent centers. Model products additionally provide exact native layer thicknesses;
+    those are used with the native centers to recover the model cell bounds. Partial boundary
+    cells are prorated rather than included or excluded based only on their center depth.
+    """
+    min_depth = float(min_depth)
+    max_depth = float(max_depth)
+    if not np.isfinite(min_depth) or not np.isfinite(max_depth) or max_depth <= min_depth:
+        raise ValueError(f"Invalid target depth interval [{min_depth}, {max_depth})")
+
+    if native_dz is None:
+        edges = _depth_edges_from_centers(depth.values)
+        lower = xr.DataArray(edges[:-1], dims=depth.dims, coords=depth.coords)
+        upper = xr.DataArray(edges[1:], dims=depth.dims, coords=depth.coords)
+    else:
+        if depth.ndim != 1:
+            raise ValueError(f"Expected a 1D native depth coordinate, got dimensions {depth.dims}")
+        lower = depth - 0.5 * native_dz
+        upper = depth + 0.5 * native_dz
+
+    clipped_lower = xr.where(lower > min_depth, lower, min_depth)
+    clipped_upper = xr.where(upper < max_depth, upper, max_depth)
+    overlap = (clipped_upper - clipped_lower).clip(min=0.0)
+    overlap.name = "layer_overlap_dz"
+    return overlap
 
 
 def _infer_obs_grid_metrics(ds: xr.Dataset) -> xr.Dataset:
@@ -813,6 +892,41 @@ def _temporal_overlap(sim: xr.Dataset, obs: xr.Dataset) -> tuple[xr.Dataset, xr.
     return sim.sel(time=slice(start, end)), obs.sel(time=slice(start, end))
 
 
+def _require_exact_time_match(
+    model: xr.Dataset | xr.DataArray,
+    observation: xr.Dataset | xr.DataArray,
+    context: str,
+) -> None:
+    """Fail rather than silently interpolate when model and observation times differ."""
+    if "time" not in model.dims or "time" not in observation.dims:
+        raise ValueError(f"{context}: both model and observation fields must have a time dimension")
+
+    model_time = _coerce_datetime_values(model["time"].values)
+    obs_time = _coerce_datetime_values(observation["time"].values)
+    if model_time.equals(obs_time):
+        return
+
+    common = model_time.intersection(obs_time)
+    model_only = model_time.difference(obs_time)
+    obs_only = obs_time.difference(model_time)
+    details = [
+        f"model samples={len(model_time)}",
+        f"observation samples={len(obs_time)}",
+        f"common timestamps={len(common)}",
+    ]
+    if len(model_only):
+        details.append(f"first model-only timestamp={model_only[0]}")
+    if len(obs_only):
+        details.append(f"first observation-only timestamp={obs_only[0]}")
+    if not len(model_only) and not len(obs_only):
+        details.append("the timestamp order differs")
+    raise ValueError(
+        f"{context}: model and observation timestamps must match exactly before spatial "
+        f"interpolation ({'; '.join(details)}). Temporal interpolation is disabled to avoid "
+        "silently smoothing model variability."
+    )
+
+
 def _common_time_window(*datasets: xr.Dataset | xr.DataArray) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Intersection of the time spans of all given datasets."""
     starts, ends = [], []
@@ -824,6 +938,39 @@ def _common_time_window(*datasets: xr.Dataset | xr.DataArray) -> tuple[pd.Timest
     if start > end:
         raise ValueError("No common time window across the provided datasets")
     return start, end
+
+
+def _bounded_common_time_window(
+    *datasets: xr.Dataset | xr.DataArray,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    common_start, common_end = _common_time_window(*datasets)
+    bounded_start = max(common_start, start) if start is not None else common_start
+    bounded_end = min(common_end, end) if end is not None else common_end
+    if bounded_start > bounded_end:
+        raise ValueError(
+            "No common time samples within requested RMSE period: "
+            f"requested={start} to {end}, common={common_start} to {common_end}"
+        )
+    return bounded_start, bounded_end
+
+
+def _bounded_common_month_window(
+    *datasets: xr.Dataset | xr.DataArray,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    starts, ends = zip(*[_time_bounds(ds) for ds in datasets], strict=True)
+    common_start = max(timestamp.to_period("M") for timestamp in starts)
+    common_end = min(timestamp.to_period("M") for timestamp in ends)
+    if start is not None:
+        common_start = max(common_start, start.to_period("M"))
+    if end is not None:
+        common_end = min(common_end, end.to_period("M"))
+    if common_start > common_end:
+        raise ValueError(f"No common monthly samples within requested RMSE period: {start} to {end}")
+    return common_start.start_time, common_end.end_time
 
 
 def _year_slice(ds: xr.Dataset | xr.DataArray, year: int) -> xr.Dataset | xr.DataArray:
@@ -853,18 +1000,15 @@ def _resolve_ohc_period(
     start_date: str | None,
     end_date: str | None,
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
-    starts = [_time_bounds(argo_iap)[0]]
-    ends = [_time_bounds(argo_iap)[1]]
-    for emu in emulators.values():
-        start, end = _time_bounds(emu["ds"])
-        starts.append(start)
-        ends.append(end)
-
-    start = _date_or_none(start_date) or max(starts)
-    end = _date_or_none(end_date) or min(ends)
-    if start > end:
-        raise ValueError(f"No OHC temporal overlap for requested period: start={start}, end={end}")
-    return start, end
+    # ARGO-IAP timestamps label monthly means at month start, while model timestamps
+    # represent 5-day samples. Resolve the overlap by calendar month so a timestamp at
+    # 2022-12-01 includes all model samples in December rather than truncating at day 1.
+    return _bounded_common_month_window(
+        argo_iap,
+        *[emu["ds"] for emu in emulators.values()],
+        start=_date_or_none(start_date),
+        end=_date_or_none(end_date),
+    )
 
 
 def _resolve_obs_climatology_period(
@@ -929,7 +1073,15 @@ def _median_time_step_days(index: pd.DatetimeIndex) -> float:
 
 
 def _pentad_index(index: pd.DatetimeIndex) -> np.ndarray:
-    return ((index.dayofyear.to_numpy() - 1) // 5 + 1).astype(int)
+    # Use a 365-day climatological calendar so dates after February remain aligned between
+    # leap and non-leap years. Associate February 29 with the February 28 climatology bin.
+    dayofyear = index.dayofyear.to_numpy().copy()
+    is_leap = np.asarray(index.is_leap_year)
+    month = index.month.to_numpy()
+    day = index.day.to_numpy()
+    dayofyear[is_leap & (month > 2)] -= 1
+    dayofyear[is_leap & (month == 2) & (day == 29)] = 59
+    return ((dayofyear - 1) // 5 + 1).astype(int)
 
 
 def _series_without_pentad_climatology(series: pd.Series) -> pd.Series:
@@ -1061,23 +1213,215 @@ def _field_rmse_over_time(sim: xr.DataArray, obs: xr.DataArray, context: str = "
     return np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True))
 
 
-def _pattern_corr(a: xr.DataArray, b: xr.DataArray) -> float:
-    a_vals = np.asarray(a.values).ravel()
-    b_vals = np.asarray(b.values).ravel()
-    valid = np.isfinite(a_vals) & np.isfinite(b_vals)
-    if valid.sum() < 2:
+def _complete_calendar_years(time: xr.DataArray, min_sample_fraction: float = 0.95) -> list[int]:
+    index = pd.DatetimeIndex(time.values)
+    if index.empty:
+        return []
+    counts = pd.Series(index.year).value_counts().sort_index()
+    target_count = int(counts.max())
+    step_days = _median_time_step_days(index)
+    boundary_tolerance = pd.Timedelta(days=1.5 * step_days) if np.isfinite(step_days) else pd.Timedelta(0)
+    years = []
+    for year, count in counts.items():
+        year_index = index[index.year == year]
+        year_start = pd.Timestamp(f"{year}-01-01")
+        year_end = pd.Timestamp(f"{year}-12-31 23:59:59.999999999")
+        covers_calendar = (
+            year_index.min() <= year_start + boundary_tolerance
+            and year_index.max() >= year_end - boundary_tolerance
+        )
+        if covers_calendar and count >= min_sample_fraction * target_count:
+            years.append(int(year))
+    return years
+
+
+def _require_complete_calendar_years(time: xr.DataArray, context: str) -> list[int]:
+    """Return selected years, failing if the primary period contains a partial year."""
+    index = pd.DatetimeIndex(time.values)
+    present_years = sorted({int(year) for year in index.year})
+    complete_years = _complete_calendar_years(time)
+    if complete_years != present_years:
+        incomplete = sorted(set(present_years) - set(complete_years))
+        raise ValueError(
+            f"{context}: uncertainty-enabled primary RMSE requires complete calendar years; "
+            f"incomplete years={incomplete}. Adjust --rmse-start-date/--rmse-end-date."
+        )
+    return complete_years
+
+
+def _interannual_rmse_summary(
+    annual_rmse: np.ndarray,
+    bootstrap_samples: int = RMSE_BOOTSTRAP_SAMPLES,
+) -> dict[str, float | int | str]:
+    values = np.asarray(annual_rmse, dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return {
+            "annual_std": np.nan,
+            "ci_low": np.nan,
+            "ci_high": np.nan,
+            "n_years": 0,
+            "n_bootstrap": 0,
+            "uncertainty_method": "unavailable",
+            "block_aggregate_rmse": np.nan,
+            "primary_aggregation_method": "root_mean_annual_mse_equal_calendar_years",
+        }
+
+    annual_mse = values ** 2
+    block_aggregate_rmse = float(np.sqrt(annual_mse.mean()))
+    annual_std = float(np.std(values, ddof=1)) if values.size > 1 else np.nan
+    if values.size < 2 or bootstrap_samples <= 0:
+        ci_low = ci_high = np.nan
+        n_bootstrap = 0
+    else:
+        rng = np.random.default_rng(0)
+        sampled = rng.choice(annual_mse, size=(bootstrap_samples, values.size), replace=True)
+        bootstrap_rmse = np.sqrt(sampled.mean(axis=1))
+        ci_low, ci_high = np.percentile(bootstrap_rmse, [2.5, 97.5]).astype(float)
+        n_bootstrap = int(bootstrap_samples)
+
+    return {
+        "annual_std": annual_std,
+        "ci_low": float(ci_low),
+        "ci_high": float(ci_high),
+        "n_years": int(values.size),
+        "n_bootstrap": n_bootstrap,
+        "uncertainty_method": "calendar_year_block_bootstrap",
+        "block_aggregate_rmse": block_aggregate_rmse,
+        "primary_aggregation_method": "root_mean_annual_mse_equal_calendar_years",
+    }
+
+
+def _rmse_map_and_annual_rows(
+    error_squared: xr.DataArray,
+    area: xr.DataArray,
+    spatial_dims: tuple[str, str],
+    model: str,
+    metric: str,
+    depth: str | None = None,
+    include_annual: bool = False,
+) -> tuple[xr.DataArray, pd.DataFrame, dict[str, float | int | str]]:
+    if error_squared.sizes.get("time", 0) == 0:
+        raise ValueError(f"No time samples available for {model} {metric}")
+    if not include_annual:
+        rmse_map = np.sqrt(error_squared.mean("time", skipna=True))
+        return rmse_map, pd.DataFrame(), {}
+
+    years = _require_complete_calendar_years(error_squared["time"], f"{model} {metric}")
+    if not years:
+        rmse_map = np.sqrt(error_squared.mean("time", skipna=True))
+        return rmse_map, pd.DataFrame(), _interannual_rmse_summary(np.array([]))
+
+    annual_mse_maps = error_squared.groupby("time.year").mean("time", skipna=True).sel(year=years)
+    # The primary map and scalar score use the same equal-year blocks as the bootstrap.
+    rmse_map = np.sqrt(annual_mse_maps.mean("year", skipna=True))
+    finite = np.isfinite(annual_mse_maps)
+    weighted_sum = (annual_mse_maps.where(finite) * area).sum(spatial_dims, skipna=True)
+    weight_sum = area.where(finite).sum(spatial_dims, skipna=True)
+    annual_rmse = np.sqrt(weighted_sum / weight_sum)
+
+    computed = xr.Dataset({"rmse_map": rmse_map, "annual_rmse": annual_rmse}).compute()
+    rmse_map = computed["rmse_map"]
+    annual_values = np.asarray(computed["annual_rmse"].values, dtype=float)
+    time_index = pd.DatetimeIndex(error_squared["time"].values)
+    rows = []
+    for year, value in zip(years, annual_values, strict=True):
+        year_index = time_index[time_index.year == year]
+        rows.append(
+            {
+                "model": model,
+                "metric": metric,
+                "value": float(value),
+                "depth": depth,
+                "period_kind": "annual",
+                "period_start": f"{year_index.min():%Y-%m-%d}",
+                "period_end": f"{year_index.max():%Y-%m-%d}",
+                "n_time_samples": int(year_index.size),
+                "year": int(year),
+                "is_primary": False,
+            }
+        )
+    return rmse_map, pd.DataFrame(rows), _interannual_rmse_summary(annual_values)
+
+
+def _annotate_rmse_period(
+    rows: pd.DataFrame,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    period_kind: str,
+    n_time_samples: int,
+    summaries: dict[tuple[str, str | None], dict[str, float | int | str]] | None = None,
+) -> pd.DataFrame:
+    rows = rows.copy()
+    rows["period_kind"] = period_kind
+    rows["period_start"] = f"{start:%Y-%m-%d}"
+    rows["period_end"] = f"{end:%Y-%m-%d}"
+    rows["n_time_samples"] = int(n_time_samples)
+    rows["year"] = np.nan
+    rows["is_primary"] = period_kind == "primary_complete_years"
+    for column in [
+        "annual_std",
+        "ci_low",
+        "ci_high",
+        "n_years",
+        "n_bootstrap",
+        "uncertainty_method",
+        "block_aggregate_rmse",
+        "primary_aggregation_method",
+    ]:
+        rows[column] = None if column in {"uncertainty_method", "primary_aggregation_method"} else np.nan
+
+    if summaries:
+        for idx, row in rows.iterrows():
+            depth = row.get("depth")
+            key = (row["model"], None if pd.isna(depth) else str(depth))
+            summary = summaries.get(key)
+            if not summary:
+                continue
+            for column, value in summary.items():
+                rows.at[idx, column] = value
+    return rows
+
+
+def _area_weighted_pattern_corr(
+    model: xr.DataArray,
+    observation: xr.DataArray,
+    area: xr.DataArray,
+) -> float:
+    """Centered pattern correlation on the common finite, positive-area mask."""
+    model, observation, area = xr.align(model, observation, area, join="inner")
+    valid = np.isfinite(model) & np.isfinite(observation) & np.isfinite(area) & (area > 0)
+    weights = area.where(valid)
+    weight_sum = weights.sum(skipna=True)
+    weight_sum_value = float(weight_sum.values)
+    if not np.isfinite(weight_sum_value) or weight_sum_value <= 0.0:
         return float("nan")
-    return float(np.corrcoef(a_vals[valid], b_vals[valid])[0, 1])
 
-
-def _surface_eke_from_uv(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
-    u_anom = u - u.mean("time")
-    v_anom = v - v.mean("time")
-    return 0.5 * (u_anom ** 2 + v_anom ** 2).mean("time")
+    model_mean = (model.where(valid) * weights).sum(skipna=True) / weight_sum
+    obs_mean = (observation.where(valid) * weights).sum(skipna=True) / weight_sum
+    model_anomaly = model - model_mean
+    obs_anomaly = observation - obs_mean
+    covariance = (weights * model_anomaly * obs_anomaly).sum(skipna=True)
+    model_variance = (weights * model_anomaly**2).sum(skipna=True)
+    obs_variance = (weights * obs_anomaly**2).sum(skipna=True)
+    denominator = np.sqrt(model_variance * obs_variance)
+    denominator_value = float(denominator.values)
+    if not np.isfinite(denominator_value) or denominator_value <= 0.0:
+        return float("nan")
+    return float((covariance / denominator).values)
 
 
 def _time_mean_velocity_anomaly(u: xr.DataArray, v: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
     return u - u.mean("time"), v - v.mean("time")
+
+
+def _instantaneous_surface_eke_from_uv(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
+    u_anom, v_anom = _time_mean_velocity_anomaly(u, v)
+    return 0.5 * (u_anom ** 2 + v_anom ** 2)
+
+
+def _surface_eke_from_uv(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
+    return _instantaneous_surface_eke_from_uv(u, v).mean("time", skipna=True)
 
 
 def _surface_eke_timeseries_from_uv(
@@ -1086,8 +1430,7 @@ def _surface_eke_timeseries_from_uv(
     area: xr.DataArray,
     spatial_dims: tuple[str, str],
 ) -> xr.DataArray:
-    u_anom, v_anom = _time_mean_velocity_anomaly(u, v)
-    eke = 0.5 * (u_anom ** 2 + v_anom ** 2)
+    eke = _instantaneous_surface_eke_from_uv(u, v)
     return _area_weighted_timeseries(eke, area, spatial_dims)
 
 
@@ -1130,26 +1473,33 @@ def _geostrophic_velocity_from_zos(
     return u_g, v_g
 
 
-def _mask_region_for_spectrum(
-    ssta: xr.DataArray,
+def _fully_observed_spectrum_block(
+    field: xr.DataArray,
     lat_dim: str,
     lon_dim: str,
     min_size: int = 8,
 ) -> xr.DataArray:
-    """Restrict a (time, lat, lon) anomaly field to a fully-observed rectangular block so the
-    2-D FFT never sees zero-filled land/missing cells (which would inject spurious power at the
-    land-ocean boundary). Cells finite at every time define the mask; latitude rows and
-    longitude columns that contain any missing cell are dropped. If a clean block at least
-    ``min_size`` on a side cannot be found, fall back to masking and filling residual gaps with
-    the wet-masked mean instead of zeros."""
-    valid_all_time = np.isfinite(ssta).all("time")
-    lat_keep = valid_all_time.all(lon_dim)
-    lon_keep = valid_all_time.all(lat_dim)
-    if int(lat_keep.sum()) >= min_size and int(lon_keep.sum()) >= min_size:
-        return ssta.isel({lat_dim: lat_keep.values, lon_dim: lon_keep.values})
-    masked = ssta.where(np.isfinite(ssta).any("time"))
-    filled = masked.fillna(masked.mean("time", skipna=True))
-    return filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
+    """Return a fully finite open-ocean box or reject the spatial FFT.
+
+    Spatial FFTs assume a complete rectangular field. Filling land or persistent missing cells
+    creates artificial boundary power, so the spectrum is not computed unless the curated box
+    is at least ``min_size`` by ``min_size`` and finite at every time and grid point.
+    """
+    if lat_dim not in field.dims or lon_dim not in field.dims:
+        raise ValueError(f"Spectrum field must contain {lat_dim!r} and {lon_dim!r} dimensions")
+    n_lat = field.sizes[lat_dim]
+    n_lon = field.sizes[lon_dim]
+    if n_lat < min_size or n_lon < min_size:
+        raise ValueError(
+            f"Spatial-spectrum box has only {n_lat} x {n_lon} points "
+            f"(minimum {min_size} x {min_size})."
+        )
+    if not bool(np.isfinite(field).all().compute().item()):
+        raise ValueError(
+            "Spatial spectrum requires a fully observed open-ocean rectangle; "
+            "the selected box contains land or missing values."
+        )
+    return field
 
 
 def _mean_isotropic_spectrum_over_time(
@@ -1160,9 +1510,8 @@ def _mean_isotropic_spectrum_over_time(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute isotropic spectra in time batches and average over time.
 
-    Global SST/SSTA spectra are too large to send to torch as one
-    (time, lat, lon) tensor on CPU nodes. This keeps the same per-time
-    spectrum definition while bounding peak memory.
+    Multi-year high-resolution fields are processed in bounded chunks rather than sent to
+    torch as one (time, lat, lon) tensor.
     """
     ntime = int(field.sizes.get("time", 0))
     if ntime == 0:
@@ -1171,10 +1520,12 @@ def _mean_isotropic_spectrum_over_time(
     spec_sum = None
     spec_count = None
     for start in range(0, ntime, batch_size):
-        chunk = field.isel(time=slice(start, min(start + batch_size, ntime))).fillna(0.0)
+        chunk = field.isel(time=slice(start, min(start + batch_size, ntime)))
         values = np.asarray(chunk.values, dtype=np.float32)
         if values.size == 0:
             continue
+        if not np.isfinite(values).all():
+            raise ValueError("Spatial spectrum received non-finite values after open-ocean masking")
         k_cent, spec = compute_isotropic_spectrum_torch(
             torch.as_tensor(values),
             dx=dx,
@@ -1212,10 +1563,11 @@ def _compute_isotropic_spectrum_from_surface(
     if squeeze_dims:
         field = field.squeeze(squeeze_dims, drop=True)
     data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose("time", lat_dim, lon_dim)
-    dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
-    dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     ssta = _calendar_day_climatology_anomaly(data)
-    ssta = _mask_region_for_spectrum(ssta, lat_dim, lon_dim)
+    ssta = _fully_observed_spectrum_block(ssta, lat_dim, lon_dim)
+    metric_selection = {lat_dim: ssta[lat_dim], lon_dim: ssta[lon_dim]}
+    dx_mean = float(dx_2d.sel(metric_selection).mean().values)
+    dy_mean = float(dy_2d.sel(metric_selection).mean().values)
     return _mean_isotropic_spectrum_over_time(ssta, dx_mean, dy_mean)
 
 
@@ -1229,12 +1581,15 @@ def _compute_isotropic_spectrum_from_map(
     lon_dim: str = "lon",
 ) -> tuple[np.ndarray, np.ndarray]:
     data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose(lat_dim, lon_dim)
-    dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
-    dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
-    filled = data.where(np.isfinite(data))
-    filled = filled.fillna(filled.mean([lat_dim, lon_dim], skipna=True)).fillna(0.0)
+    data = _fully_observed_spectrum_block(data, lat_dim, lon_dim)
+    metric_selection = {lat_dim: data[lat_dim], lon_dim: data[lon_dim]}
+    dx_mean = float(dx_2d.sel(metric_selection).mean().values)
+    dy_mean = float(dy_2d.sel(metric_selection).mean().values)
+    values = np.asarray(data.values, dtype=np.float32)
+    if not np.isfinite(values).all():
+        raise ValueError("Spatial spectrum received non-finite map values after open-ocean masking")
     k_cent, spec = compute_isotropic_spectrum_torch(
-        torch.as_tensor(np.asarray(filled.values, dtype=np.float32)),
+        torch.as_tensor(values),
         dx=dx_mean,
         dy=dy_mean,
         n_factor=2,
@@ -1359,28 +1714,50 @@ def _calendar_day_climatology_anomaly(field: xr.DataArray, time_dim: str = "time
     return anomaly.drop_vars("calendar_day")
 
 
-def _rmse_between_curves(x_ref: np.ndarray, y_ref: np.ndarray, x_other: np.ndarray, y_other: np.ndarray) -> float:
+def _log10_rmse_between_spectra(
+    x_ref: np.ndarray,
+    y_ref: np.ndarray,
+    x_other: np.ndarray,
+    y_other: np.ndarray,
+) -> float:
+    """Return spectral RMSE in log10-PSD space (dex) over the common positive domain.
+
+    The comparison spectrum is interpolated onto the reference wavenumbers/frequencies in
+    log-log space. Restricting both axes to finite, strictly positive values avoids undefined
+    logarithms and gives multiplicative spectral errors comparable weight across PSD scales.
+    """
     x_ref = np.asarray(x_ref, dtype=float)
     y_ref = np.asarray(y_ref, dtype=float)
     x_other = np.asarray(x_other, dtype=float)
     y_other = np.asarray(y_other, dtype=float)
 
-    ref_valid = np.isfinite(x_ref) & np.isfinite(y_ref)
-    other_valid = np.isfinite(x_other) & np.isfinite(y_other)
+    ref_valid = np.isfinite(x_ref) & np.isfinite(y_ref) & (x_ref > 0) & (y_ref > 0)
+    other_valid = np.isfinite(x_other) & np.isfinite(y_other) & (x_other > 0) & (y_other > 0)
     if ref_valid.sum() == 0 or other_valid.sum() < 2:
         return np.nan
 
     order = np.argsort(x_other[other_valid])
     x_other_valid = x_other[other_valid][order]
     y_other_valid = y_other[other_valid][order]
+    x_other_valid, unique_indices = np.unique(x_other_valid, return_index=True)
+    y_other_valid = y_other_valid[unique_indices]
+    if x_other_valid.size < 2:
+        return np.nan
+
     domain = ref_valid & (x_ref >= x_other_valid[0]) & (x_ref <= x_other_valid[-1])
     if domain.sum() == 0:
         return np.nan
-    y_other_on_ref = np.interp(x_ref[domain], x_other_valid, y_other_valid)
-    valid = np.isfinite(y_ref[domain]) & np.isfinite(y_other_on_ref)
-    if valid.sum() == 0:
+
+    log_y_other_on_ref = np.interp(
+        np.log10(x_ref[domain]),
+        np.log10(x_other_valid),
+        np.log10(y_other_valid),
+    )
+    log_error = np.log10(y_ref[domain]) - log_y_other_on_ref
+    log_error = log_error[np.isfinite(log_error)]
+    if log_error.size == 0:
         return np.nan
-    return float(np.sqrt(np.mean((y_ref[domain][valid] - y_other_on_ref[valid]) ** 2)))
+    return float(np.sqrt(np.mean(log_error**2)))
 
 
 def _interannual_band(
@@ -1409,7 +1786,7 @@ def _interannual_band(
     log_rows = np.asarray(log_rows)
     with np.errstate(invalid="ignore"):
         log_mean = np.nanmean(log_rows, axis=0)
-        log_std = np.nanstd(log_rows, axis=0)
+        log_std = np.nanstd(log_rows, axis=0, ddof=1) if log_rows.shape[0] > 1 else np.zeros_like(log_mean)
     return x_ref, np.exp(log_mean), np.exp(log_mean - log_std), np.exp(log_mean + log_std), log_rows.shape[0]
 
 
@@ -1417,6 +1794,62 @@ def _plot_spectra_interannual_panel(ax, x_ref, geom_mean, lower, upper, style: s
     """Draw one interannual spectrum: a +/- 1 log-std shaded band plus the geometric-mean line."""
     ax.fill_between(x_ref, lower, upper, color=color, alpha=0.15, linewidth=0)
     ax.loglog(x_ref, geom_mean, style, color=color, linewidth=2, label=label)
+
+
+def _interannual_spectrum_rmse_rows(
+    model: str,
+    region: str,
+    metric: str,
+    values_by_year: dict[int, float],
+) -> list[dict]:
+    """Return per-year log-spectrum RMSE plus interannual mean/std summary rows."""
+    finite = {
+        int(year): float(value)
+        for year, value in values_by_year.items()
+        if np.isfinite(value)
+    }
+    if not finite:
+        return []
+    rows = [
+        {
+            "model": model,
+            "region": region,
+            "metric": metric,
+            "value": value,
+            "period_kind": "annual_spectrum",
+            "period_start": f"{year}-01-01",
+            "period_end": f"{year}-12-31",
+            "year": year,
+            "is_primary": False,
+        }
+        for year, value in sorted(finite.items())
+    ]
+    values = np.asarray(list(finite.values()), dtype=float)
+    summary_common = {
+        "model": model,
+        "region": region,
+        "period_kind": "interannual_spectrum_summary",
+        "period_start": f"{min(finite)}-01-01",
+        "period_end": f"{max(finite)}-12-31",
+        "year": np.nan,
+        "n_years": int(values.size),
+        "is_primary": False,
+    }
+    rows.append(
+        {
+            **summary_common,
+            "metric": f"{metric}_interannual_mean",
+            "value": float(values.mean()),
+        }
+    )
+    rows.append(
+        {
+            **summary_common,
+            "metric": f"{metric}_interannual_std",
+            "value": float(values.std(ddof=1)) if values.size > 1 else np.nan,
+        }
+    )
+    return rows
 
 
 def _find_depth_name(ds: xr.Dataset | xr.DataArray) -> str:
@@ -1429,17 +1862,14 @@ def _ohc_timeseries_from_obs_grid_field(
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
     """Global OHC (J) per depth layer from a (time, lat, lon, depth) ARGO temperature field
-    (obs on its own grid, with edge-based layer thickness)."""
-    dz = xr.DataArray(
-        _depth_thickness_from_centers(field["depth"].values),
-        dims=["depth"],
-        coords={"depth": field["depth"]},
-    )
+    (obs on its own grid, with exact overlap at the requested layer boundaries)."""
     out = {}
     for depth_slice in depth_slices:
-        field_layer = field.sel(depth=slice(depth_slice["min"], depth_slice["max"]))
-        dz_layer = dz.sel(depth=field_layer["depth"])
-        ohc = (field_layer * dz_layer * area * RHO * CP).sum(["depth", "lat", "lon"])
+        overlap_dz = _layer_overlap_thickness(
+            field["depth"], depth_slice["min"], depth_slice["max"]
+        )
+        field_layer = field.where(overlap_dz > 0)
+        ohc = (field_layer * overlap_dz * area * RHO * CP).sum(["depth", "lat", "lon"])
         out[depth_slice["title"]] = ohc
     series = xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
     return series.resample(time="MS").mean()
@@ -1468,7 +1898,7 @@ def _sim_ohc_timeseries(
     wet_mask: xr.DataArray | None = None,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
-    """Global OHC (J) per depth layer on the model's own native grid."""
+    """Global OHC (J) per exact target depth interval on the model's native grid."""
     ds_year = ds_sim.sel(time=slice(start, end))
     if ds_year.sizes.get("time", 0) == 0:
         raise ValueError(f"No model OHC samples in requested period {start} to {end}")
@@ -1480,9 +1910,14 @@ def _sim_ohc_timeseries(
     field = _apply_native_wet_mask(ds_year["thetao"], wet_mask)
     out = {}
     for depth_slice in depth_slices:
-        thetao_layer = field.sel(lev=slice(depth_slice["min"], depth_slice["max"]))
-        dz_layer = ds_year["dz"].sel(lev=slice(depth_slice["min"], depth_slice["max"]))
-        ohc = (thetao_layer * dz_layer * area * RHO * CP).sum(["lev", "y", "x"])
+        overlap_dz = _layer_overlap_thickness(
+            ds_year["lev"],
+            depth_slice["min"],
+            depth_slice["max"],
+            native_dz=ds_year["dz"],
+        )
+        thetao_layer = field.where(overlap_dz > 0)
+        ohc = (thetao_layer * overlap_dz * area * RHO * CP).sum(["lev", "y", "x"])
         out[depth_slice["title"]] = ohc
     series = xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
     return series.resample(time="MS").mean()
@@ -1496,8 +1931,9 @@ def _collect_ohc_timeseries(
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
     # Each product is reduced on its OWN native grid: a global integral/mean is grid-robust,
     # so obs (ARGO) and the models (native 1/4-degree) keep their own area, layer thickness,
-    # and ocean mask. ARGO-IAP is a gap-filled global product, so the domains nearly coincide;
-    # the anomaly/deseasonalized RMSEs are the meaningful skill metrics.
+    # and ocean mask. Native boundary cells are prorated so every product still integrates
+    # the same exact physical intervals [0, 700) and [700, 2000). ARGO-IAP is a gap-filled
+    # global product, so the horizontal domains nearly coincide.
     obs_ohc = _obs_ohc_timeseries(argo_iap, start, end)
     sim_ohc = {
         label: _sim_ohc_timeseries(emu["ds"], start, end, emu.get("wet_mask"))
@@ -1509,18 +1945,23 @@ def _collect_ohc_timeseries(
 def _layer_weighted_mean_from_field(
     field: xr.DataArray,
     area: xr.DataArray,
-    dz: xr.DataArray,
+    native_dz: xr.DataArray | None,
     depth_name: str,
     horizontal_dims: list[str],
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> xr.DataArray:
     out = {}
     for depth_slice in depth_slices:
-        field_layer = field.sel({depth_name: slice(depth_slice["min"], depth_slice["max"])})
-        dz_layer = dz.sel({depth_name: field_layer[depth_name]})
-        weights = area * dz_layer
-        mask = np.isfinite(field_layer)
-        weighted_sum = (field_layer.where(mask) * weights).sum([depth_name, *horizontal_dims], skipna=True)
+        overlap_dz = _layer_overlap_thickness(
+            field[depth_name],
+            depth_slice["min"],
+            depth_slice["max"],
+            native_dz=native_dz,
+        )
+        weights = area * overlap_dz
+        mask = np.isfinite(field) & (overlap_dz > 0)
+        field_layer = field.where(mask)
+        weighted_sum = (field_layer * weights).sum([depth_name, *horizontal_dims], skipna=True)
         weight_sum = weights.where(mask).sum([depth_name, *horizontal_dims], skipna=True)
         out[depth_slice["title"]] = weighted_sum / weight_sum
     return xr.Dataset(out).to_array("depth_slice").transpose("time", "depth_slice")
@@ -1533,12 +1974,7 @@ def _layer_mean_timeseries_from_obs_grid_field(
 ) -> xr.DataArray:
     """Area- and thickness-weighted layer-mean timeseries from a (time, lat, lon, depth) ARGO
     field (obs on its own grid)."""
-    dz = xr.DataArray(
-        _depth_thickness_from_centers(field["depth"].values),
-        dims=["depth"],
-        coords={"depth": field["depth"]},
-    )
-    out = _layer_weighted_mean_from_field(field, area, dz, "depth", ["lat", "lon"], depth_slices)
+    out = _layer_weighted_mean_from_field(field, area, None, "depth", ["lat", "lon"], depth_slices)
     return out.resample(time="MS").mean()
 
 
@@ -1782,10 +2218,14 @@ def _surface_model_field_on_obs_grid(
         sim = sim.rename(rename)
     sim = _normalize_lon(sim, "lon").sortby("lat").sortby("lon")
 
-    interp_kwargs = {"lat": obs_field["lat"], "lon": obs_field["lon"]}
-    if "time" in obs_field.dims and "time" in sim.dims:
-        interp_kwargs["time"] = obs_field["time"]
-    return sim.interp(**interp_kwargs, kwargs={"fill_value": np.nan})
+    if "time" in obs_field.dims or "time" in sim.dims:
+        _require_exact_time_match(sim, obs_field, f"{model_var} surface-field comparison")
+    # Preserve the validated model samples exactly; interpolation is horizontal only.
+    return sim.interp(
+        lat=obs_field["lat"],
+        lon=obs_field["lon"],
+        kwargs={"fill_value": np.nan},
+    )
 
 
 def _sim_geostrophic_velocity_on_obs_grid(
@@ -1800,9 +2240,12 @@ def _sim_geostrophic_velocity_on_obs_grid(
     sim_v = _apply_native_wet_mask(sim_v, wet_mask).rename({"y": "lat", "x": "lon"})
     sim_u = _normalize_lon(sim_u, "lon").sortby("lat").sortby("lon")
     sim_v = _normalize_lon(sim_v, "lon").sortby("lat").sortby("lon")
-    target = {"time": obs_u["time"], "lat": obs_u["lat"], "lon": obs_u["lon"]}
-    sim_u = sim_u.interp(**target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_u))
-    sim_v = sim_v.interp(**target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_v))
+    _require_exact_time_match(sim_u, obs_u, "surface geostrophic eastward velocity comparison")
+    _require_exact_time_match(sim_v, obs_v, "surface geostrophic northward velocity comparison")
+    # Preserve the validated model samples exactly; interpolation is horizontal only.
+    spatial_target = {"lat": obs_u["lat"], "lon": obs_u["lon"]}
+    sim_u = sim_u.interp(**spatial_target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_u))
+    sim_v = sim_v.interp(**spatial_target, kwargs={"fill_value": np.nan}).where(np.isfinite(obs_v))
     return sim_u, sim_v
 
 
@@ -1912,18 +2355,14 @@ def _depth_weighted_layer_maps_from_field(
     field: xr.DataArray,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> dict[str, xr.DataArray]:
-    dz = xr.DataArray(
-        _depth_thickness_from_centers(field["depth"].values),
-        dims=["depth"],
-        coords={"depth": field["depth"]},
-    )
     out = {}
     for depth_slice in depth_slices:
-        field_layer = field.sel(depth=slice(depth_slice["min"], depth_slice["max"]))
-        dz_layer = dz.sel(depth=field_layer["depth"])
-        mask = np.isfinite(field_layer)
-        weighted_sum = (field_layer.where(mask) * dz_layer).sum("depth", skipna=True)
-        weight_sum = dz_layer.where(mask).sum("depth", skipna=True)
+        overlap_dz = _layer_overlap_thickness(
+            field["depth"], depth_slice["min"], depth_slice["max"]
+        )
+        mask = np.isfinite(field) & (overlap_dz > 0)
+        weighted_sum = (field.where(mask) * overlap_dz).sum("depth", skipna=True)
+        weight_sum = overlap_dz.where(mask).sum("depth", skipna=True)
         out[depth_slice["title"]] = weighted_sum / weight_sum
     return out
 
@@ -1931,20 +2370,43 @@ def _depth_weighted_layer_maps_from_field(
 def _ohc_per_area_layer_maps_from_temperature_field(
     temp_field: xr.DataArray,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
+    native_dz: xr.DataArray | None = None,
+    depth_name: str = "depth",
 ) -> dict[str, xr.DataArray]:
-    dz = xr.DataArray(
-        _depth_thickness_from_centers(temp_field["depth"].values),
-        dims=["depth"],
-        coords={"depth": temp_field["depth"]},
-    )
     out = {}
     for depth_slice in depth_slices:
-        temp_layer = temp_field.sel(depth=slice(depth_slice["min"], depth_slice["max"]))
-        dz_layer = dz.sel(depth=temp_layer["depth"])
-        valid = np.isfinite(temp_layer).any("depth")
-        ohc = (temp_layer * dz_layer * RHO * CP).sum("depth", skipna=True).where(valid)
+        overlap_dz = _layer_overlap_thickness(
+            temp_field[depth_name],
+            depth_slice["min"],
+            depth_slice["max"],
+            native_dz=native_dz,
+        )
+        temp_layer = temp_field.where(overlap_dz > 0)
+        valid = np.isfinite(temp_layer).any(depth_name)
+        ohc = (temp_layer * overlap_dz * RHO * CP).sum(depth_name, skipna=True).where(valid)
         out[depth_slice["title"]] = ohc
     return out
+
+
+def _model_field_on_obs_horizontal_grid(
+    model_field: xr.DataArray,
+    obs_field: xr.DataArray,
+) -> xr.DataArray:
+    """Interpolate a vertically reduced model field to an observation horizontal grid."""
+    rename = {}
+    if "y" in model_field.dims:
+        rename["y"] = "lat"
+    if "x" in model_field.dims:
+        rename["x"] = "lon"
+    if rename:
+        model_field = model_field.rename(rename)
+    model_field = _normalize_lon(model_field, "lon").sortby("lat").sortby("lon")
+    interpolated = model_field.interp(
+        lat=obs_field["lat"],
+        lon=obs_field["lon"],
+        kwargs={"fill_value": np.nan},
+    )
+    return interpolated.where(np.isfinite(obs_field))
 
 
 def _add_map_features(ax) -> None:
@@ -2134,6 +2596,7 @@ def _plot_rmse_map_comparison(
     units: str,
     metric_prefix: str,
     period_label: str,
+    total_values: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     ncols = len(rmse_maps)
     fig, axes = plt.subplots(
@@ -2156,7 +2619,11 @@ def _plot_rmse_map_comparison(
     rows = []
     mesh = None
     for ax, (label, rmse_map) in zip(axes, rmse_maps.items()):
-        total_rmse = _area_weighted_map_rmse(rmse_map, obs_area)
+        total_rmse = (
+            float(total_values[label])
+            if total_values is not None and label in total_values
+            else _area_weighted_map_rmse(rmse_map, obs_area)
+        )
         rows.append({"model": label, "metric": f"{metric_prefix}_total_rmse", "value": total_rmse})
         mesh = rmse_map.plot.pcolormesh(
             ax=ax,
@@ -2197,6 +2664,7 @@ def _plot_layer_rmse_map_comparison(
     metric_prefix: str,
     period_label: str,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
+    total_values: dict[str, dict[str, float]] | None = None,
 ) -> pd.DataFrame:
     layer_titles = [depth_slice["title"] for depth_slice in depth_slices]
     nrows = len(layer_titles)
@@ -2223,7 +2691,13 @@ def _plot_layer_rmse_map_comparison(
         for col_idx, (label, model_maps) in enumerate(rmse_maps.items()):
             ax = axes[row_idx, col_idx]
             rmse_map = model_maps[layer_title]
-            total_rmse = _area_weighted_map_rmse(rmse_map, obs_area)
+            total_rmse = (
+                float(total_values[label][layer_title])
+                if total_values is not None
+                and label in total_values
+                and layer_title in total_values[label]
+                else _area_weighted_map_rmse(rmse_map, obs_area)
+            )
             rows.append(
                 {
                     "model": label,
@@ -2309,12 +2783,26 @@ def _argo_ohc_layer_maps_data(
     temp_spec = ARGO_STRUCTURE_VARIABLES[0]
     if "area" not in argo_iap:
         argo_iap = _infer_obs_grid_metrics(argo_iap)
-    obs_temp, sim_temps = _common_annual_fields_on_argo_grid(argo_iap, emulators, temp_spec, year)
+    time_slice = slice(f"{year}-01-01", f"{year}-12-31")
+    obs_temp = _reduce_obs_structure_field(argo_iap, temp_spec, time_slice, _time_mean_reducer)
     obs_maps = _ohc_per_area_layer_maps_from_temperature_field(obs_temp)
-    sim_maps = {
-        label: _ohc_per_area_layer_maps_from_temperature_field(sim_temp)
-        for label, sim_temp in sim_temps.items()
-    }
+
+    # Integrate vertically on each product's native grid before horizontal interpolation.
+    # This preserves the exact target boundaries instead of inheriting ARGO center selection.
+    sim_maps = {}
+    for label, emu in emulators.items():
+        ds_sim = emu["ds"]
+        sim_temp = ds_sim["thetao"].sel(time=time_slice).mean("time", skipna=True)
+        sim_temp = _apply_native_wet_mask(sim_temp, emu.get("wet_mask"))
+        native_maps = _ohc_per_area_layer_maps_from_temperature_field(
+            sim_temp,
+            native_dz=ds_sim["dz"],
+            depth_name="lev",
+        )
+        sim_maps[label] = {
+            title: _model_field_on_obs_horizontal_grid(field, obs_maps[title])
+            for title, field in native_maps.items()
+        }
     return obs_maps, sim_maps, argo_iap["area"]
 
 
@@ -2397,12 +2885,18 @@ def _plot_argo_ohc_layer_bias_maps(
 def _plot_surface_velocity_rmse_maps(
     duacs: xr.Dataset,
     emulators: dict[str, dict],
-    year: int,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+    period_kind: str = "primary_complete_years",
+    include_annual: bool = False,
     velocity_kind: str = "absolute",
 ) -> pd.DataFrame:
     u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
-    window_start, window_end = _common_time_window(
-        _year_slice(duacs, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    window_start, window_end = _bounded_common_time_window(
+        duacs,
+        *[emu["ds"] for emu in emulators.values()],
+        start=start,
+        end=end,
     )
     period_label = _period_label(window_start, window_end)
     duacs_w = duacs.sel(time=slice(window_start, window_end))
@@ -2410,7 +2904,10 @@ def _plot_surface_velocity_rmse_maps(
     obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
 
     rmse_maps = {}
-    rows = []
+    annual_frames = []
+    summaries = {}
+    total_values = {}
+    metric = "surface_geostrophic_velocity_vector_total_rmse"
     for label, emu in emulators.items():
         sim_w = emu["ds"].sel(time=slice(window_start, window_end))
         sim_u, sim_v = _sim_geostrophic_velocity_on_obs_grid(sim_w, obs_u, obs_v, emu.get("wet_mask"))
@@ -2418,131 +2915,245 @@ def _plot_surface_velocity_rmse_maps(
             sim_u, sim_v = _time_mean_velocity_anomaly(sim_u, sim_v)
         du = sim_u - obs_u
         dv = sim_v - obs_v
-        rmse_map = np.sqrt((du ** 2 + dv ** 2).mean("time", skipna=True))
-        rmse_maps[label] = rmse_map
-        rows.append(
-            {
-                "model": label,
-                "metric": "surface_geostrophic_velocity_vector_total_rmse",
-                "value": _area_weighted_map_rmse(rmse_map, duacs_w["area"]),
-            }
+        rmse_map, annual_rows, summary = _rmse_map_and_annual_rows(
+            du ** 2 + dv ** 2,
+            duacs_w["area"],
+            ("lat", "lon"),
+            label,
+            metric,
+            include_annual=include_annual,
         )
+        rmse_maps[label] = rmse_map
+        if not annual_rows.empty:
+            annual_frames.append(annual_rows)
+        summaries[(label, None)] = summary
+        if include_annual:
+            total_values[label] = float(summary["block_aggregate_rmse"])
 
-    map_rows = _plot_rmse_map_comparison(
+    rows = _plot_rmse_map_comparison(
         rmse_maps,
         duacs_w["area"],
         "Surface Geostrophic Velocity Vector",
         "m s$^{-1}$",
         "surface_geostrophic_velocity_vector",
         period_label,
+        total_values=total_values or None,
     )
-    return pd.concat([pd.DataFrame(rows), map_rows], ignore_index=True).drop_duplicates(
-        subset=["model", "metric"], keep="first"
+    rows = _annotate_rmse_period(
+        rows,
+        pd.Timestamp(duacs_w.time.values[0]),
+        pd.Timestamp(duacs_w.time.values[-1]),
+        period_kind,
+        duacs_w.sizes["time"],
+        summaries,
     )
+    return pd.concat([rows, *annual_frames], ignore_index=True, sort=False)
 
 
 def _plot_eke_rmse_maps(
     duacs: xr.Dataset,
     emulators: dict[str, dict],
-    year: int,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+    period_kind: str = "primary_complete_years",
+    include_annual: bool = False,
     velocity_kind: str = "absolute",
 ) -> pd.DataFrame:
     u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
-    window_start, window_end = _common_time_window(
-        _year_slice(duacs, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    window_start, window_end = _bounded_common_time_window(
+        duacs,
+        *[emu["ds"] for emu in emulators.values()],
+        start=start,
+        end=end,
     )
     period_label = _period_label(window_start, window_end)
     duacs_w = duacs.sel(time=slice(window_start, window_end))
     obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
     obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
-    obs_eke = _surface_eke_from_uv(obs_u, obs_v)
+    obs_eke = _instantaneous_surface_eke_from_uv(obs_u, obs_v)
 
     rmse_maps = {}
+    annual_frames = []
+    summaries = {}
+    total_values = {}
+    metric = "surface_eke_total_rmse"
     for label, emu in emulators.items():
         sim_w = emu["ds"].sel(time=slice(window_start, window_end))
         sim_u, sim_v = _sim_geostrophic_velocity_on_obs_grid(sim_w, obs_u, obs_v, emu.get("wet_mask"))
-        if velocity_kind == "anomaly":
-            sim_u, sim_v = _time_mean_velocity_anomaly(sim_u, sim_v)
-        sim_eke = _surface_eke_from_uv(sim_u, sim_v)
-        rmse_maps[label] = np.abs(sim_eke - obs_eke)
+        sim_eke = _instantaneous_surface_eke_from_uv(sim_u, sim_v)
+        error_squared = (sim_eke - obs_eke) ** 2
+        rmse_map, annual_rows, summary = _rmse_map_and_annual_rows(
+            error_squared,
+            duacs_w["area"],
+            ("lat", "lon"),
+            label,
+            metric,
+            include_annual=include_annual,
+        )
+        rmse_maps[label] = rmse_map
+        if not annual_rows.empty:
+            annual_frames.append(annual_rows)
+        summaries[(label, None)] = summary
+        if include_annual:
+            total_values[label] = float(summary["block_aggregate_rmse"])
 
-    return _plot_rmse_map_comparison(
+    rows = _plot_rmse_map_comparison(
         rmse_maps,
         duacs_w["area"],
         "Surface EKE",
         "m$^2$ s$^{-2}$",
         "surface_eke",
         period_label,
+        total_values=total_values or None,
     )
+    rows = _annotate_rmse_period(
+        rows,
+        pd.Timestamp(duacs_w.time.values[0]),
+        pd.Timestamp(duacs_w.time.values[-1]),
+        period_kind,
+        duacs_w.sizes["time"],
+        summaries,
+    )
+    return pd.concat([rows, *annual_frames], ignore_index=True, sort=False)
 
 
 def _plot_sst_rmse_maps(
     oisst: xr.Dataset,
     emulators: dict[str, dict],
-    year: int,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+    period_kind: str = "primary_complete_years",
+    include_annual: bool = False,
 ) -> pd.DataFrame:
     sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
-    window_start, window_end = _common_time_window(
-        _year_slice(oisst, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    window_start, window_end = _bounded_common_time_window(
+        oisst,
+        *[emu["ds"] for emu in emulators.values()],
+        start=start,
+        end=end,
     )
     period_label = _period_label(window_start, window_end)
     obs_sst = oisst[sst_name].sel(time=slice(window_start, window_end))
 
     rmse_maps = {}
+    annual_frames = []
+    summaries = {}
+    total_values = {}
+    metric = "surface_sst_total_rmse"
     for label, emu in emulators.items():
         sim_w = emu["ds"].sel(time=slice(window_start, window_end))
         sim_sst = _surface_model_field_on_obs_grid(sim_w, "thetao", obs_sst, emu.get("wet_mask"))
-        rmse_maps[label] = _field_rmse_over_time(sim_sst, obs_sst)
+        rmse_map, annual_rows, summary = _rmse_map_and_annual_rows(
+            (sim_sst - obs_sst) ** 2,
+            oisst["area"],
+            ("lat", "lon"),
+            label,
+            metric,
+            include_annual=include_annual,
+        )
+        rmse_maps[label] = rmse_map
+        if not annual_rows.empty:
+            annual_frames.append(annual_rows)
+        summaries[(label, None)] = summary
+        if include_annual:
+            total_values[label] = float(summary["block_aggregate_rmse"])
 
-    return _plot_rmse_map_comparison(
+    rows = _plot_rmse_map_comparison(
         rmse_maps,
         oisst["area"],
         "SST",
         "$^\\circ$C",
         "surface_sst",
         period_label,
+        total_values=total_values or None,
     )
+    rows = _annotate_rmse_period(
+        rows,
+        pd.Timestamp(obs_sst.time.values[0]),
+        pd.Timestamp(obs_sst.time.values[-1]),
+        period_kind,
+        obs_sst.sizes["time"],
+        summaries,
+    )
+    return pd.concat([rows, *annual_frames], ignore_index=True, sort=False)
 
 
 def _plot_ohc_rmse_maps(
     argo_iap: xr.Dataset,
     emulators: dict[str, dict],
-    year: int,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+    period_kind: str = "primary_complete_years",
+    include_annual: bool = False,
     depth_slices: list[dict] = OHC_DEPTH_SLICES,
 ) -> pd.DataFrame:
     temp_spec = ARGO_STRUCTURE_VARIABLES[0]
     if "area" not in argo_iap:
         argo_iap = _infer_obs_grid_metrics(argo_iap)
-    window_start, window_end = _common_time_window(
-        _year_slice(argo_iap, year), *[_year_slice(emu["ds"], year) for emu in emulators.values()]
+    window_start, window_end = _bounded_common_month_window(
+        argo_iap,
+        *[emu["ds"] for emu in emulators.values()],
+        start=start,
+        end=end,
     )
     period_label = _period_label(window_start, window_end)
-    obs_temp, sim_temps = _common_temporal_fields_on_argo_grid(
-        argo_iap, emulators, temp_spec, slice(window_start, window_end), _identity_reducer
+    time_slice = slice(window_start, window_end)
+    obs_temp = _reduce_obs_structure_field(
+        argo_iap, temp_spec, time_slice, _identity_reducer
     )
     obs_maps = {
         title: _resample_monthly_field(field, f"observed OHC {title}")
         for title, field in _ohc_per_area_layer_maps_from_temperature_field(obs_temp, depth_slices).items()
     }
 
+    # Model OHC is integrated with native layer overlaps, then put on the ARGO horizontal grid.
     rmse_maps: dict[str, dict[str, xr.DataArray]] = {}
-    for label, sim_temp in sim_temps.items():
+    annual_frames = []
+    summaries = {}
+    total_values: dict[str, dict[str, float]] = {}
+    metric = "ohc_per_area_total_rmse"
+    aligned_time: xr.DataArray | None = None
+    for label, emu in emulators.items():
+        ds_sim = emu["ds"]
+        sim_temp = ds_sim["thetao"].sel(time=time_slice)
+        sim_temp = _apply_native_wet_mask(sim_temp, emu.get("wet_mask"))
+        sim_native_maps = _ohc_per_area_layer_maps_from_temperature_field(
+            sim_temp,
+            depth_slices,
+            native_dz=ds_sim["dz"],
+            depth_name="lev",
+        )
         sim_maps = {
-            title: _resample_monthly_field(field, f"{label} OHC {title}")
-            for title, field in _ohc_per_area_layer_maps_from_temperature_field(sim_temp, depth_slices).items()
+            title: _model_field_on_obs_horizontal_grid(
+                _resample_monthly_field(field, f"{label} OHC {title}"),
+                obs_maps[title],
+            )
+            for title, field in sim_native_maps.items()
         }
         rmse_maps[label] = {}
+        total_values[label] = {}
         for title in obs_maps:
             sim_aligned, obs_aligned = xr.align(sim_maps[title], obs_maps[title], join="inner")
             if sim_aligned.sizes.get("time", 0) == 0:
                 raise ValueError(f"No common monthly OHC samples for {label} {title} in {period_label}")
-            rmse_maps[label][title] = _field_rmse_over_time(
-                sim_aligned,
-                obs_aligned,
-                f"{label} OHC {title}",
+            rmse_map, annual_rows, summary = _rmse_map_and_annual_rows(
+                (sim_aligned - obs_aligned) ** 2,
+                argo_iap["area"],
+                ("lat", "lon"),
+                label,
+                metric,
+                depth=title,
+                include_annual=include_annual,
             )
+            rmse_maps[label][title] = rmse_map
+            if not annual_rows.empty:
+                annual_frames.append(annual_rows)
+            summaries[(label, title)] = summary
+            if include_annual:
+                total_values[label][title] = float(summary["block_aggregate_rmse"])
+            aligned_time = sim_aligned["time"]
 
-    return _plot_layer_rmse_map_comparison(
+    rows = _plot_layer_rmse_map_comparison(
         rmse_maps,
         argo_iap["area"],
         "OHC per Unit Area",
@@ -2550,7 +3161,203 @@ def _plot_ohc_rmse_maps(
         "ohc_per_area",
         period_label,
         depth_slices=depth_slices,
+        total_values=total_values or None,
     )
+    if aligned_time is None:
+        raise ValueError(f"No aligned OHC samples in {period_label}")
+    rows = _annotate_rmse_period(
+        rows,
+        pd.Timestamp(aligned_time.values[0]),
+        pd.Timestamp(aligned_time.values[-1]),
+        period_kind,
+        aligned_time.size,
+        summaries,
+    )
+    return pd.concat([rows, *annual_frames], ignore_index=True, sort=False)
+
+
+def _plot_annual_rmse_timeseries(
+    rmse_metrics: pd.DataFrame,
+    emulators: dict[str, dict],
+) -> None:
+    panels = [
+        (
+            "surface_geostrophic_velocity_vector_total_rmse",
+            None,
+            "Surface Velocity Vector",
+            "RMSE (m s$^{-1}$)",
+        ),
+        ("surface_eke_total_rmse", None, "Surface EKE", "RMSE (m$^2$ s$^{-2}$)"),
+        ("surface_sst_total_rmse", None, "SST", "RMSE ($^\\circ$C)"),
+        (
+            "ohc_per_area_total_rmse",
+            OHC_DEPTH_SLICES[0]["title"],
+            "OHC per Unit Area, 0-700 m",
+            "RMSE (J m$^{-2}$)",
+        ),
+        (
+            "ohc_per_area_total_rmse",
+            OHC_DEPTH_SLICES[1]["title"],
+            "OHC per Unit Area, 700-2000 m",
+            "RMSE (J m$^{-2}$)",
+        ),
+    ]
+    annual = rmse_metrics[rmse_metrics["period_kind"] == "annual"].copy()
+    if annual.empty:
+        raise ValueError("No annual RMSE rows are available for the annual RMSE figure")
+    primary_rows = rmse_metrics[
+        rmse_metrics["period_kind"] == "primary_complete_years"
+    ]
+    if primary_rows.empty:
+        raise ValueError("No primary complete-year RMSE rows are available")
+    primary_start = pd.to_datetime(primary_rows["period_start"]).min()
+    primary_end = pd.to_datetime(primary_rows["period_end"]).max()
+
+    fig, axes = plt.subplots(3, 2, figsize=(12.5, 11), sharex=True)
+    axes_flat = axes.ravel()
+    legend_handles = None
+    legend_labels = None
+    for ax, (metric, depth, title, ylabel) in zip(axes_flat, panels, strict=False):
+        panel = annual[annual["metric"] == metric]
+        full = rmse_metrics[
+            (rmse_metrics["metric"] == metric)
+            & (rmse_metrics["period_kind"] == "primary_complete_years")
+        ]
+        if depth is None:
+            panel = panel[panel["depth"].isna()]
+            full = full[full["depth"].isna()]
+        else:
+            panel = panel[panel["depth"] == depth]
+            full = full[full["depth"] == depth]
+
+        for label, emu in emulators.items():
+            model_annual = panel[panel["model"] == label].sort_values("year")
+            if model_annual.empty:
+                continue
+            years = model_annual["year"].astype(int).to_numpy()
+            values = model_annual["value"].astype(float).to_numpy()
+            color = emu["color"]
+            ax.plot(years, values, marker="o", linewidth=2.0, markersize=4.5, color=color, label=label)
+
+            model_full = full[full["model"] == label]
+            if model_full.empty:
+                continue
+            row = model_full.iloc[0]
+            ax.axhline(float(row["value"]), color=color, linewidth=1.4, linestyle="--", alpha=0.9)
+            ci_low = pd.to_numeric(pd.Series([row.get("ci_low")]), errors="coerce").iloc[0]
+            ci_high = pd.to_numeric(pd.Series([row.get("ci_high")]), errors="coerce").iloc[0]
+            if np.isfinite(ci_low) and np.isfinite(ci_high):
+                ax.fill_between(years, ci_low, ci_high, color=color, alpha=0.10, linewidth=0)
+
+        ax.set_title(title, fontsize=12)
+        ax.set_ylabel(ylabel)
+        ax.grid(True, alpha=0.25)
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4), useMathText=True)
+        if legend_handles is None:
+            legend_handles, legend_labels = ax.get_legend_handles_labels()
+
+    axes_flat[-1].axis("off")
+    axes[-1, 0].set_xlabel("Calendar year")
+    if legend_handles:
+        fig.legend(
+            legend_handles,
+            legend_labels,
+            loc="lower center",
+            ncol=len(legend_labels),
+            bbox_to_anchor=(0.5, 0.025),
+            frameon=False,
+        )
+    fig.suptitle(
+        "Annual Total RMSE vs Observations\n"
+        f"Dashed lines: {primary_start:%Y}–{primary_end:%Y} primary RMSE; "
+        "shading: calendar-year block-bootstrap 95% CI",
+        y=0.985,
+        fontsize=15,
+    )
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.91, bottom=0.09, hspace=0.32, wspace=0.28)
+
+
+def _plot_annual_variance_map_rmse_timeseries(
+    variance_metrics: pd.DataFrame,
+    emulators: dict[str, dict],
+) -> None:
+    panels = [
+        (
+            "surface_sst_residual_variance_map_rmse",
+            "SST Residual-Variance Map",
+            "RMSE (($^\\circ$C)$^2$)",
+        ),
+        (
+            "ohc_upper700_per_area_residual_variance_map_rmse",
+            "Upper-700m OHC Residual-Variance Map",
+            "RMSE ((J m$^{-2}$)$^2$)",
+        ),
+    ]
+    annual = variance_metrics[
+        variance_metrics["period_kind"] == "annual_residual_variance"
+    ]
+    if annual.empty:
+        raise ValueError("No annual residual-variance map RMSE rows are available")
+
+    fig, axes = plt.subplots(2, 1, figsize=(10.5, 7.5), sharex=True)
+    legend_handles = None
+    legend_labels = None
+    for ax, (metric, title, ylabel) in zip(axes, panels, strict=True):
+        panel = annual[annual["metric"] == metric]
+        full = variance_metrics[
+            (variance_metrics["metric"] == metric)
+            & (variance_metrics["period_kind"] == "full_rollout_residual_variance")
+        ]
+        for label, emu in emulators.items():
+            model_annual = panel[panel["model"] == label].sort_values("year")
+            if model_annual.empty:
+                continue
+            years = model_annual["year"].astype(int).to_numpy()
+            values = model_annual["value"].astype(float).to_numpy()
+            color = emu["color"]
+            ax.plot(
+                years,
+                values,
+                marker="o",
+                linewidth=2,
+                markersize=4.5,
+                color=color,
+                label=label,
+            )
+            model_full = full[full["model"] == label]
+            if model_full.empty:
+                continue
+            summary = model_full.iloc[0]
+            aggregate = float(summary["annual_variance_rmse_block_aggregate"])
+            ci_low = float(summary["annual_variance_rmse_ci_low"])
+            ci_high = float(summary["annual_variance_rmse_ci_high"])
+            ax.axhline(aggregate, color=color, linewidth=1.4, linestyle="--", alpha=0.9)
+            if np.isfinite(ci_low) and np.isfinite(ci_high):
+                ax.fill_between(years, ci_low, ci_high, color=color, alpha=0.10, linewidth=0)
+        ax.set_title(title, fontsize=12)
+        ax.set_ylabel(ylabel)
+        ax.grid(True, alpha=0.25)
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4), useMathText=True)
+        if legend_handles is None:
+            legend_handles, legend_labels = ax.get_legend_handles_labels()
+
+    axes[-1].set_xlabel("Calendar year")
+    if legend_handles:
+        fig.legend(
+            legend_handles,
+            legend_labels,
+            loc="lower center",
+            ncol=len(legend_labels),
+            bbox_to_anchor=(0.5, 0.02),
+            frameon=False,
+        )
+    fig.suptitle(
+        "Annual Residual-Variance Map RMSE\n"
+        "Dashed lines: RMS across annual scores; shading: year-block bootstrap 95% CI",
+        y=0.98,
+        fontsize=14,
+    )
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.88, bottom=0.12, hspace=0.32)
 
 
 def _argo_variable_variance_layer_maps_data(
@@ -2622,7 +3429,6 @@ def _plot_layer_variance_map_comparison(
             ax.text(-0.07, 0.55, "ARGO-IAP", va="center", ha="right", rotation=90,
                     transform=ax.transAxes, fontweight="bold")
 
-        obs_vals = obs_map.values.flatten()
         for row_idx, (label, model_maps) in enumerate(sim_maps.items(), start=1):
             ax = axes[row_idx, col_idx]
             sim_map = model_maps[layer_title]
@@ -2637,16 +3443,14 @@ def _plot_layer_variance_map_comparison(
 
             bias = sim_map - obs_map
             rmse = _area_weighted_map_rmse(bias, obs_area)
-            sim_vals = sim_map.values.flatten()
-            valid = np.isfinite(sim_vals) & np.isfinite(obs_vals)
-            corr = float(np.corrcoef(sim_vals[valid], obs_vals[valid])[0, 1]) if valid.sum() > 1 else np.nan
-            ax.text(0.02, 0.95, f"Corr: {corr:.3f}\nRMSE: {rmse:.2e}", transform=ax.transAxes,
+            corr = _area_weighted_pattern_corr(sim_map, obs_map, obs_area)
+            ax.text(0.02, 0.95, f"Area-wtd corr: {corr:.3f}", transform=ax.transAxes,
                     fontsize=8.5, fontweight="bold", va="top",
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8), zorder=20)
             rows.append({"model": label, "depth": layer_title,
                          "metric": f"{metric_prefix}_temporal_variance_layer_map_rmse", "value": rmse})
             rows.append({"model": label, "depth": layer_title,
-                         "metric": f"{metric_prefix}_temporal_variance_pattern_corr", "value": corr})
+                         "metric": f"{metric_prefix}_temporal_variance_area_weighted_pattern_corr", "value": corr})
 
         cbar = fig.colorbar(mesh, ax=axes[:, col_idx], orientation="horizontal",
                             shrink=0.7, pad=0.03, extend="max", label=f"Variance ({units})")
@@ -2665,6 +3469,8 @@ def _plot_variance_map_comparison(
     metric_prefix: str,
     period_label: str,
     obs_label: str,
+    annual_rmse_rows: pd.DataFrame | None = None,
+    annual_rmse_summaries: dict[str, dict[str, float | int | str]] | None = None,
 ) -> pd.DataFrame:
     print(f"  Loading {obs_label} residual variance map for plotting/metrics...", flush=True)
     obs_map = obs_map.load()
@@ -2719,14 +3525,31 @@ def _plot_variance_map_comparison(
         )
         _add_map_features(ax)
         rmse = _area_weighted_map_rmse(sim_map - obs_map, obs_area)
-        corr = _pattern_corr(sim_map, obs_map)
-        rows.append({"model": label, "metric": f"{metric_prefix}_residual_variance_map_rmse", "value": rmse})
-        rows.append({"model": label, "metric": f"{metric_prefix}_residual_variance_pattern_corr", "value": corr})
+        corr = _area_weighted_pattern_corr(sim_map, obs_map, obs_area)
+        rmse_row = {
+            "model": label,
+            "metric": f"{metric_prefix}_residual_variance_map_rmse",
+            "value": rmse,
+            "period_kind": "full_rollout_residual_variance",
+            "is_primary": True,
+        }
+        if annual_rmse_summaries and label in annual_rmse_summaries:
+            rmse_row.update(annual_rmse_summaries[label])
+        rows.append(rmse_row)
+        rows.append(
+            {
+                "model": label,
+                "metric": f"{metric_prefix}_residual_variance_area_weighted_pattern_corr",
+                "value": corr,
+                "period_kind": "full_rollout_residual_variance",
+                "is_primary": True,
+            }
+        )
         ax.set_title(label, fontsize=12)
         ax.text(
             0.02,
             0.95,
-            f"Corr: {corr:.3f}\nRMSE: {rmse:.2e}",
+            f"Area-wtd corr: {corr:.3f}",
             transform=ax.transAxes,
             fontsize=8.5,
             fontweight="bold",
@@ -2745,7 +3568,76 @@ def _plot_variance_map_comparison(
         fontsize=15,
         linespacing=1.15,
     )
-    return pd.DataFrame(rows)
+    frames = [pd.DataFrame(rows)]
+    if annual_rmse_rows is not None and not annual_rmse_rows.empty:
+        frames.append(annual_rmse_rows)
+    return pd.concat(frames, ignore_index=True, sort=False)
+
+
+def _annual_variance_maps(
+    residual: xr.DataArray,
+    time_dim: str = "time",
+) -> tuple[xr.DataArray, dict[int, int]]:
+    """Variance maps for complete calendar years after one full-period residual fit."""
+    years = _complete_calendar_years(residual[time_dim])
+    if not years:
+        raise ValueError("Residual-variance uncertainty requires at least one complete calendar year")
+    index = pd.DatetimeIndex(residual[time_dim].values)
+    counts = {year: int((index.year == year).sum()) for year in years}
+    annual = residual.groupby(f"{time_dim}.year").var(time_dim, skipna=True).sel(year=years)
+    return annual, counts
+
+
+def _annual_variance_map_rmse_diagnostics(
+    obs_annual_variance: xr.DataArray,
+    sim_annual_variances: dict[str, xr.DataArray],
+    area: xr.DataArray,
+    metric_prefix: str,
+    sample_counts: dict[int, int],
+) -> tuple[pd.DataFrame, dict[str, dict[str, float | int | str]]]:
+    """Annual variance-map RMSE rows and year-block uncertainty summaries."""
+    rows = []
+    summaries = {}
+    spatial_dims = tuple(area.dims)
+    metric = f"{metric_prefix}_residual_variance_map_rmse"
+    for label, sim_annual in sim_annual_variances.items():
+        sim_aligned, obs_aligned, area_aligned = xr.align(
+            sim_annual, obs_annual_variance, area, join="inner"
+        )
+        if sim_aligned.sizes.get("year", 0) == 0:
+            continue
+        bias_squared = (sim_aligned - obs_aligned) ** 2
+        finite = np.isfinite(bias_squared)
+        weighted_sum = (bias_squared.where(finite) * area_aligned).sum(spatial_dims, skipna=True)
+        weight_sum = area_aligned.where(finite).sum(spatial_dims, skipna=True)
+        annual_rmse = np.sqrt(weighted_sum / weight_sum).compute()
+        years = np.asarray(annual_rmse["year"].values, dtype=int)
+        values = np.asarray(annual_rmse.values, dtype=float)
+        for year, value in zip(years, values, strict=True):
+            rows.append(
+                {
+                    "model": label,
+                    "metric": metric,
+                    "value": float(value),
+                    "period_kind": "annual_residual_variance",
+                    "period_start": f"{year}-01-01",
+                    "period_end": f"{year}-12-31",
+                    "n_time_samples": sample_counts.get(int(year), np.nan),
+                    "year": int(year),
+                    "is_primary": False,
+                }
+            )
+        summary = _interannual_rmse_summary(values)
+        summaries[label] = {
+            "annual_variance_rmse_std": summary["annual_std"],
+            "annual_variance_rmse_ci_low": summary["ci_low"],
+            "annual_variance_rmse_ci_high": summary["ci_high"],
+            "annual_variance_rmse_block_aggregate": summary["block_aggregate_rmse"],
+            "annual_variance_n_years": summary["n_years"],
+            "annual_variance_n_bootstrap": summary["n_bootstrap"],
+            "annual_variance_uncertainty_method": summary["uncertainty_method"],
+        }
+    return pd.DataFrame(rows), summaries
 
 
 def _plot_sst_residual_variance_maps(
@@ -2763,9 +3655,12 @@ def _plot_sst_residual_variance_maps(
     }
     obs_sst = obs_sst.chunk(variance_chunks)
     print(f"  SST residual variance chunks: {variance_chunks}", flush=True)
-    obs_var = _detrended_deseasonalized_dataarray(obs_sst).var("time", skipna=True)
+    obs_residual = _detrended_deseasonalized_dataarray(obs_sst)
+    obs_var = obs_residual.var("time", skipna=True)
+    obs_annual_var, annual_sample_counts = _annual_variance_maps(obs_residual)
 
     sim_vars = {}
+    sim_annual_vars = {}
     for label, emu in emulators.items():
         print(f"  Computing native-grid SST residual variance for {label}", flush=True)
         sim_w = emu["ds"].sel(time=slice(window_start, window_end))
@@ -2779,12 +3674,27 @@ def _plot_sst_residual_variance_maps(
                 "lon": min(180, sim_sst.sizes["lon"]),
             }
         )
-        sim_var_native = _detrended_deseasonalized_dataarray(sim_sst).var("time", skipna=True)
+        sim_residual = _detrended_deseasonalized_dataarray(sim_sst)
+        sim_var_native = sim_residual.var("time", skipna=True)
         sim_vars[label] = sim_var_native.interp(
             lat=obs_var["lat"],
             lon=obs_var["lon"],
             kwargs={"fill_value": np.nan},
         ).where(np.isfinite(obs_var))
+        sim_annual_native, _ = _annual_variance_maps(sim_residual)
+        sim_annual_vars[label] = sim_annual_native.interp(
+            lat=obs_annual_var["lat"],
+            lon=obs_annual_var["lon"],
+            kwargs={"fill_value": np.nan},
+        ).where(np.isfinite(obs_annual_var))
+
+    annual_rows, annual_summaries = _annual_variance_map_rmse_diagnostics(
+        obs_annual_var,
+        sim_annual_vars,
+        oisst["area"],
+        "surface_sst",
+        annual_sample_counts,
+    )
 
     return _plot_variance_map_comparison(
         obs_var,
@@ -2795,6 +3705,8 @@ def _plot_sst_residual_variance_maps(
         "surface_sst",
         period_label,
         "OISST",
+        annual_rmse_rows=annual_rows,
+        annual_rmse_summaries=annual_summaries,
     )
 
 
@@ -2808,19 +3720,45 @@ def _plot_ohc_upper700_residual_variance_maps(
     temp_spec = ARGO_STRUCTURE_VARIABLES[0]
     if "area" not in argo_iap:
         argo_iap = _infer_obs_grid_metrics(argo_iap)
-    obs_temp, sim_temps = _common_temporal_fields_on_argo_grid(
-        argo_iap, emulators, temp_spec, slice(start, end), _identity_reducer
+    time_slice = slice(start, end)
+    obs_temp = _reduce_obs_structure_field(
+        argo_iap, temp_spec, time_slice, _identity_reducer
     )
     depth_slices = [OHC_UPPER_700_SLICE]
     obs_ohc = _ohc_per_area_layer_maps_from_temperature_field(obs_temp, depth_slices)[OHC_UPPER_700_SLICE["title"]]
     obs_monthly = _resample_monthly_field(obs_ohc)
-    obs_var = _detrended_deseasonalized_dataarray(obs_monthly).var("time", skipna=True)
+    obs_residual = _detrended_deseasonalized_dataarray(obs_monthly)
+    obs_var = obs_residual.var("time", skipna=True)
+    obs_annual_var, annual_sample_counts = _annual_variance_maps(obs_residual)
 
     sim_vars = {}
-    for label, sim_temp in sim_temps.items():
-        sim_ohc = _ohc_per_area_layer_maps_from_temperature_field(sim_temp, depth_slices)[OHC_UPPER_700_SLICE["title"]]
+    sim_annual_vars = {}
+    for label, emu in emulators.items():
+        ds_sim = emu["ds"]
+        sim_temp = ds_sim["thetao"].sel(time=time_slice)
+        sim_temp = _apply_native_wet_mask(sim_temp, emu.get("wet_mask"))
+        sim_ohc = _ohc_per_area_layer_maps_from_temperature_field(
+            sim_temp,
+            depth_slices,
+            native_dz=ds_sim["dz"],
+            depth_name="lev",
+        )[OHC_UPPER_700_SLICE["title"]]
         sim_monthly = _resample_monthly_field(sim_ohc)
-        sim_vars[label] = _detrended_deseasonalized_dataarray(sim_monthly).var("time", skipna=True)
+        sim_residual = _detrended_deseasonalized_dataarray(sim_monthly)
+        sim_var_native = sim_residual.var("time", skipna=True)
+        sim_vars[label] = _model_field_on_obs_horizontal_grid(sim_var_native, obs_var)
+        sim_annual_native, _ = _annual_variance_maps(sim_residual)
+        sim_annual_vars[label] = _model_field_on_obs_horizontal_grid(
+            sim_annual_native, obs_annual_var
+        )
+
+    annual_rows, annual_summaries = _annual_variance_map_rmse_diagnostics(
+        obs_annual_var,
+        sim_annual_vars,
+        argo_iap["area"],
+        "ohc_upper700_per_area",
+        annual_sample_counts,
+    )
 
     return _plot_variance_map_comparison(
         obs_var,
@@ -2831,6 +3769,8 @@ def _plot_ohc_upper700_residual_variance_maps(
         "ohc_upper700_per_area",
         period_label,
         "ARGO-IAP",
+        annual_rmse_rows=annual_rows,
+        annual_rmse_summaries=annual_summaries,
     )
 
 
@@ -3336,7 +4276,7 @@ def _plot_argo_ohc_zonal_mean_bias(argo_iap: xr.Dataset, emulators: dict[str, di
     return pd.DataFrame(rows)
 
 
-def _plot_global_eke_spectra(
+def _plot_eke_spatial_spectra(
     duacs: xr.Dataset,
     emulators: dict[str, dict],
     velocity_kind: str = "absolute",
@@ -3360,11 +4300,11 @@ def _plot_global_eke_spectra(
         sim_v = _apply_equatorial_mask(_apply_native_wet_mask(sim_v, emu.get("wet_mask")), lat_dim="y")
         sim_eke_maps[label] = (_surface_eke_from_uv(sim_u, sim_v), sim)
 
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(SPATIAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.atleast_1d(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPATIAL_SPECTRUM_PANELS):
         ax = axes[idx]
         k_obs, spec_obs = _compute_isotropic_spectrum_from_map(
             obs_eke_map, duacs_w["dx"], duacs_w["dy"], lon_slice, lat_slice
@@ -3378,8 +4318,8 @@ def _plot_global_eke_spectra(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "surface_eke_spatial_spectrum_rmse_vs_duacs",
-                    "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
+                    "metric": "surface_eke_spatial_spectrum_log10_rmse_vs_duacs",
+                    "value": _log10_rmse_between_spectra(k_obs, spec_obs, k_sim, spec_sim),
                 }
             )
             ax.loglog(k_sim, spec_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
@@ -3394,7 +4334,7 @@ def _plot_global_eke_spectra(
         _figure_title_with_context(
             "Surface EKE Spatial Spectra vs DUACS",
             period_label,
-            f"{velocity_label}; spatial spectra over {SPECTRUM_PANEL_LABEL}",
+            f"{velocity_label}; spatial spectra over {SPATIAL_SPECTRUM_PANEL_LABEL}",
         ),
         y=0.98,
         fontsize=15,
@@ -3404,66 +4344,162 @@ def _plot_global_eke_spectra(
     return pd.DataFrame(rows)
 
 
-def _plot_global_sst_spectra(
-    oisst: xr.Dataset,
+def _yearly_eke_spatial_spectra(
+    u: xr.DataArray,
+    v: xr.DataArray,
+    dx_2d: xr.DataArray,
+    dy_2d: xr.DataArray,
+    lon_slice: slice,
+    lat_slice: slice,
+    years: list[int],
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+) -> tuple[np.ndarray | None, dict[int, np.ndarray]]:
+    """Per-year spectra of annual-mean EKE using one shared multi-year velocity mean."""
+    u_region = u.sel({lon_dim: lon_slice, lat_dim: lat_slice})
+    v_region = v.sel({lon_dim: lon_slice, lat_dim: lat_slice})
+    eke = _instantaneous_surface_eke_from_uv(u_region, v_region)
+    eke = _fully_observed_spectrum_block(eke, lat_dim, lon_dim)
+    metric_selection = {lat_dim: eke[lat_dim], lon_dim: eke[lon_dim]}
+    dx_mean = float(dx_2d.sel(metric_selection).mean().values)
+    dy_mean = float(dy_2d.sel(metric_selection).mean().values)
+
+    k_common = None
+    by_year = {}
+    for year in years:
+        annual_map = eke.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).mean(
+            "time", skipna=True
+        )
+        if annual_map.sizes.get(lat_dim, 0) == 0 or annual_map.sizes.get(lon_dim, 0) == 0:
+            continue
+        values = np.asarray(annual_map.values, dtype=np.float32)
+        if not np.isfinite(values).all():
+            raise ValueError(f"EKE spatial spectrum contains non-finite values in {year}")
+        k_centers, spectrum = compute_isotropic_spectrum_torch(
+            torch.as_tensor(values),
+            dx=dx_mean,
+            dy=dy_mean,
+            n_factor=2,
+            detrend="linear",
+            window="hann",
+            cutoff_before_bins=False,
+        )
+        if k_common is None:
+            k_common = k_centers.cpu().numpy() * 1000 * 2 * np.pi
+        by_year[year] = spectrum.cpu().numpy()
+    return k_common, by_year
+
+
+def _plot_eke_spatial_spectra_interannual(
+    duacs: xr.Dataset,
     emulators: dict[str, dict],
+    years: list[int] = SPECTRA_INTERANNUAL_YEARS,
+    velocity_kind: str = "absolute",
 ) -> pd.DataFrame:
-    sst_name = _find_var_name(oisst, ["sst", "analysed_sst", "thetao", "tos"])
-    window_start, window_end = _common_time_window(oisst, *[emu["ds"] for emu in emulators.values()])
-    period_label = _period_label(window_start, window_end)
-    oisst_w = oisst.sel(time=slice(window_start, window_end))
-    obs_sst = oisst_w[sst_name]
+    """Per-year EKE spatial spectra summarized by geometric mean and +/-1 log-std."""
+    u_name, v_name = _duacs_velocity_names(duacs, velocity_kind)
+    velocity_label = _duacs_velocity_label(velocity_kind)
+    y0, y1 = years[0], years[-1]
+    window = slice(f"{y0}-01-01", f"{y1}-12-31")
+    duacs_w = duacs.sel(time=window)
+    obs_u = _apply_equatorial_mask(duacs_w[u_name], lat_dim="lat")
+    obs_v = _apply_equatorial_mask(duacs_w[v_name], lat_dim="lat")
+
+    sim_velocities = {}
+    for label, emu in emulators.items():
+        sim = emu["ds"].sel(time=window)
+        sim_zos = _apply_native_wet_mask(sim["zos"], emu.get("wet_mask"))
+        sim_u, sim_v = _geostrophic_velocity_from_zos(sim_zos, lat_dim="y", lon_dim="x")
+        sim_u = _apply_equatorial_mask(
+            _apply_native_wet_mask(sim_u, emu.get("wet_mask")), lat_dim="y"
+        )
+        sim_v = _apply_equatorial_mask(
+            _apply_native_wet_mask(sim_v, emu.get("wet_mask")), lat_dim="y"
+        )
+        sim_velocities[label] = (sim_u, sim_v, sim)
 
     rows = []
-    sim_ssts = {}
-    for label, emu in emulators.items():
-        sim = emu["ds"].sel(time=slice(window_start, window_end))
-        sim_sst = _apply_native_wet_mask(sim["thetao"].isel(lev=0), emu.get("wet_mask"))
-        sim_ssts[label] = (sim_sst, sim)
-
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(SPATIAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.atleast_1d(axes)
-
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
-        ax = axes[idx]
-        k_obs, spec_obs = _compute_isotropic_spectrum_from_surface(
-            obs_sst, oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice
+    for ax, (region_name, lon_slice, lat_slice) in zip(
+        axes, SPATIAL_SPECTRUM_PANELS, strict=True
+    ):
+        k_obs, obs_by_year = _yearly_eke_spatial_spectra(
+            obs_u,
+            obs_v,
+            duacs_w["dx"],
+            duacs_w["dy"],
+            lon_slice,
+            lat_slice,
+            years,
         )
-        ax.loglog(k_obs, spec_obs, "--", color="black", linewidth=2, label="OISST 5-day avg")
-        for label, (sim_sst, sim) in sim_ssts.items():
-            k_sim, spec_sim = _compute_isotropic_spectrum_from_surface(
-                sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice, lat_dim="y", lon_dim="x"
+        if obs_by_year:
+            x_ref, gm, lo, hi, _ = _interannual_band(
+                [(k_obs, spectrum) for spectrum in obs_by_year.values()]
             )
-            rows.append(
-                {
-                    "model": label,
-                    "region": region_name,
-                    "metric": "surface_ssta_spatial_spectrum_rmse_vs_oisst_5day_avg",
-                    "value": _rmse_between_curves(k_obs, spec_obs, k_sim, spec_sim),
-                }
+            if x_ref is not None:
+                _plot_spectra_interannual_panel(ax, x_ref, gm, lo, hi, "--", "black", "DUACS")
+
+        for label, (sim_u, sim_v, sim) in sim_velocities.items():
+            k_sim, sim_by_year = _yearly_eke_spatial_spectra(
+                sim_u,
+                sim_v,
+                sim["dx"],
+                sim["dy"],
+                lon_slice,
+                lat_slice,
+                years,
+                lat_dim="y",
+                lon_dim="x",
             )
-            ax.loglog(k_sim, spec_sim, "-", color=emulators[label]["color"], linewidth=2, label=label)
-        ax.set_title(f"{region_name}\nspatial spectrum")
+            if not sim_by_year:
+                continue
+            x_ref, gm, lo, hi, _ = _interannual_band(
+                [(k_sim, spectrum) for spectrum in sim_by_year.values()]
+            )
+            if x_ref is not None:
+                _plot_spectra_interannual_panel(
+                    ax, x_ref, gm, lo, hi, "-", emulators[label]["color"], label
+                )
+            per_year = {
+                year: _log10_rmse_between_spectra(
+                    k_obs, obs_by_year[year], k_sim, sim_by_year[year]
+                )
+                for year in sorted(set(obs_by_year) & set(sim_by_year))
+            }
+            rows.extend(
+                _interannual_spectrum_rmse_rows(
+                    label,
+                    region_name,
+                    "surface_eke_spatial_spectrum_log10_rmse_vs_duacs",
+                    per_year,
+                )
+            )
+        ax.set_title(region_name)
         ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
         ax.set_ylabel("PSD")
         ax.grid(True, which="both", alpha=0.3)
 
     handles, labels, ncol = _legend_truth_first(
-        *axes[0].get_legend_handles_labels(), truth_labels={"OISST 5-day avg"}
+        *axes[0].get_legend_handles_labels(), truth_labels={"DUACS"}
     )
-    fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False)
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=ncol,
+        bbox_to_anchor=(0.5, -0.005),
+        frameon=False,
+    )
     fig.suptitle(
-        _figure_title_with_context(
-            "Surface Temperature SSTA Spatial Spectra vs OISST",
-            period_label,
-            f"calendar-day climatology removed; spatial spectra over {SPECTRUM_PANEL_LABEL}",
-        ),
-        y=0.98,
-        fontsize=15,
+        "Open-Ocean Box Surface EKE Spatial Spectra vs DUACS\n"
+        f"interannual geometric mean $\pm$1 log-std over {y0}–{y1} ({velocity_label})",
+        y=0.975,
+        fontsize=14,
         linespacing=1.15,
     )
-    fig.subplots_adjust(left=0.07, right=0.98, top=0.76, bottom=0.18, wspace=0.28)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.80, bottom=0.18, wspace=0.28)
     return pd.DataFrame(rows)
 
 
@@ -3492,11 +4528,11 @@ def _plot_temperature_spectra(
         label: emu["ds"].sel(time=slice(window_start, window_end)) for label, emu in emulators.items()
     }
     rows = []
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(SPATIAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPATIAL_SPECTRUM_PANELS):
         ax = axes[idx]
         k_5day, spec_5day = _compute_isotropic_spectrum_from_surface(
             oisst_5day[sst_5day_name], oisst_5day["dx"], oisst_5day["dy"], lon_slice, lat_slice
@@ -3516,22 +4552,22 @@ def _plot_temperature_spectra(
                 sim_sst, sim["dx"], sim["dy"], lon_slice, lat_slice,
                 lat_dim="y", lon_dim="x",
             )
-            rmse_5day = _rmse_between_curves(k_5day, spec_5day, k_sim, spec_sim)
+            rmse_5day = _log10_rmse_between_spectra(k_5day, spec_5day, k_sim, spec_sim)
             rows.append(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "surface_ssta_isotropic_spectrum_rmse_vs_oisst_5day_avg",
+                    "metric": "surface_ssta_isotropic_spectrum_log10_rmse_vs_oisst_5day_avg",
                     "value": rmse_5day,
                 }
             )
             if k_daily is not None and spec_daily is not None:
-                rmse_daily = _rmse_between_curves(k_daily, spec_daily, k_sim, spec_sim)
+                rmse_daily = _log10_rmse_between_spectra(k_daily, spec_daily, k_sim, spec_sim)
                 rows.append(
                     {
                         "model": label,
                         "region": region_name,
-                        "metric": "surface_ssta_isotropic_spectrum_rmse_vs_oisst_raw_daily",
+                        "metric": "surface_ssta_isotropic_spectrum_log10_rmse_vs_oisst_raw_daily",
                         "value": rmse_daily,
                     }
                 )
@@ -3555,7 +4591,8 @@ def _plot_temperature_spectra(
         fontsize=11,
     )
     fig.suptitle(
-        f"Global and Regional Surface Temperature SSTA Spectra vs OISST\n{period_label} calendar-day climatology removed",
+        "Open-Ocean Box Surface Temperature SSTA Spatial Spectra vs OISST\n"
+        f"{period_label} calendar-day climatology removed",
         y=0.975,
         fontsize=15,
         linespacing=1.15,
@@ -3585,18 +4622,22 @@ def _yearly_isotropic_spectra(
     if squeeze_dims:
         field = field.squeeze(squeeze_dims, drop=True)
     data = field.sel({lon_dim: lon_slice, lat_dim: lat_slice}).transpose("time", lat_dim, lon_dim)
-    dx_mean = float(dx_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
-    dy_mean = float(dy_2d.sel({lon_dim: lon_slice, lat_dim: lat_slice}).mean().values)
     ssta = _calendar_day_climatology_anomaly(data)
-    ssta = _mask_region_for_spectrum(ssta, lat_dim, lon_dim)
+    ssta = _fully_observed_spectrum_block(ssta, lat_dim, lon_dim)
+    metric_selection = {lat_dim: ssta[lat_dim], lon_dim: ssta[lon_dim]}
+    dx_mean = float(dx_2d.sel(metric_selection).mean().values)
+    dy_mean = float(dy_2d.sel(metric_selection).mean().values)
     k_common: np.ndarray | None = None
     by_year: dict[int, np.ndarray] = {}
     for year in years:
         ssta_yr = ssta.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
         if ssta_yr.sizes.get("time", 0) == 0:
             continue
+        values = np.asarray(ssta_yr.values, dtype=np.float32)
+        if not np.isfinite(values).all():
+            raise ValueError(f"Spatial spectrum contains non-finite values in {year}")
         k_cent, spec = compute_isotropic_spectrum_torch(
-            torch.as_tensor(ssta_yr.fillna(0.0).values),
+            torch.as_tensor(values),
             dx=dx_mean,
             dy=dy_mean,
             n_factor=2,
@@ -3615,7 +4656,7 @@ def _plot_temperature_spectra_interannual(
     emulators: dict[str, dict],
     years: list[int] = SPECTRA_INTERANNUAL_YEARS,
 ) -> pd.DataFrame:
-    """Isotropic SSTA spectra as an interannual mean +/- 1 std band: one spectrum per calendar
+    """Isotropic SSTA spectra as a geometric mean +/- 1 log-std band: one spectrum per calendar
     year over `years`, aggregated across years. Complements the pooled single-curve figure."""
     sst_name = _find_var_name(oisst_5day, ["sst", "analysed_sst", "thetao", "tos"])
     y0, y1 = years[0], years[-1]
@@ -3624,11 +4665,11 @@ def _plot_temperature_spectra_interannual(
     sim_w = {label: emu["ds"].sel(time=window) for label, emu in emulators.items()}
 
     rows = []
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(SPATIAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPATIAL_SPECTRUM_PANELS):
         ax = axes[idx]
         k_obs, obs_by_year = _yearly_isotropic_spectra(
             oisst_w[sst_name], oisst_w["dx"], oisst_w["dy"], lon_slice, lat_slice, years
@@ -3648,18 +4689,18 @@ def _plot_temperature_spectra_interannual(
             x_ref_s, gm_s, lo_s, hi_s, _ = _interannual_band([(k_sim, s) for s in sim_by_year.values()])
             if x_ref_s is not None:
                 _plot_spectra_interannual_panel(ax, x_ref_s, gm_s, lo_s, hi_s, "-", emu["color"], label)
-            per_year = [
-                _rmse_between_curves(k_obs, obs_by_year[yr], k_sim, sim_by_year[yr])
+            per_year = {
+                yr: _log10_rmse_between_spectra(k_obs, obs_by_year[yr], k_sim, sim_by_year[yr])
                 for yr in sorted(set(obs_by_year) & set(sim_by_year))
-            ]
-            per_year = [v for v in per_year if np.isfinite(v)]
-            if per_year:
-                rows.append({"model": label, "region": region_name,
-                             "metric": "surface_ssta_isotropic_spectrum_interannual_rmse_vs_oisst_mean",
-                             "value": float(np.mean(per_year))})
-                rows.append({"model": label, "region": region_name,
-                             "metric": "surface_ssta_isotropic_spectrum_interannual_rmse_vs_oisst_std",
-                             "value": float(np.std(per_year))})
+            }
+            rows.extend(
+                _interannual_spectrum_rmse_rows(
+                    label,
+                    region_name,
+                    "surface_ssta_isotropic_spectrum_log10_rmse_vs_oisst_5day_avg",
+                    per_year,
+                )
+            )
         ax.set_title(region_name)
         ax.set_xlabel(r"Wavenumber $\kappa$ (km$^{-1}$)")
         ax.set_ylabel("PSD")
@@ -3670,8 +4711,8 @@ def _plot_temperature_spectra_interannual(
     )
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
     fig.suptitle(
-        "Global and Regional Surface Temperature SSTA Spectra vs OISST\n"
-        f"interannual mean $\\pm$1 std over {y0}–{y1} (per-year spectra)",
+        "Open-Ocean Box Surface Temperature SSTA Spatial Spectra vs OISST\n"
+        f"interannual geometric mean $\\pm$1 log-std over {y0}–{y1} (per-year spectra)",
         y=0.975,
         fontsize=14,
         linespacing=1.15,
@@ -3707,11 +4748,11 @@ def _plot_temporal_ke_spectra(
         )
 
     rows = []
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(TEMPORAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(TEMPORAL_SPECTRUM_PANELS):
         ax = axes[idx]
         freq_raw, psd_raw = _compute_temporal_ke_spectrum_from_surface(
             duacs_raw[u_raw_name], duacs_raw[v_raw_name], lon_slice, lat_slice
@@ -3734,13 +4775,13 @@ def _plot_temporal_ke_spectra(
             freq_sim, psd_sim = _compute_temporal_ke_spectrum_from_surface(
                 sim_ug, sim_vg, lon_slice, lat_slice, lat_dim="y", lon_dim="x",
             )
-            rmse_raw = _rmse_between_curves(freq_raw, psd_raw, freq_sim, psd_sim)
-            rmse_5day = _rmse_between_curves(freq_5day, psd_5day, freq_sim, psd_sim)
+            rmse_raw = _log10_rmse_between_spectra(freq_raw, psd_raw, freq_sim, psd_sim)
+            rmse_5day = _log10_rmse_between_spectra(freq_5day, psd_5day, freq_sim, psd_sim)
             rows.append(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_raw_daily",
+                    "metric": "surface_geostrophic_ke_temporal_spectrum_log10_rmse_vs_duacs_raw_daily",
                     "value": rmse_raw,
                 }
             )
@@ -3748,7 +4789,7 @@ def _plot_temporal_ke_spectra(
                 {
                     "model": label,
                     "region": region_name,
-                    "metric": "surface_geostrophic_ke_temporal_spectrum_rmse_vs_duacs_5day_avg",
+                    "metric": "surface_geostrophic_ke_temporal_spectrum_log10_rmse_vs_duacs_5day_avg",
                     "value": rmse_5day,
                 }
             )
@@ -3809,7 +4850,7 @@ def _plot_temporal_ke_spectra_interannual(
     years: list[int] = SPECTRA_INTERANNUAL_YEARS,
     velocity_kind: str = "absolute",
 ) -> pd.DataFrame:
-    """Temporal KE spectra as an interannual mean +/- 1 std band (one Welch PSD per calendar
+    """Temporal KE spectra as a geometric mean +/- 1 log-std band (one Welch PSD per calendar
     year). Complements the pooled single-curve figure, which still covers the lowest frequencies."""
     u_name, v_name = _duacs_velocity_names(duacs_5day, velocity_kind)
     velocity_label = _duacs_velocity_label(velocity_kind)
@@ -3818,11 +4859,11 @@ def _plot_temporal_ke_spectra_interannual(
     duacs_w = duacs_5day.sel(time=window)
 
     rows = []
-    ncols = len(SPECTRUM_PANELS)
+    ncols = len(TEMPORAL_SPECTRUM_PANELS)
     fig, axes = plt.subplots(1, ncols, figsize=(4.8 * ncols, 4.2))
     axes = np.ravel(axes)
 
-    for idx, (region_name, lon_slice, lat_slice) in enumerate(SPECTRUM_PANELS):
+    for idx, (region_name, lon_slice, lat_slice) in enumerate(TEMPORAL_SPECTRUM_PANELS):
         ax = axes[idx]
         obs_by_year = _yearly_temporal_ke_spectra(duacs_w[u_name], duacs_w[v_name], lon_slice, lat_slice, years)
         if obs_by_year:
@@ -3845,19 +4886,19 @@ def _plot_temporal_ke_spectra_interannual(
             x_ref_s, gm_s, lo_s, hi_s, _ = _interannual_band(list(sim_by_year.values()))
             if x_ref_s is not None:
                 _plot_spectra_interannual_panel(ax, x_ref_s, gm_s, lo_s, hi_s, "-", emu["color"], label)
-            per_year = []
+            per_year = {}
             for yr in sorted(set(obs_by_year) & set(sim_by_year)):
                 fo, po = obs_by_year[yr]
                 fs, ps = sim_by_year[yr]
-                per_year.append(_rmse_between_curves(fo, po, fs, ps))
-            per_year = [v for v in per_year if np.isfinite(v)]
-            if per_year:
-                rows.append({"model": label, "region": region_name,
-                             "metric": "surface_geostrophic_ke_temporal_spectrum_interannual_rmse_vs_duacs_mean",
-                             "value": float(np.mean(per_year))})
-                rows.append({"model": label, "region": region_name,
-                             "metric": "surface_geostrophic_ke_temporal_spectrum_interannual_rmse_vs_duacs_std",
-                             "value": float(np.std(per_year))})
+                per_year[yr] = _log10_rmse_between_spectra(fo, po, fs, ps)
+            rows.extend(
+                _interannual_spectrum_rmse_rows(
+                    label,
+                    region_name,
+                    "surface_geostrophic_ke_temporal_spectrum_log10_rmse_vs_duacs_5day_avg",
+                    per_year,
+                )
+            )
         ax.set_title(region_name)
         ax.set_xlabel("Frequency (cycles/year)")
         ax.set_ylabel("PSD")
@@ -3869,7 +4910,8 @@ def _plot_temporal_ke_spectra_interannual(
     fig.legend(handles, labels, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=11)
     fig.suptitle(
         "Global and Regional Surface Geostrophic KE Temporal Spectra vs DUACS\n"
-        f"interannual mean $\\pm$1 std over {y0}–{y1} ({velocity_label}, per-year Welch)",
+        f"interannual geometric mean $\\pm$1 log-std over {y0}–{y1} "
+        f"({velocity_label}, per-year Welch)",
         y=0.975,
         fontsize=13,
         linespacing=1.15,
@@ -4865,10 +5907,6 @@ def main() -> None:
             _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["oisst"]))
         )
     )
-    # The requested SST spectra compare rollouts with the 5-day OISST product.
-    # Raw daily OISST spectra are intentionally skipped here because the global
-    # multi-year daily FFT is much slower and not part of the current metric set.
-    oisst_daily = None
     argo_iap = _drop_singleton_nonspatial_dims(
         _standardize_latlon_time(_maybe_open_dataset(OBS_CONFIG["argo_iap"]))
     )
@@ -4897,32 +5935,118 @@ def main() -> None:
     ohc_label = _period_label(ohc_start, ohc_end)
     ohc_slug = _period_slug(ohc_start, ohc_end)
 
-    print(f"\n[Total RMSE + spatial RMSE maps ({args.year})]")
-    print("Evaluating surface geostrophic velocity vector RMSE maps vs DUACS...")
-    velocity_rmse_metrics = _plot_surface_velocity_rmse_maps(
+    rmse_start = _date_or_none(args.rmse_start_date) or PRIMARY_RMSE_START
+    rmse_end = _date_or_none(args.rmse_end_date) or PRIMARY_RMSE_END
+    if rmse_start is not None and rmse_end is not None and rmse_start > rmse_end:
+        raise ValueError(f"Invalid RMSE period: start={rmse_start}, end={rmse_end}")
+    rmse_period_slug = f"{rmse_start:%Y%m}_{rmse_end:%Y%m}"
+
+    print(f"\n[Total RMSE + spatial RMSE maps ({rmse_start:%Y}–{rmse_end:%Y} complete years)]")
+    print("Evaluating primary surface geostrophic velocity vector RMSE vs DUACS...")
+    velocity_rmse_full = _plot_surface_velocity_rmse_maps(
         duacs,
         emulators,
-        args.year,
+        start=rmse_start,
+        end=rmse_end,
+        period_kind="primary_complete_years",
+        include_annual=True,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig(
+        f"surface_geostrophic_velocity_vector_rmse_vs_duacs_{rmse_period_slug}", RMSE_DIR
+    )
+
+    print("Evaluating primary instantaneous surface EKE RMSE vs DUACS...")
+    eke_rmse_full = _plot_eke_rmse_maps(
+        duacs,
+        emulators,
+        start=rmse_start,
+        end=rmse_end,
+        period_kind="primary_complete_years",
+        include_annual=True,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig(f"surface_eke_rmse_vs_duacs_{rmse_period_slug}", RMSE_DIR)
+
+    print("Evaluating primary SST RMSE vs OISST...")
+    sst_rmse_full = _plot_sst_rmse_maps(
+        oisst,
+        emulators,
+        start=rmse_start,
+        end=rmse_end,
+        period_kind="primary_complete_years",
+        include_annual=True,
+    )
+    save_current_fig(f"sst_rmse_maps_vs_oisst_{rmse_period_slug}", RMSE_DIR)
+
+    print("Evaluating primary OHC RMSE vs ARGO-IAP...")
+    ohc_rmse_full = _plot_ohc_rmse_maps(
+        argo_iap,
+        emulators,
+        start=rmse_start,
+        end=rmse_end,
+        period_kind="primary_complete_years",
+        include_annual=True,
+    )
+    save_current_fig(f"ohc_per_area_rmse_maps_vs_argo_iap_{rmse_period_slug}", RMSE_DIR)
+
+    snapshot_start = pd.Timestamp(f"{args.year}-01-01")
+    snapshot_end = pd.Timestamp(f"{args.year}-12-31")
+    print(f"\n[Retained RMSE snapshot ({args.year})]")
+    velocity_rmse_snapshot = _plot_surface_velocity_rmse_maps(
+        duacs,
+        emulators,
+        start=snapshot_start,
+        end=snapshot_end,
+        period_kind="snapshot",
         velocity_kind=args.duacs_velocity_kind,
     )
     save_current_fig(f"surface_geostrophic_velocity_vector_rmse_vs_duacs_{args.year}", RMSE_DIR)
 
-    print("Evaluating surface EKE RMSE maps vs DUACS...")
-    eke_rmse_metrics = _plot_eke_rmse_maps(
+    eke_rmse_snapshot = _plot_eke_rmse_maps(
         duacs,
         emulators,
-        args.year,
+        start=snapshot_start,
+        end=snapshot_end,
+        period_kind="snapshot",
         velocity_kind=args.duacs_velocity_kind,
     )
     save_current_fig(f"surface_eke_rmse_vs_duacs_{args.year}", RMSE_DIR)
 
-    print("Evaluating SST RMSE maps vs OISST...")
-    sst_rmse_metrics = _plot_sst_rmse_maps(oisst, emulators, args.year)
+    sst_rmse_snapshot = _plot_sst_rmse_maps(
+        oisst,
+        emulators,
+        start=snapshot_start,
+        end=snapshot_end,
+        period_kind="snapshot",
+    )
     save_current_fig(f"sst_rmse_maps_vs_oisst_{args.year}", RMSE_DIR)
 
-    print(f"Evaluating OHC RMSE maps vs ARGO-IAP for {args.year}...")
-    ohc_rmse_metrics = _plot_ohc_rmse_maps(argo_iap, emulators, args.year)
+    ohc_rmse_snapshot = _plot_ohc_rmse_maps(
+        argo_iap,
+        emulators,
+        start=snapshot_start,
+        end=snapshot_end,
+        period_kind="snapshot",
+    )
     save_current_fig(f"ohc_per_area_rmse_maps_vs_argo_iap_{args.year}", RMSE_DIR)
+
+    rmse_metrics = pd.concat(
+        [
+            velocity_rmse_full,
+            eke_rmse_full,
+            sst_rmse_full,
+            ohc_rmse_full,
+            velocity_rmse_snapshot,
+            eke_rmse_snapshot,
+            sst_rmse_snapshot,
+            ohc_rmse_snapshot,
+        ],
+        ignore_index=True,
+        sort=False,
+    )
+    _plot_annual_rmse_timeseries(rmse_metrics, emulators)
+    save_current_fig("annual_total_rmse_timeseries_vs_observations", RMSE_DIR)
 
     print("\n[Velocities]")
     print("Evaluating EKE maps vs DUACS...")
@@ -4934,13 +6058,21 @@ def main() -> None:
     )
     save_current_fig(f"eke_mean_vs_duacs_{args.year}", MAP_DIR)
 
-    print("Evaluating EKE spatial spectra vs DUACS (Global, Gulf Stream, Agulhas)...")
-    global_eke_spec_metrics = _plot_global_eke_spectra(
+    print("Evaluating EKE spatial spectra vs DUACS (North Pacific, Gulf Stream, Agulhas)...")
+    eke_spatial_spectrum_metrics = _plot_eke_spatial_spectra(
         duacs,
         emulators,
         velocity_kind=args.duacs_velocity_kind,
     )
-    save_current_fig("regional_eke_spatial_global_temporal_spectra_vs_duacs", SPECTRUM_DIR)
+    save_current_fig("eke_spatial_spectra_open_ocean_boxes_vs_duacs", SPECTRUM_DIR)
+
+    print("Evaluating interannual EKE spatial spectra and log-standard-deviation bands...")
+    eke_spatial_interannual_metrics = _plot_eke_spatial_spectra_interannual(
+        duacs,
+        emulators,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig("eke_spatial_spectra_interannual_vs_duacs", SPECTRUM_DIR)
 
     print("Evaluating temporal KE spectra vs raw and 5-day DUACS (Global, Gulf Stream, Agulhas)...")
     ke_spec_metrics = _plot_temporal_ke_spectra(
@@ -4951,14 +6083,22 @@ def main() -> None:
     )
     save_current_fig("ke_temporal_spectra_vs_duacs", SPECTRUM_DIR)
 
-    print("\n[Temperature]")
-    print("Evaluating SST spatial spectra vs OISST (Global, Gulf Stream, Agulhas)...")
-    global_sst_spec_metrics = _plot_global_sst_spectra(oisst, emulators)
-    save_current_fig("regional_sst_spatial_global_temporal_spectra_vs_oisst", SPECTRUM_DIR)
+    print("Evaluating interannual temporal KE spectra and log-standard-deviation bands...")
+    ke_spec_interannual_metrics = _plot_temporal_ke_spectra_interannual(
+        duacs,
+        emulators,
+        velocity_kind=args.duacs_velocity_kind,
+    )
+    save_current_fig("ke_temporal_spectra_interannual_vs_duacs", SPECTRUM_DIR)
 
-    print("Evaluating isotropic SST spectra vs 5-day OISST (Global, Gulf Stream, Agulhas)...")
-    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators, oisst_daily=oisst_daily)
+    print("\n[Temperature]")
+    print("Evaluating isotropic SST spectra vs 5-day OISST (North Pacific, Gulf Stream, Agulhas)...")
+    temp_spec_metrics = _plot_temperature_spectra(oisst, emulators)
     save_current_fig("temperature_isotropic_spectra_vs_oisst", SPECTRUM_DIR)
+
+    print("Evaluating interannual SST spatial spectra and log-standard-deviation bands...")
+    temp_spec_interannual_metrics = _plot_temperature_spectra_interannual(oisst, emulators)
+    save_current_fig("temperature_isotropic_spectra_interannual_vs_oisst", SPECTRUM_DIR)
 
     print(f"Evaluating monthly total OHC for upper 700m and 700-2000m vs ARGO-IAP over {ohc_label}...")
     obs_ohc, sim_ohc = _collect_ohc_timeseries(argo_iap, emulators, ohc_start, ohc_end)
@@ -5086,16 +6226,24 @@ def main() -> None:
     )
     save_current_fig(f"ohc_upper700_residual_anomaly_variance_maps_vs_argo_iap_{ohc_slug}", VARIANCE_DIR)
 
+    variance_map_metrics = pd.concat(
+        [sst_variance_map_metrics, ohc_upper_variance_map_metrics],
+        ignore_index=True,
+        sort=False,
+    )
+    _plot_annual_variance_map_rmse_timeseries(variance_map_metrics, emulators)
+    save_current_fig("annual_residual_variance_map_rmse_timeseries", VARIANCE_DIR)
+
+    rmse_metrics = _attach_ohc_convention_metadata(rmse_metrics)
     metric_frames = [
-        velocity_rmse_metrics,
-        eke_rmse_metrics,
-        sst_rmse_metrics,
-        ohc_rmse_metrics,
+        rmse_metrics,
         eke_metrics,
-        global_eke_spec_metrics,
+        eke_spatial_spectrum_metrics,
+        eke_spatial_interannual_metrics,
         ke_spec_metrics,
-        global_sst_spec_metrics,
+        ke_spec_interannual_metrics,
         temp_spec_metrics,
+        temp_spec_interannual_metrics,
         ohc_metrics,
         ohc_map_metrics,
         *anomaly_metrics,
@@ -5103,7 +6251,13 @@ def main() -> None:
         ohc_upper_variance_map_metrics,
     ]
     metric_frames = [frame for frame in metric_frames if frame is not None and not frame.empty]
-    metrics = pd.concat(metric_frames, ignore_index=True)
+    metrics = _attach_ohc_convention_metadata(pd.concat(metric_frames, ignore_index=True))
+    rmse_metrics_path = os.path.join(
+        METRICS_DIR,
+        f"rmse_metrics_primary_{rmse_period_slug}_and_{args.year}_snapshot.csv",
+    )
+    rmse_metrics.to_csv(rmse_metrics_path, index=False)
+    print(f"  -> Saved RMSE metrics and uncertainty: {rmse_metrics_path}")
     metrics_path = os.path.join(METRICS_DIR, f"observation_metrics_{args.year}.csv")
     metrics.to_csv(metrics_path, index=False)
     print(f"  -> Saved metrics: {metrics_path}")
