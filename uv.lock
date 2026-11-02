@@ -2841,6 +2841,9 @@ cuda = [
     { name = "flash-perceiver" },
     { name = "torchvision" },
 ]
+neptune = [
+    { name = "torch-harmonics" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -2882,7 +2885,7 @@ requires-dist = [
     { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "microsoft-aurora", specifier = ">=1.8.0" },
+    { name = "microsoft-aurora", specifier = ">=1.8" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
@@ -2894,6 +2897,7 @@ requires-dist = [
     { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10" },
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "torch", specifier = "~=2.8.0" },
+    { name = "torch-harmonics", marker = "extra == 'neptune'", specifier = "==0.7.4" },
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "torchvision", marker = "extra == 'cuda'", specifier = ">=0.23" },
     { name = "wandb", specifier = ">=0.19.8" },
@@ -2902,7 +2906,7 @@ requires-dist = [
     { name = "xesmf", specifier = ">=0.8.10" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["cuda"]
+provides-extras = ["cuda", "neptune"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4674,6 +4678,16 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b4/a8/6a04e4b54472fc5dba7ca2341ab219e529f3c07b6941059fbf18dccac31f/torch-2.8.0-cp313-cp313t-win_amd64.whl", hash = "sha256:a7242b86f42be98ac674b88a4988643b9bc6145437ec8f048fea23f72feb5eca", size = 241603453, upload-time = "2025-08-06T14:55:22.945Z" },
     { url = "https://files.pythonhosted.org/packages/04/6e/650bb7f28f771af0cb791b02348db8b7f5f64f40f6829ee82aa6ce99aabe/torch-2.8.0-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:7b677e17f5a3e69fdef7eb3b9da72622f8d322692930297e4ccb52fefc6c8211", size = 73632395, upload-time = "2025-08-06T14:55:28.645Z" },
 ]
+
+[[package]]
+name = "torch-harmonics"
+version = "0.7.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/38/9a198a92d32410d22fdf5896e4e6cc9d9fcaa1b01205197062f3b039aae9/torch_harmonics-0.7.4.tar.gz", hash = "sha256:fa7b7a86ded81600e32b55bd0c3c040a5dfef96849305670b7bb24fb96dda2c7", size = 4702249, upload-time = "2025-01-14T16:22:54.683Z" }
 
 [[package]]
 name = "torchinfo"

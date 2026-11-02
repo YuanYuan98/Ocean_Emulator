@@ -559,9 +559,17 @@ class Trainer:
                     loss_scale_per_channel = loss_scale_per_channel_fn()
                     # Reshape from channels * history to channels
                     # by averaging along the `hist` dimension
-                    loss_per_channel = TO.loss_per_channel.reshape(
-                        loss_scale_per_channel.shape[0], -1
-                    ).mean(dim=1)
+                    if (
+                        getattr(self.loss_fn, "history_grouping", "legacy_adjacent")
+                        == "time_major"
+                    ):
+                        loss_per_channel = TO.loss_per_channel.reshape(
+                            -1, loss_scale_per_channel.shape[0]
+                        ).mean(dim=0)
+                    else:
+                        loss_per_channel = TO.loss_per_channel.reshape(
+                            loss_scale_per_channel.shape[0], -1
+                        ).mean(dim=1)
 
                     unscaled_loss_per_channel = (
                         loss_per_channel / loss_scale_per_channel
@@ -608,7 +616,7 @@ class Trainer:
                 single_step_data = TrainData(data.num_prognostic_channels)
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
-                single_step_data.append(input, label)
+                single_step_data.append(input, label, data.get_calendar_phase(0))
                 pred = self.model(single_step_data)
                 update(pred[0], label)
 

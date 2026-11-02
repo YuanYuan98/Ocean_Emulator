@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../schemas/NeptuneConfig.json
+type: neptune
+hidden_channels: 256
+decoder_mid_channels: 512
+modes:
+- 2
+- 2
+grid: legendre-gauss
+condition_dim: 256
+noise_dim: 32
+spatial_fourier_bands: 8
+temporal_fourier_bands: 4
+day_length_fourier_bands: 4
+dropout: 0.0
+mlp_ratio: 2
+inference_noise: fixed
+inference_noise_seed: 15
+pred_residuals: false
+last_kernel_size: 3
+pad: circular
+checkpointing: all
+gradient_detach_interval: 0
+add_3d_coordinates: false
+use_bfloat16: false

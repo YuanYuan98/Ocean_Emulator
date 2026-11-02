@@ -22,6 +22,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
+from ocean_emulators.utils.calendar import calendar_phase
 from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
@@ -63,7 +64,18 @@ class InferenceDataset(Dataset):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self._excluded_boundary_indices = [
+            i
+            for i, name in enumerate(boundary_var_names)
+            if name in src.forcing_revision_excluded
+        ]
         self._times = data.time
+        # Some legacy/synthetic datasets use anonymous numeric time indices.
+        self._calendar_phases = (
+            calendar_phase(data.time.values)
+            if data.time.dtype.kind not in "biufc"
+            else None
+        )
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
 
@@ -128,6 +140,14 @@ class InferenceDataset(Dataset):
                 start_target_index, start_target_index + num_steps * steps_predicted
             )
         )
+
+    def get_calendar_phase(self, step: int) -> torch.Tensor:
+        if self._calendar_phases is None:
+            raise ValueError(
+                "Calendar-conditioned models require dated time coordinates."
+            )
+        indices = self._get_x_index(step).values[:, self.hist]
+        return torch.from_numpy(self._calendar_phases[indices])
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
@@ -234,6 +254,8 @@ class InferenceDataset(Dataset):
             data_in_boundary = self._boundary_src.normalize_with(
                 data_in_boundary, variable_axis=2
             )
+        if self._excluded_boundary_indices:
+            data_in_boundary[:, :, self._excluded_boundary_indices] = 0
         data_in_boundary = rearrange(
             data_in_boundary,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
@@ -296,12 +318,23 @@ class RawTrainData:
     def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
+        self.calendar_phases: list[torch.Tensor | None] = []
         self.load_stats: LoadStats | None = None
 
-    def insert(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
+    def insert(
+        self,
+        all_prognostic: torch.Tensor,
+        all_boundary: torch.Tensor,
+        phase: torch.Tensor | None = None,
+    ):
         self.raw_data.append((all_prognostic, all_boundary))
+        self.calendar_phases.append(phase)
 
     def to(self, device: torch.device):
+        self.calendar_phases = [
+            p.to(device, non_blocking=True) if p is not None else None
+            for p in self.calendar_phases
+        ]
         self.raw_data = [
             (
                 all_prognostic.to(device, non_blocking=True),
@@ -311,6 +344,9 @@ class RawTrainData:
         ]
 
     def pin_memory(self):
+        self.calendar_phases = [
+            p.pin_memory() if p is not None else None for p in self.calendar_phases
+        ]
         self.raw_data = [
             (all_prognostic.pin_memory(), all_boundary.pin_memory())
             for all_prognostic, all_boundary in self.raw_data
@@ -332,11 +368,18 @@ class TrainData:
     def __init__(self, num_prognostic_channels: int):
         self.num_prognostic_channels = num_prognostic_channels
         self.example_by_step: list[Example] = []
+        self.calendar_phases: list[torch.Tensor | None] = []
         self.load_stats: LoadStats | None = None
 
-    def append(self, input_: Input, label: Prognostic):
+    def append(
+        self, input_: Input, label: Prognostic, phase: torch.Tensor | None = None
+    ):
         """Add another Example as a new step."""
         self.example_by_step.append((input_, label))
+        self.calendar_phases.append(phase)
+
+    def get_calendar_phase(self, step: int) -> torch.Tensor | None:
+        return self.calendar_phases[step]
 
     def get_initial_input(self) -> Input:
         return self.get_input(0)
@@ -367,6 +410,10 @@ class TrainData:
         return iter(range(len(self)))
 
     def to(self, device: torch.device) -> None:
+        self.calendar_phases = [
+            p.to(device, non_blocking=True) if p is not None else None
+            for p in self.calendar_phases
+        ]
         for step in self:
             self.example_by_step[step] = (
                 self[step][0].to(device, non_blocking=True),
@@ -375,6 +422,9 @@ class TrainData:
 
     def pin_memory(self):
         for step in self:
+            phase = self.calendar_phases[step]
+            if phase is not None:
+                self.calendar_phases[step] = phase.pin_memory()
             self.example_by_step[step] = (
                 self[step][0].pin_memory(),
                 self[step][1].pin_memory(),
@@ -430,11 +480,22 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
+        self._calendar_phases = (
+            calendar_phase(src.data.time.values)
+            if src.data.time.dtype.kind not in "biufc"
+            else None
+        )
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+
+        self._excluded_boundary_indices = [
+            i
+            for i, name in enumerate(boundary_var_names)
+            if name in src.forcing_revision_excluded
+        ]
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -523,19 +584,27 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
 
-            TD.insert(prognostic_all, boundary)
+            phase = (
+                torch.tensor(self._calendar_phases[x_index.values[self.hist]])
+                if self._calendar_phases is not None
+                else None
+            )
+            TD.insert(prognostic_all, boundary, phase)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
-        for prognostic_all, boundary_all in raw_train_data.raw_data:
+        for step, (prognostic_all, boundary_all) in enumerate(raw_train_data.raw_data):
             input, label = self._get_input_and_label(
                 prognostic_all.to(device=self.device, non_blocking=True),
                 boundary_all.to(device=self.device, non_blocking=True),
             )
-            train_data.append(input, label)
+            phase = raw_train_data.calendar_phases[step]
+            train_data.append(
+                input, label, phase.to(self.device) if phase is not None else None
+            )
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 
@@ -603,6 +672,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 self.boundary_stds,
                 self.wet_surface,
             )
+            if self._excluded_boundary_indices:
+                boundary_steps[:, :, self._excluded_boundary_indices] = 0
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:

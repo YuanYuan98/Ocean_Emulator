@@ -79,6 +79,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
+    forcing_revision_excluded: tuple[str, ...] = ()
 
     @cached_property
     def is_compact(self) -> bool:

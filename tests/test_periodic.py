@@ -5,8 +5,17 @@ import torch
 from ocean_emulators.models.modules.blocks import (
     AvgPool,
     BilinearUpsample,
+    CellCenteredPeriodicBilinearUpsample,
     ZonallyPeriodicBilinearUpsample,
 )
+
+
+def test_cell_centered_periodic_sampling_grid():
+    # Four coarse cell centers; longitude wraps across the 12 -> 0 seam.
+    values = torch.tensor([0., 4., 8., 12.]).reshape(1, 1, 1, 4)
+    expected_row = torch.tensor([3., 1., 3., 5., 7., 9., 11., 9.])
+    result = CellCenteredPeriodicBilinearUpsample()(values)
+    torch.testing.assert_close(result, expected_row.expand(1, 1, 2, 8))
 
 
 def _pad_like_unet(feature: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
@@ -29,6 +38,7 @@ def _pad_like_unet(feature: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
     [
         pytest.param(BilinearUpsample, id="bilinear"),
         pytest.param(ZonallyPeriodicBilinearUpsample, id="zonally_periodic"),
+        pytest.param(CellCenteredPeriodicBilinearUpsample, id="cell_centered_periodic"),
     ],
 )
 @pytest.mark.parametrize("width", [8, 10, 16])

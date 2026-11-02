@@ -21,7 +21,7 @@ from ocean_emulators.constants import (
     Lon,
     PrognosticVarNames,
 )
-from ocean_emulators.models import FOMO, Samudra
+from ocean_emulators.models import FOMO, Neptune, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     AvgPool,
@@ -38,7 +38,10 @@ from ocean_emulators.models.modules import (
     UNetBackbone,
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
-from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+from ocean_emulators.models.modules.blocks import (
+    CellCenteredPeriodicBilinearUpsample,
+    ZonallyPeriodicBilinearUpsample,
+)
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
@@ -48,6 +51,7 @@ from ocean_emulators.utils.loss import (
     LossMetric,
     loss_fn_from_metric,
 )
+from ocean_emulators.utils.loss_baselines import AdaLoss, FixedOutputWeightedLoss
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
 
@@ -151,6 +155,10 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    forcing_revision_mode: Literal[
+        "full", "wind_only", "heat_only", "climatology", "no_forcing"
+    ] = "full"
+    forcing_revision_assets: str | None = None
 
     def build(
         self,
@@ -165,7 +173,27 @@ class DataConfig(BaseConfig):
         means_location = data_root.resolve(self.data_means_location)
         stds_location = data_root.resolve(self.data_stds_location)
 
-        source = DataSource.from_locations(
+        source_builder = DataSource.from_locations
+        if self.forcing_revision_mode != "full":
+            from functools import partial
+
+            from ocean_emulators.utils.forcing_revision import build_source
+
+            if self.forcing_revision_assets is None:
+                raise ValueError(
+                    "Forcing ablations require frozen preprocessing assets"
+                )
+            if not self.normalize_before_mask or self.masked_fill_value != 0:
+                raise ValueError(
+                    "Forcing revision requires original normalize-first, zero-land setup"
+                )
+            source_builder = partial(
+                build_source,
+                mode=self.forcing_revision_mode,
+                assets=self.forcing_revision_assets,
+            )
+
+        source = source_builder(
             data_location=data_location,
             means_location=means_location,
             stds_location=stds_location,
@@ -180,7 +208,7 @@ class DataConfig(BaseConfig):
             source_using_dask = source
         else:
             # If we're not using dask for the main source, create a separate one
-            source_using_dask = DataSource.from_locations(
+            source_using_dask = source_builder(
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
@@ -402,7 +430,10 @@ class EncoderConfig(BaseConfig):
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal[
-    "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
+    "bilinear_upsample",
+    "transposed_conv",
+    "zonally_periodic_upsample",
+    "cell_centered_periodic_upsample",
 ]
 Checkpointing = Literal["all", "simple"]
 
@@ -437,6 +468,8 @@ class UNetBackboneConfig(BaseConfig):
                     )
                 case "zonally_periodic_upsample":
                     return ZonallyPeriodicBilinearUpsample()
+                case "cell_centered_periodic_upsample":
+                    return CellCenteredPeriodicBilinearUpsample()
                 case _:
                     assert_never(self.up_sampling_block)
 
@@ -598,7 +631,42 @@ class FOMOConfig(BaseModelConfig):
         )
 
 
-AnyModelConfig = SamudraConfig | FOMOConfig
+class NeptuneConfig(BaseModelConfig):
+    type: Literal["neptune"]
+    hidden_channels: int = Field(default=256, ge=1)
+    decoder_mid_channels: int | None = Field(default=None, ge=1)
+    modes: tuple[int, int] = (2, 2)
+    grid: Literal["legendre-gauss", "equiangular"] = "legendre-gauss"
+    condition_dim: int = Field(default=256, ge=1)
+    noise_dim: int = Field(default=32, ge=1)
+    spatial_fourier_bands: int = Field(default=8, ge=1)
+    temporal_fourier_bands: int = Field(default=4, ge=1)
+    day_length_fourier_bands: int = Field(default=4, ge=1)
+    dropout: float = Field(default=0.0, ge=0, lt=1)
+    mlp_ratio: int = Field(default=2, ge=1)
+    inference_noise: Literal["zero", "sample", "fixed"] = "fixed"
+    inference_noise_seed: int = Field(default=15, ge=0)
+    checkpointing: Literal["all"] | None = None
+    add_3d_coordinates: Literal[False] = False
+    pad: Literal["circular"] = "circular"
+    use_bfloat16: bool = False
+
+    def build(
+        self, in_channels, out_channels, hist, wet, area_weights, static_data, lat, lon
+    ) -> Neptune:
+        return Neptune(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hist=hist,
+            wet=wet,
+            lat=lat,
+            lon=lon,
+            static_data=static_data,
+            **self.model_dump(exclude={"type", "add_3d_coordinates"}),
+        )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig | NeptuneConfig
 
 
 class DistributedConfig(BaseConfig):
@@ -663,6 +731,7 @@ TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 class DynamicLossConfig(pydantic.BaseModel):
     type: Literal["dynamic"] = "dynamic"
     metric: LossMetric = "mse"
+    history_grouping: Literal["legacy_adjacent", "time_major"] = "legacy_adjacent"
     limit: float | None = Field(
         description="The ratio of the largest weight to the smallest weight across all channels which we'll allow. Default of None means no limit.",
         default=None,
@@ -684,7 +753,24 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class AdaLossConfig(pydantic.BaseModel):
+    type: Literal["adaloss"] = "adaloss"
+    ema_window: int = Field(default=25, ge=1)
+    epsilon: float = Field(default=1e-8, gt=0)
+
+
+class FixedOutputLossConfig(pydantic.BaseModel):
+    type: Literal["fixed_output"] = "fixed_output"
+    weights_path: Path
+
+
+Loss = (
+    LossMetric
+    | DynamicLossConfig
+    | GradientLossConfig
+    | AdaLossConfig
+    | FixedOutputLossConfig
+)
 
 
 def build_loss_fn(
@@ -696,17 +782,36 @@ def build_loss_fn(
     pad_mode: str,
 ) -> LossFn:
     match loss_cfg:
+        case AdaLossConfig(ema_window=window, epsilon=epsilon):
+            return AdaLoss(
+                loss_fn_from_metric("mse", wet=wet, y_coord=y_coord, device=device),
+                num_channels=num_channels,
+                num_outputs=wet.shape[0],
+                device=device,
+                ema_window=window,
+                epsilon=epsilon,
+            )
+        case FixedOutputLossConfig(weights_path=path):
+            return FixedOutputWeightedLoss.from_file(
+                loss_fn_from_metric("mse", wet=wet, y_coord=y_coord, device=device),
+                path,
+                device,
+                num_outputs=wet.shape[0],
+            )
         case str():
             return loss_fn_from_metric(
                 loss_cfg, wet=wet, y_coord=y_coord, device=device
             )
-        case DynamicLossConfig(metric=metric, limit=limit):
+        case DynamicLossConfig(
+            metric=metric, limit=limit, history_grouping=history_grouping
+        ):
             loss_fn = loss_fn_from_metric(
                 metric, wet=wet, y_coord=y_coord, device=device
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,
+                history_grouping=history_grouping,
                 device=device,
                 num_channels=num_channels,
             )
@@ -794,7 +899,9 @@ class EvalConfig(TopLevelConfig):
     )
     experiment: ExperimentConfig
     data: DataConfig
-    model: AnyModelConfig = SamudraConfig()
+    # A concrete default instance is recursively merged into explicit model
+    # dictionaries by BaseSettings, leaking Samudra fields into other models.
+    model: AnyModelConfig = Field(default_factory=SamudraConfig)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

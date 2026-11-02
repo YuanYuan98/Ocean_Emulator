@@ -180,6 +180,7 @@ class DynamicLoss:
         limit: float | None,
         device: torch.device,
         num_channels: int,
+        history_grouping: Literal["legacy_adjacent", "time_major"] = "legacy_adjacent",
     ):
         self.loss_fn = loss_fn
         self._device = device
@@ -187,6 +188,7 @@ class DynamicLoss:
             num_channels, device=self._device
         )
         self._limit = limit
+        self.history_grouping = history_grouping
 
     def __call__(
         self,
@@ -196,10 +198,18 @@ class DynamicLoss:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
             pred, target
         )
-        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
-            loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
-            * self._per_channel_scale.unsqueeze(1)
-        )
+        if self.history_grouping == "time_major":
+            # Paper-era implementation (aeff3736, Jan 20 2026): tensors are
+            # [time0: all variables, time1: all variables], not adjacent pairs.
+            scaled_loss_including_history_dimension = (
+                loss_with_history_channels.reshape(-1, self._per_channel_scale.shape[0])
+                * self._per_channel_scale
+            )
+        else:
+            scaled_loss_including_history_dimension = (
+                loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
+                * self._per_channel_scale.unsqueeze(1)
+            )
         return scaled_loss_including_history_dimension.reshape(-1)
 
     def update(
@@ -216,11 +226,14 @@ class DynamicLoss:
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
         # by averaging along the `hist` dimension
-        new_target_weights: Float[torch.Tensor, " var"] = (
-            new_target_weights_with_history.reshape(
+        if self.history_grouping == "time_major":
+            new_target_weights = new_target_weights_with_history.reshape(
+                -1, self._per_channel_scale.shape[0]
+            ).mean(dim=0)
+        else:
+            new_target_weights = new_target_weights_with_history.reshape(
                 self._per_channel_scale.shape[0], -1
             ).mean(dim=1)
-        )
 
         if get_world_size() > 1:
             all_reduce_mean(new_target_weights)
@@ -240,11 +253,23 @@ class DynamicLoss:
     # new methods for saving and loading state
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Return state dictionary for checkpointing."""
-        return {"per_channel_scale": self._per_channel_scale.detach().cpu()}
+        return {
+            "per_channel_scale": self._per_channel_scale.detach().cpu(),
+            "history_grouping_code": torch.tensor(
+                int(self.history_grouping == "time_major")
+            ),
+        }
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
+            code = state.get("history_grouping_code")
+            if code is not None and int(code) != int(
+                self.history_grouping == "time_major"
+            ):
+                raise ValueError(
+                    "Checkpoint dynamic-loss history grouping differs from configuration"
+                )
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
 
 

@@ -48,7 +48,12 @@ class Stepper:
             if isinstance(model, torch.nn.parallel.DistributedDataParallel)
             else model
         )
-        outs = model.forward_once(input)
+        phase = batch.get_calendar_phase(0) if model.requires_calendar else None
+        outs = model.forward_step(input, phase)
+        if model.requires_calendar:
+            # Calendar-conditioned models use the same reconstruction as rollout.
+            # Preserve the existing validation behavior of legacy models.
+            outs = model.decode_prediction(input, outs)
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)

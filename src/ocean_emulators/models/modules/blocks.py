@@ -84,6 +84,27 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         return out
 
 
+class CellCenteredPeriodicBilinearUpsample(ZonallyPeriodicBilinearUpsample):
+    """Periodic, cell-centered interpolation used by the released Samudra 2.
+
+    Matches reference inference commit a217a1c20117d7992375fd6d511581dd1a3b00ea.
+    Keep the older left/midpoint implementation selectable for checkpoints
+    trained with that different longitude sampling grid.
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        width = x.shape[-1]
+        padded = torch.nn.functional.pad(x, (1, 1, 0, 0), mode="circular")
+        upsampled = torch.nn.functional.interpolate(
+            padded,
+            scale_factor=(self.scale_h, self.scale_w),
+            mode="bilinear",
+            align_corners=False,
+        )
+        start = self.scale_w
+        return upsampled[..., start : start + width * self.scale_w]
+
+
 class AvgPool(torch.nn.Module):
     def __init__(
         self,

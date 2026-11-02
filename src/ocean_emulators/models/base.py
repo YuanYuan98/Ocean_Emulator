@@ -12,6 +12,8 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 
 
 class BaseModel(torch.nn.Module):
+    requires_calendar = False
+
     def __init__(
         self,
         in_channels,
@@ -39,6 +41,14 @@ class BaseModel(torch.nn.Module):
     def forward_once(self, fts):
         raise NotImplementedError()
 
+    def forward_step(self, fts, phase=None):
+        return self.forward_once(fts)
+
+    def decode_prediction(self, input_tensor, decodings):
+        if self.pred_residuals:
+            return input_tensor[:, : self.out_channels] + decodings
+        return decodings
+
     def forward(
         self,
         train_data: TrainData,
@@ -60,17 +70,11 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        :,
-                        : self.out_channels,
-                    ]  # Residuals on last state in input
-                    + decodings
-                )  # Residual prediction
-            else:
-                pred = decodings  # Absolute prediction
+            phase = (
+                train_data.get_calendar_phase(step) if self.requires_calendar else None
+            )
+            decodings = self.forward_step(input_tensor, phase)
+            pred = self.decode_prediction(input_tensor, decodings)
 
             if loss_fn is not None:
                 if step == 0:
@@ -132,19 +136,13 @@ class BaseModel(torch.nn.Module):
                         step=current_step_idx,
                     )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        0,
-                        : self.out_channels,
-                    ].to(  # Residuals on last state in input
-                        device=get_device()
-                    )
-                    + decodings
-                )
-            else:
-                pred = decodings
+            phase = (
+                dataset.get_calendar_phase(current_step_idx)
+                if self.requires_calendar
+                else None
+            )
+            decodings = self.forward_step(input_tensor, phase)
+            pred = self.decode_prediction(input_tensor, decodings)
 
             pred_tensor[step] = pred
 
