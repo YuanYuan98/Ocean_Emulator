@@ -1,46 +1,84 @@
+# Python
 __pycache__
-.DS_Store
-.out
-.ipynb_checkpoints
-.mypy_cache
-.cache
-download-beaker.sh
-jobs
-saved_nets
-Preds
-old_files
-videos
-wandb
-.LOCAL
-train
-save_data
-outputs
-job_*
-save_data_tensor
-train_recunet
-train_unet
-train_unet_old
-train_swin
-notebooks/temp
-temp
-train
-train_3D
-token.txt
-profile-logs/
-viz_jupyter/slurm_logs/
-*.mp4
-*.gif
-output.log
-.idea
+*.py[cod]
 *.egg-info/
+build/
+dist/
 .venv/
+*.env
+
+# Tool caches
+.mypy_cache
+.pytest_cache/
+.ruff_cache/
+.pytype/
+.cache
 .benchmarks/
 .hypothesis/
-.vscode/
+.coverage
+htmlcov/
+.ipynb_checkpoints
 .data_cache/
-configs/schemas/
-/playpen
-*.env
-build/
-.pytype/
+
+# Editors and OS
+.DS_Store
+.idea
+.vscode/
+*.swp
+
+# Agent and assistant scratch space
 .claude/
+.codex_tmp/
+.local-work/
+
+# Secrets
+token.txt
+
+# Generated config schemas
+configs/schemas/
+
+# Training and evaluation outputs
+.LOCAL
+wandb
+saved_nets
+Preds
+outputs
+save_data
+save_data_tensor
+train
+train_3D
+train_recunet
+train_swin
+train_unet
+train_unet_old
+profile-logs/
+
+# Model checkpoints and array data: keep these on scratch, not in git
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.nc
+*.zarr/
+
+# Job and scheduler logs
+jobs
+job_*
+.out
+*.out
+*.err
+*.log
+viz_jupyter/slurm_logs/
+
+# Media
+*.mp4
+*.gif
+videos
+
+# Scratch
+temp
+notebooks/temp
+old_files
+download-beaker.sh
+/playpen
