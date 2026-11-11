@@ -18,7 +18,7 @@ commit `edd7b8c4` (#558, 2026-01-29) plus the files below, copied unchanged from
 the runs' source snapshot. It is separate from the repository's own `src/`,
 which is different code and does not know this model.
 
-The same code as a diff against upstream is on branch `2026-10-23/expt/loss-controlled`.
+The files that differ from upstream are:
 
 | File | Change |
 |---|---|
