@@ -1,0 +1,788 @@
+{
+  "status": "CANDIDATE_NOT_APPROVED_FOR_TRAINING",
+  "layout": "two_time_major_slots_same_physical_channel_weights",
+  "channel_names": [
+    "uo_0",
+    "uo_1",
+    "uo_2",
+    "uo_3",
+    "uo_4",
+    "uo_5",
+    "uo_6",
+    "uo_7",
+    "uo_8",
+    "uo_9",
+    "uo_10",
+    "uo_11",
+    "uo_12",
+    "uo_13",
+    "uo_14",
+    "uo_15",
+    "uo_16",
+    "uo_17",
+    "uo_18",
+    "vo_0",
+    "vo_1",
+    "vo_2",
+    "vo_3",
+    "vo_4",
+    "vo_5",
+    "vo_6",
+    "vo_7",
+    "vo_8",
+    "vo_9",
+    "vo_10",
+    "vo_11",
+    "vo_12",
+    "vo_13",
+    "vo_14",
+    "vo_15",
+    "vo_16",
+    "vo_17",
+    "vo_18",
+    "thetao_0",
+    "thetao_1",
+    "thetao_2",
+    "thetao_3",
+    "thetao_4",
+    "thetao_5",
+    "thetao_6",
+    "thetao_7",
+    "thetao_8",
+    "thetao_9",
+    "thetao_10",
+    "thetao_11",
+    "thetao_12",
+    "thetao_13",
+    "thetao_14",
+    "thetao_15",
+    "thetao_16",
+    "thetao_17",
+    "thetao_18",
+    "so_0",
+    "so_1",
+    "so_2",
+    "so_3",
+    "so_4",
+    "so_5",
+    "so_6",
+    "so_7",
+    "so_8",
+    "so_9",
+    "so_10",
+    "so_11",
+    "so_12",
+    "so_13",
+    "so_14",
+    "so_15",
+    "so_16",
+    "so_17",
+    "so_18",
+    "zos"
+  ],
+  "channel_weights": [
+    5.756319305054734,
+    7.118656258711415,
+    8.94084356237357,
+    11.307035265788468,
+    14.739475986207921,
+    20.448738833785306,
+    24.02416927194464,
+    20.56770327393162,
+    19.331266846805864,
+    19.196741610875158,
+    18.583257262488722,
+    17.057752154539138,
+    14.743920134990121,
+    11.772482067421302,
+    8.13841185885198,
+    5.283241654288478,
+    3.8192737093217786,
+    4.193568048074066,
+    4.533945283977444,
+    2.7687173468212496,
+    3.4222800015821866,
+    4.044204178318631,
+    4.791175302023479,
+    5.5546160943331,
+    6.764104459887954,
+    8.321696315731337,
+    8.868054650219205,
+    8.779740132214428,
+    8.589349762894699,
+    8.33573187054651,
+    7.847742931076772,
+    7.242412639038079,
+    6.313258171904216,
+    4.98144967487057,
+    3.607754874828856,
+    2.9580999659077367,
+    3.498673217931257,
+    3.2833820290452485,
+    1683.8105684751788,
+    1918.5804321739436,
+    2469.8540435540403,
+    2905.619783290527,
+    3094.168696601602,
+    2715.834970331305,
+    2938.4100374418545,
+    3584.581295999809,
+    3203.075033130312,
+    2670.6802658222123,
+    2702.0040809854054,
+    3767.001639407819,
+    8696.593899241707,
+    17040.952064222423,
+    18528.525058139607,
+    18283.144231865383,
+    18697.408999590156,
+    60617.80512267945,
+    368202.9512110996,
+    669.562593801076,
+    1148.6414411695678,
+    1307.385111192145,
+    2132.271514872203,
+    2929.7293380720807,
+    4080.762701693707,
+    4309.306753981291,
+    4697.490751733348,
+    5714.284220832985,
+    8225.013750332493,
+    16222.906872943697,
+    26407.40656822504,
+    36008.33920569735,
+    90225.49750389933,
+    312955.06594506704,
+    200770.36155743987,
+    109192.6276098252,
+    97100.70165415437,
+    734974.8420109515,
+    559.6543974227043
+  ],
+  "source_asset": "/pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/experiments/loss_revision_20261003/assets/tendency_weights.json",
+  "source_sha256": "586cbcb6055ec275e849037f77dea64541cdbc823304fe8b49adabd70dbaf03f",
+  "absolute_scale": "Preserved exactly; no mean/max renormalization",
+  "definition": "Existing state variance divided by training-split adjacent-state increment variance; same fixed weight in both output slots",
+  "statistics": [
+    {
+      "channel": "uo_0",
+      "increment_mean": 1.1276791571676758e-06,
+      "increment_variance": 0.002799516859448249,
+      "count": 126954576,
+      "state_std": 0.12694452702999115,
+      "weight": 5.756319305054734
+    },
+    {
+      "channel": "uo_1",
+      "increment_mean": 3.537190904784319e-07,
+      "increment_variance": 0.0018613331505655908,
+      "count": 126954576,
+      "state_std": 0.11510947346687317,
+      "weight": 7.118656258711415
+    },
+    {
+      "channel": "uo_2",
+      "increment_mean": -7.755614870805431e-07,
+      "increment_variance": 0.0012579972837881218,
+      "count": 125857312,
+      "state_std": 0.10605449974536896,
+      "weight": 8.94084356237357
+    },
+    {
+      "channel": "uo_3",
+      "increment_mean": -1.6178016573650358e-06,
+      "increment_variance": 0.0009052856033838182,
+      "count": 124491388,
+      "state_std": 0.10117359459400177,
+      "weight": 11.307035265788468
+    },
+    {
+      "channel": "uo_4",
+      "increment_mean": -1.190327348584198e-06,
+      "increment_variance": 0.0007273200413057286,
+      "count": 122868116,
+      "state_std": 0.10353896021842957,
+      "weight": 14.739475986207921
+    },
+    {
+      "channel": "uo_5",
+      "increment_mean": -3.7522476599319693e-08,
+      "increment_variance": 0.0004922618174780824,
+      "count": 120713180,
+      "state_std": 0.10033012181520462,
+      "weight": 20.448738833785306
+    },
+    {
+      "channel": "uo_6",
+      "increment_mean": 2.946535932684154e-07,
+      "increment_variance": 0.0003049946039219961,
+      "count": 118674192,
+      "state_std": 0.08559931069612503,
+      "weight": 24.02416927194464
+    },
+    {
+      "channel": "uo_7",
+      "increment_mean": 1.4356094655803932e-07,
+      "increment_variance": 0.00021747056112652658,
+      "count": 116835992,
+      "state_std": 0.0668795183300972,
+      "weight": 20.56770327393162
+    },
+    {
+      "channel": "uo_8",
+      "increment_mean": 2.1798177433388194e-07,
+      "increment_variance": 0.00017291335196580125,
+      "count": 114839424,
+      "state_std": 0.057815518230199814,
+      "weight": 19.331266846805864
+    },
+    {
+      "channel": "uo_9",
+      "increment_mean": 1.7905760358688632e-07,
+      "increment_variance": 0.00013489347505627646,
+      "count": 112299880,
+      "state_std": 0.05088727921247482,
+      "weight": 19.196741610875158
+    },
+    {
+      "channel": "uo_10",
+      "increment_mean": -6.18326759616393e-08,
+      "increment_variance": 0.0001006975642387904,
+      "count": 110102524,
+      "state_std": 0.04325839504599571,
+      "weight": 18.583257262488722
+    },
+    {
+      "channel": "uo_11",
+      "increment_mean": -3.7759094112854107e-07,
+      "increment_variance": 7.274954329910227e-05,
+      "count": 108434004,
+      "state_std": 0.035227030515670776,
+      "weight": 17.057752154539138
+    },
+    {
+      "channel": "uo_12",
+      "increment_mean": -2.3869723469825157e-07,
+      "increment_variance": 5.2409781585020404e-05,
+      "count": 107065252,
+      "state_std": 0.027797942981123924,
+      "weight": 14.743920134990121
+    },
+    {
+      "channel": "uo_13",
+      "increment_mean": 1.3585995336519184e-07,
+      "increment_variance": 4.050294131893426e-05,
+      "count": 105173320,
+      "state_std": 0.021836211904883385,
+      "weight": 11.772482067421302
+    },
+    {
+      "channel": "uo_14",
+      "increment_mean": 3.3152042473478456e-07,
+      "increment_variance": 3.6141440406208516e-05,
+      "count": 102430160,
+      "state_std": 0.017150333151221275,
+      "weight": 8.13841185885198
+    },
+    {
+      "channel": "uo_15",
+      "increment_mean": 3.2020097254147116e-07,
+      "increment_variance": 3.656804572233262e-05,
+      "count": 97577312,
+      "state_std": 0.013899561949074268,
+      "weight": 5.283241654288478
+    },
+    {
+      "channel": "uo_16",
+      "increment_mean": 1.712974673285382e-07,
+      "increment_variance": 3.9576125134890665e-05,
+      "count": 85329244,
+      "state_std": 0.012294391170144081,
+      "weight": 3.8192737093217786
+    },
+    {
+      "channel": "uo_17",
+      "increment_mean": 5.1679203130583024e-08,
+      "increment_variance": 3.7544696844755576e-05,
+      "count": 49490000,
+      "state_std": 0.012547758407890797,
+      "weight": 4.193568048074066
+    },
+    {
+      "channel": "uo_18",
+      "increment_mean": -3.2154716131480254e-08,
+      "increment_variance": 3.715970929388241e-05,
+      "count": 13455624,
+      "state_std": 0.012979988008737564,
+      "weight": 4.533945283977444
+    },
+    {
+      "channel": "vo_0",
+      "increment_mean": -1.841131328370837e-07,
+      "increment_variance": 0.002754197950055106,
+      "count": 126954576,
+      "state_std": 0.08732465654611588,
+      "weight": 2.7687173468212496
+    },
+    {
+      "channel": "vo_1",
+      "increment_mean": -1.2698817185641492e-06,
+      "increment_variance": 0.0020684878271091073,
+      "count": 126954576,
+      "state_std": 0.084136463701725,
+      "weight": 3.4222800015821866
+    },
+    {
+      "channel": "vo_2",
+      "increment_mean": -2.029811777899469e-06,
+      "increment_variance": 0.001570701448066107,
+      "count": 125857312,
+      "state_std": 0.07970092445611954,
+      "weight": 4.044204178318631
+    },
+    {
+      "channel": "vo_3",
+      "increment_mean": -1.5440506256318452e-06,
+      "increment_variance": 0.001180173461134171,
+      "count": 124491388,
+      "state_std": 0.07519586384296417,
+      "weight": 4.791175302023479
+    },
+    {
+      "channel": "vo_4",
+      "increment_mean": -2.9085320467760594e-07,
+      "increment_variance": 0.0009445528256144879,
+      "count": 122868116,
+      "state_std": 0.07243361324071884,
+      "weight": 5.5546160943331
+    },
+    {
+      "channel": "vo_5",
+      "increment_mean": 6.943747776403032e-08,
+      "increment_variance": 0.0006849697095175254,
+      "count": 120713180,
+      "state_std": 0.06806766241788864,
+      "weight": 6.764104459887954
+    },
+    {
+      "channel": "vo_6",
+      "increment_mean": 4.377477286916588e-08,
+      "increment_variance": 0.0004670257951821743,
+      "count": 118674192,
+      "state_std": 0.06234137341380119,
+      "weight": 8.321696315731337
+    },
+    {
+      "channel": "vo_7",
+      "increment_mean": -1.4166087833225378e-08,
+      "increment_variance": 0.00036964203387606287,
+      "count": 116835992,
+      "state_std": 0.057253871113061905,
+      "weight": 8.868054650219205
+    },
+    {
+      "channel": "vo_8",
+      "increment_mean": -6.282671002668623e-08,
+      "increment_variance": 0.00030754133539258685,
+      "count": 114839424,
+      "state_std": 0.051962804049253464,
+      "weight": 8.779740132214428
+    },
+    {
+      "channel": "vo_9",
+      "increment_mean": -3.359302995081204e-08,
+      "increment_variance": 0.0002411646793197813,
+      "count": 112299880,
+      "state_std": 0.04551316052675247,
+      "weight": 8.589349762894699
+    },
+    {
+      "channel": "vo_10",
+      "increment_mean": -2.9021258712913167e-08,
+      "increment_variance": 0.0001756884716709897,
+      "count": 110102524,
+      "state_std": 0.03826868161559105,
+      "weight": 8.33573187054651
+    },
+    {
+      "channel": "vo_11",
+      "increment_mean": -2.0026375944767977e-08,
+      "increment_variance": 0.00012113346438931348,
+      "count": 108434004,
+      "state_std": 0.03083219565451145,
+      "weight": 7.847742931076772
+    },
+    {
+      "channel": "vo_12",
+      "increment_mean": 2.807155647301935e-08,
+      "increment_variance": 8.12655805389229e-05,
+      "count": 107065252,
+      "state_std": 0.024260232225060463,
+      "weight": 7.242412639038079
+    },
+    {
+      "channel": "vo_13",
+      "increment_mean": 2.933173164686187e-08,
+      "increment_variance": 5.819376399712672e-05,
+      "count": 105173320,
+      "state_std": 0.019167479127645493,
+      "weight": 6.313258171904216
+    },
+    {
+      "channel": "vo_14",
+      "increment_mean": 2.881987618414189e-08,
+      "increment_variance": 4.893405615297314e-05,
+      "count": 102430160,
+      "state_std": 0.015612896531820297,
+      "weight": 4.98144967487057
+    },
+    {
+      "channel": "vo_15",
+      "increment_mean": 6.063237649683335e-08,
+      "increment_variance": 4.9264868346884646e-05,
+      "count": 97577312,
+      "state_std": 0.01333175040781498,
+      "weight": 3.607754874828856
+    },
+    {
+      "channel": "vo_16",
+      "increment_mean": 2.076924438293308e-08,
+      "increment_variance": 5.317937076589239e-05,
+      "count": 85329244,
+      "state_std": 0.012542324140667915,
+      "weight": 2.9580999659077367
+    },
+    {
+      "channel": "vo_17",
+      "increment_mean": -3.0655860745368984e-08,
+      "increment_variance": 4.690858084513997e-05,
+      "count": 49490000,
+      "state_std": 0.012810846790671349,
+      "weight": 3.498673217931257
+    },
+    {
+      "channel": "vo_18",
+      "increment_mean": 2.7139474888827847e-08,
+      "increment_variance": 4.462511166679762e-05,
+      "count": 13455624,
+      "state_std": 0.012104597873985767,
+      "weight": 3.2833820290452485
+    },
+    {
+      "channel": "thetao_0",
+      "increment_mean": 0.0001455864046838535,
+      "increment_variance": 0.08042628830349499,
+      "count": 126954576,
+      "state_std": 11.637123107910156,
+      "weight": 1683.8105684751788
+    },
+    {
+      "channel": "thetao_1",
+      "increment_mean": 0.00015285091960614183,
+      "increment_variance": 0.07039894877377684,
+      "count": 126954576,
+      "state_std": 11.62179183959961,
+      "weight": 1918.5804321739436
+    },
+    {
+      "channel": "thetao_2",
+      "increment_mean": 0.00017312862128586635,
+      "increment_variance": 0.05369781414700052,
+      "count": 125857312,
+      "state_std": 11.516325950622559,
+      "weight": 2469.8540435540403
+    },
+    {
+      "channel": "thetao_3",
+      "increment_mean": 0.00013761648898483712,
+      "increment_variance": 0.043409876672822825,
+      "count": 124491388,
+      "state_std": 11.230876922607422,
+      "weight": 2905.619783290527
+    },
+    {
+      "channel": "thetao_4",
+      "increment_mean": 5.014187836784071e-05,
+      "increment_variance": 0.036903996086893286,
+      "count": 122868116,
+      "state_std": 10.685840606689453,
+      "weight": 3094.168696601602
+    },
+    {
+      "channel": "thetao_5",
+      "increment_mean": 3.5994876704994274e-05,
+      "increment_variance": 0.033880119273086706,
+      "count": 120713180,
+      "state_std": 9.592330932617188,
+      "weight": 2715.834970331305
+    },
+    {
+      "channel": "thetao_6",
+      "increment_mean": 2.5364771159904363e-05,
+      "increment_variance": 0.021321016531874945,
+      "count": 118674192,
+      "state_std": 7.915168285369873,
+      "weight": 2938.4100374418545
+    },
+    {
+      "channel": "thetao_7",
+      "increment_mean": 4.4830090885978976e-05,
+      "increment_variance": 0.0108921719288455,
+      "count": 116835992,
+      "state_std": 6.248509883880615,
+      "weight": 3584.581295999809
+    },
+    {
+      "channel": "thetao_8",
+      "increment_mean": 5.70621182762331e-05,
+      "increment_variance": 0.007252788233673991,
+      "count": 114839424,
+      "state_std": 4.819878101348877,
+      "weight": 3203.075033130312
+    },
+    {
+      "channel": "thetao_9",
+      "increment_mean": 4.817948042533294e-05,
+      "increment_variance": 0.004994135550569212,
+      "count": 112299880,
+      "state_std": 3.6520869731903076,
+      "weight": 2670.6802658222123
+    },
+    {
+      "channel": "thetao_10",
+      "increment_mean": 2.8971744876914155e-05,
+      "increment_variance": 0.0028250203592933773,
+      "count": 110102524,
+      "state_std": 2.7628276348114014,
+      "weight": 2702.0040809854054
+    },
+    {
+      "channel": "thetao_11",
+      "increment_mean": 2.2540322662063756e-05,
+      "increment_variance": 0.0012855570654946033,
+      "count": 108434004,
+      "state_std": 2.2006125450134277,
+      "weight": 3767.001639407819
+    },
+    {
+      "channel": "thetao_12",
+      "increment_mean": 5.079031905628022e-06,
+      "increment_variance": 0.0003861573509848099,
+      "count": 107065252,
+      "state_std": 1.8325538635253906,
+      "weight": 8696.593899241707
+    },
+    {
+      "channel": "thetao_13",
+      "increment_mean": 4.004424231811925e-06,
+      "increment_variance": 0.00013978119232434578,
+      "count": 105173320,
+      "state_std": 1.5433744192123413,
+      "weight": 17040.952064222423
+    },
+    {
+      "channel": "thetao_14",
+      "increment_mean": 3.815666814791549e-06,
+      "increment_variance": 9.963074316398563e-05,
+      "count": 102430160,
+      "state_std": 1.3586797714233398,
+      "weight": 18528.525058139607
+    },
+    {
+      "channel": "thetao_15",
+      "increment_mean": 3.586896257527271e-06,
+      "increment_variance": 7.516547674181374e-05,
+      "count": 97577312,
+      "state_std": 1.1722888946533203,
+      "weight": 18283.144231865383
+    },
+    {
+      "channel": "thetao_16",
+      "increment_mean": 2.1817882439326805e-06,
+      "increment_variance": 4.450174685895235e-05,
+      "count": 85329244,
+      "state_std": 0.9121772646903992,
+      "weight": 18697.408999590156
+    },
+    {
+      "channel": "thetao_17",
+      "increment_mean": -1.1246588982874581e-05,
+      "increment_variance": 7.60161226439201e-06,
+      "count": 49490000,
+      "state_std": 0.6788173913955688,
+      "weight": 60617.80512267945
+    },
+    {
+      "channel": "thetao_18",
+      "increment_mean": -1.6854282356325683e-05,
+      "increment_variance": 6.934554739995785e-07,
+      "count": 13455624,
+      "state_std": 0.505304217338562,
+      "weight": 368202.9512110996
+    },
+    {
+      "channel": "so_0",
+      "increment_mean": -1.1104156358419599e-05,
+      "increment_variance": 0.0118579258189544,
+      "count": 126954576,
+      "state_std": 2.8177337646484375,
+      "weight": 669.562593801076
+    },
+    {
+      "channel": "so_1",
+      "increment_mean": -1.1966326860061732e-05,
+      "increment_variance": 0.006657018174957638,
+      "count": 126954576,
+      "state_std": 2.765235424041748,
+      "weight": 1148.6414411695678
+    },
+    {
+      "channel": "so_2",
+      "increment_mean": 2.0964402399351328e-06,
+      "increment_variance": 0.004075158926704008,
+      "count": 125857312,
+      "state_std": 2.3082032203674316,
+      "weight": 1307.385111192145
+    },
+    {
+      "channel": "so_3",
+      "increment_mean": 1.7845824439267238e-05,
+      "increment_variance": 0.0019667404967853874,
+      "count": 124491388,
+      "state_std": 2.0478341579437256,
+      "weight": 2132.271514872203
+    },
+    {
+      "channel": "so_4",
+      "increment_mean": 1.9584122565417343e-05,
+      "increment_variance": 0.0011720402485678578,
+      "count": 122868116,
+      "state_std": 1.8530409336090088,
+      "weight": 2929.7293380720807
+    },
+    {
+      "channel": "so_5",
+      "increment_mean": 1.4562004706606589e-05,
+      "increment_variance": 0.0006327387422922135,
+      "count": 120713180,
+      "state_std": 1.6068779230117798,
+      "weight": 4080.762701693707
+    },
+    {
+      "channel": "so_6",
+      "increment_mean": 8.696691010137927e-06,
+      "increment_variance": 0.0003638504171015849,
+      "count": 118674192,
+      "state_std": 1.2521753311157227,
+      "weight": 4309.306753981291
+    },
+    {
+      "channel": "so_7",
+      "increment_mean": 4.532364182286503e-06,
+      "increment_variance": 0.0001851738917171706,
+      "count": 116835992,
+      "state_std": 0.9326589107513428,
+      "weight": 4697.490751733348
+    },
+    {
+      "channel": "so_8",
+      "increment_mean": 2.5567596379003505e-06,
+      "increment_variance": 0.00011043220726371121,
+      "count": 114839424,
+      "state_std": 0.7943809032440186,
+      "weight": 5714.284220832985
+    },
+    {
+      "channel": "so_9",
+      "increment_mean": -2.0084968146308592e-07,
+      "increment_variance": 6.114692809079291e-05,
+      "count": 112299880,
+      "state_std": 0.709178626537323,
+      "weight": 8225.013750332493
+    },
+    {
+      "channel": "so_10",
+      "increment_mean": -2.627718173327421e-06,
+      "increment_variance": 2.6895696461377044e-05,
+      "count": 110102524,
+      "state_std": 0.660550057888031,
+      "weight": 16222.906872943697
+    },
+    {
+      "channel": "so_11",
+      "increment_mean": -4.148473396092665e-06,
+      "increment_variance": 1.4546616264297128e-05,
+      "count": 108434004,
+      "state_std": 0.6197890043258667,
+      "weight": 26407.40656822504
+    },
+    {
+      "channel": "so_12",
+      "increment_mean": -4.693371938560095e-06,
+      "increment_variance": 8.921983802794367e-06,
+      "count": 107065252,
+      "state_std": 0.5668031573295593,
+      "weight": 36008.33920569735
+    },
+    {
+      "channel": "so_13",
+      "increment_mean": -2.3166441505358447e-06,
+      "increment_variance": 2.913581519386931e-06,
+      "count": 105173320,
+      "state_std": 0.512717604637146,
+      "weight": 90225.49750389933
+    },
+    {
+      "channel": "so_14",
+      "increment_mean": -7.409038662592322e-07,
+      "increment_variance": 5.650337804045371e-07,
+      "count": 102430160,
+      "state_std": 0.42051181197166443,
+      "weight": 312955.06594506704
+    },
+    {
+      "channel": "so_15",
+      "increment_mean": -1.5677676566041568e-07,
+      "increment_variance": 2.9063101919479174e-07,
+      "count": 97577312,
+      "state_std": 0.24155764281749725,
+      "weight": 200770.36155743987
+    },
+    {
+      "channel": "so_16",
+      "increment_mean": -7.152718648592522e-07,
+      "increment_variance": 2.0822000073187775e-07,
+      "count": 85329244,
+      "state_std": 0.1507849097251892,
+      "weight": 109192.6276098252
+    },
+    {
+      "channel": "so_17",
+      "increment_mean": -1.331568448368673e-06,
+      "increment_variance": 4.155767795386182e-08,
+      "count": 49490000,
+      "state_std": 0.06352385133504868,
+      "weight": 97100.70165415437
+    },
+    {
+      "channel": "so_18",
+      "increment_mean": -6.052091638011653e-07,
+      "increment_variance": 3.4953851830424897e-09,
+      "count": 13455624,
+      "state_std": 0.05068550258874893,
+      "weight": 734974.8420109515
+    },
+    {
+      "channel": "zos",
+      "increment_mean": 2.6049492911813205e-06,
+      "increment_variance": 0.0008282906747840005,
+      "count": 126954576,
+      "state_std": 0.6808498501777649,
+      "weight": 559.6543974227043
+    }
+  ],
+  "fit_start": "1975-01-03 12:00:00",
+  "fit_end": "2013-09-30 12:00:00",
+  "training_states": 2829,
+  "not_claimed": "This changes only loss normalization, not the state-output parameterization or the whole GraphCast system."
+}

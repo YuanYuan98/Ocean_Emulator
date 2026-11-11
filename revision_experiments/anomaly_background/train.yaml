@@ -1,0 +1,109 @@
+backend: nccl
+batch_size: 8
+data:
+  concurrent_compute: true
+  hist: 1
+  loader_version: om4-torch
+  masked_fill_value: 0.0
+  normalize_before_mask: true
+  num_workers: 2
+  sources:
+  - data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+  static_data_vars: []
+data_percent: 1.0
+data_stride:
+- 1
+debug: false
+disk_mode: true
+ema_decay: 0.999
+epochs: 70
+experiment:
+  base_output_dir: /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/revision-boss/anomaly-background-experiment-20261029/training
+  boundary_vars_key: tau_hfds_hfds_anom
+  data_root: /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/datasets/onedeg
+  name: anomaly_background
+  prognostic_vars_key: thermo_dynamic_all
+  rand_seed: 15
+  train_schedule: standard
+  wandb:
+    entity: ocean_emulators
+    group: null
+    mode: offline
+    notes: null
+    project: default
+    tags: null
+faster_decay_at_start: true
+finetune: false
+gradient_accumulation_steps: 1
+inference_epochs: []
+inference_times:
+- end: '1976-01-03'
+  start: '1975-01-03'
+- end: '1986-01-03'
+  start: '1985-01-03'
+- end: '1996-01-03'
+  start: '1995-01-03'
+- end: '2005-10-05'
+  start: '2004-10-05'
+learning_rate: 0.0006
+loss:
+  type: anomaly_background
+  weights_path: /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/revision-boss/anomaly-background-experiment-20261029/assets/background_fit_full/background_specification.json
+model:
+  add_3d_coordinates: false
+  checkpointing: all
+  corrector:
+    non_negative_corrector_names: null
+    ocean_heat_corrector: false
+  gradient_detach_interval: 0
+  last_kernel_size: 3
+  pad: circular
+  pos_channels: 0
+  pred_residuals: false
+  unet:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: batch
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  use_bfloat16: false
+  anomaly_background_statistics_path: /pscratch/sd/y/yy6080/workspace/Ocean_Emulator_Workspace/revision-boss/anomaly-background-experiment-20261029/assets/background_fit_full/background_specification.json
+pin_mem: true
+preemptible: false
+profiler:
+  cuda_snapshot_frequency: null
+resume_ckpt_path: null
+save_freq: 5
+scheduler:
+  target_epochs: null
+  type: cosine
+step_transition: []
+steps:
+- 4
+test_using_ema: true
+train_time:
+  end: '2013-10-05'
+  start: '1975-01-03'
+val_time:
+  end: '2014-10-05'
+  start: '2013-10-05'

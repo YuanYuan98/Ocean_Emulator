@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "prognostic_key": "thermo_dynamic_all",
+  "prognostic_channels": 77,
+  "history_slots": 2,
+  "output_slots": 2,
+  "forcing_channels": 8,
+  "deep_centers_m": [
+    2400.0,
+    3100.0,
+    4000.0,
+    5000.0,
+    6000.0
+  ],
+  "deep_names": [
+    "thetao_14",
+    "thetao_15",
+    "thetao_16",
+    "thetao_17",
+    "thetao_18",
+    "so_14",
+    "so_15",
+    "so_16",
+    "so_17",
+    "so_18"
+  ],
+  "deep_indices": [
+    52,
+    53,
+    54,
+    55,
+    56,
+    71,
+    72,
+    73,
+    74,
+    75
+  ],
+  "selection": "temperature and salinity at depth centers >= 2000 m",
+  "target": "normalized full state; no delta/background transform",
+  "feedback": "deep predictions from previous two-output call; A current true nondeep input; B zero normalized nondeep input",
+  "primary_evaluation": "matched one-call two-output truth-history evaluation; never unrestricted A free forecast",
+  "loss": "original dynamic update on 10 selected channels only; limit100; active two-slot mean summed over4calls",
+  "unsupervised_outputs": "not usable predictions, excluded from feedback/loss/evaluation"
+}
